@@ -29,7 +29,7 @@ import (
 	"github.com/megatherium/blunderbuss/internal/config"
 	"github.com/megatherium/blunderbuss/internal/data/fake"
 	"github.com/megatherium/blunderbuss/internal/domain"
-	execfake "github.com/megatherium/blunderbuss/internal/exec/fake"
+	"github.com/megatherium/blunderbuss/internal/exec/tmux"
 	"github.com/megatherium/blunderbuss/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -97,7 +97,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	// Wire fake implementations for the visual tracer bullet.
 	store := fake.NewWithSampleData()
-	launcher := &execfake.Launcher{}
+	launcher := tmux.NewTmuxLauncher(tmux.NewRealRunner(), dryRun, false)
 
 	_ = ctx
 

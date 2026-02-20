@@ -19,7 +19,6 @@ import (
 // Launcher implements the exec.Launcher interface using tmux.
 type Launcher struct {
 	runner        CommandRunner
-	statusChecker *StatusChecker
 	dryRun        bool
 	skipTmuxCheck bool
 }
@@ -30,7 +29,6 @@ type Launcher struct {
 func NewTmuxLauncher(runner CommandRunner, dryRun, skipTmuxCheck bool) *Launcher {
 	return &Launcher{
 		runner:        runner,
-		statusChecker: NewStatusChecker(runner),
 		dryRun:        dryRun,
 		skipTmuxCheck: skipTmuxCheck,
 	}
