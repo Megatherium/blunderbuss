@@ -13,12 +13,67 @@ Blunderbuss provides a TUI-driven workflow for:
 
 Requires Go 1.22 or later.
 
+### Embedded Dolt Mode (Default)
+
+The default mode connects to a local Dolt database stored in `.beads/dolt/`.
+**This mode requires CGO** due to the github.com/dolthub/driver dependency.
+
 ```bash
-# Build the binary
+# Build with CGO enabled (default)
 make build
 
-# Or with go directly
+# Or with go directly (ensure CGO is enabled)
 go build -o blunderbuss ./cmd/blunderbuss
+```
+
+### Server Mode (No CGO Required)
+
+If you only use server mode connections (remote Dolt sql-server), you can
+build without CGO:
+
+```bash
+# Build without CGO
+CGO_ENABLED=0 go build -o blunderbuss ./cmd/blunderbuss
+```
+
+## Beads Database Connection
+
+Blunderbuss reads ticket data from a Beads/Dolt database. The connection mode
+is determined by `.beads/metadata.json`:
+
+### Embedded Mode (Local Database)
+
+Default when `dolt_mode` is not set to `server`:
+
+```json
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_database": "beads_bb"
+}
+```
+
+### Server Mode (Remote Database)
+
+Activated when `dolt_mode: server` or server connection fields are present:
+
+```json
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "beads_fo",
+  "dolt_server_host": "10.11.0.1",
+  "dolt_server_port": 13307,
+  "dolt_server_user": "mysql-root"
+}
+```
+
+For server mode with authentication, set the password via environment variable:
+
+```bash
+export BEADS_DOLT_PASSWORD="your-password"
+./blunderbuss
 ```
 
 ## Running

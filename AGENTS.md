@@ -32,6 +32,7 @@ For full workflow details: `bd prime`
    ```bash
    git pull --rebase
    bd sync
+   git add (careful with using -A, the user sometimes leaves untracked crap lying around) && git commit ...
    git push
    git status  # MUST show "up to date with origin"
    ```
@@ -45,9 +46,51 @@ For full workflow details: `bd prime`
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 
+## Project Structure
+
+### internal/data/dolt/ - Beads Database Access
+
+The `dolt` package implements `data.TicketStore` for reading tickets from Beads/Dolt databases.
+
+**Key files:**
+- `metadata.go` - Parses `.beads/metadata.json` to determine connection mode
+- `embedded.go` - Embedded Dolt driver (requires CGO, single-connection)
+- `server.go` - MySQL driver for Dolt server connections
+- `store.go` - Main `Store` type implementing `TicketStore`
+- `schema.go` - Schema verification utilities
+
+**Connection modes:**
+- **Embedded**: Default, uses `github.com/dolthub/driver`, local `.beads/dolt/` directory
+- **Server**: Activated by `dolt_mode: server` in metadata.json, uses MySQL protocol
+
+**Usage:**
+```go
+store, err := dolt.NewStore(ctx, ".beads")
+if err != nil {
+    // Handle with actionable error message
+}
+defer store.Close()
+
+tickets, err := store.ListTickets(ctx, data.TicketFilter{
+    Status: "open",
+    Limit: 10,
+})
+```
+
+**Error handling:** All errors include context. Common patterns:
+- Missing metadata.json → "Is this a beads project? Run 'bd init'"
+- Missing dolt directory → "The beads database may not be initialized"
+- Connection failures → Check server running / database corrupted
+- Schema failures → "Try running 'bd init' to repair"
+
 ## Execution hints
 
 You can use the timeout command (and should) if you want to start the TUI but guarantee a return to shell
+
+## Modern tooling
+
+All kinds of modern replacements for standard shell tools are available: rg, fd, sd, choose, hck
+The interface is nicer for humans. You pick whatever feels right for you.
 
 ## File Editing Strategy
 
