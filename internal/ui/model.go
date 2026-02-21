@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -88,6 +89,14 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 
 func (m UIModel) Init() tea.Cmd {
 	return func() tea.Msg {
+		// Load model discovery registry
+		if err := m.app.Registry.Load(); err != nil {
+			// If load fails, we still continue but discovery might be empty
+			if m.app.opts.Debug {
+				fmt.Printf("Model discovery load failed: %v\n", err)
+			}
+		}
+
 		store, err := m.app.CreateStore(context.Background())
 		if err != nil {
 			return errMsg{err}
@@ -343,6 +352,33 @@ func (m UIModel) handleEnterKey() (tea.Model, tea.Cmd) {
 
 func (m UIModel) handleModelSkip() (tea.Model, tea.Cmd) {
 	models := m.selection.Harness.SupportedModels
+	
+	// Expand providers if requested
+	expandedModels := make([]string, 0, len(models))
+	for _, model := range models {
+		if strings.HasPrefix(model, "provider:") {
+			providerID := strings.TrimPrefix(model, "provider:")
+			providerModels := m.app.Registry.GetModelsForProvider(providerID)
+			expandedModels = append(expandedModels, providerModels...)
+		} else if model == "discover:active" {
+			activeModels := m.app.Registry.GetActiveModels()
+			expandedModels = append(expandedModels, activeModels...)
+		} else {
+			expandedModels = append(expandedModels, model)
+		}
+	}
+	
+	// Deduplicate
+	uniqueModels := make([]string, 0, len(expandedModels))
+	seen := make(map[string]bool)
+	for _, model := range expandedModels {
+		if !seen[model] {
+			seen[model] = true
+			uniqueModels = append(uniqueModels, model)
+		}
+	}
+	models = uniqueModels
+
 	if len(models) == 1 {
 		m.selection.Model = models[0]
 		m.step = StepAgentSelect

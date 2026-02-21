@@ -92,6 +92,27 @@ tmux
 
 ## Configuration
 
+Blunderbuss uses a `config.yaml` file to define harnesses. See `config.example.yaml` for a template.
+
+### Model Discovery
+
+Blunderbuss can automatically discover available models from [models.dev](https://models.dev).
+
+To update the local model cache:
+```bash
+blunderbuss update-models
+```
+
+In your `config.yaml`, you can use dynamic model lists:
+```yaml
+harnesses:
+  - name: my-harness
+    models:
+      - discover:active  # All models from providers with active API keys
+      - provider:openai  # All models from OpenAI (if OPENAI_API_KEY is set)
+      - gpt-4o           # Specific model
+```
+
 Configuration is loaded from a YAML file. By default, blunderbuss looks for `./config.yaml`.
 
 Use `--config` to specify a custom path. See `config.example.yaml` for a complete example.

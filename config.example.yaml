@@ -22,10 +22,14 @@ harnesses:
     # Prompt template: optional, sent to the tool as context
     prompt_template: "Work on ticket {{.TicketID}}: {{.TicketTitle}}\n\n{{.TicketDescription}}"
     # Supported models for this harness
+    # You can list specific models, use "provider:ID" to include all active
+    # models from a provider, or "discover:active" to include all active models
+    # from all providers.
     models:
+      - discover:active
+      - provider:google
       - claude-sonnet-4-20250514
       - o3
-      - o3-mini
     # Supported agent modes
     agents:
       - coder

@@ -26,6 +26,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/megatherium/blunderbuss/internal/config"
+	"github.com/megatherium/blunderbuss/internal/discovery"
 	"github.com/megatherium/blunderbuss/internal/exec/tmux"
 	"github.com/megatherium/blunderbuss/internal/ui"
 	"github.com/spf13/cobra"
@@ -68,8 +69,24 @@ var versionCmd = &cobra.Command{
 	},
 }
 
+// updateModelsCmd fetches the latest models-api.json.
+var updateModelsCmd = &cobra.Command{
+	Use:   "update-models",
+	Short: "Fetch the latest model discovery data from models.dev",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		registry := discovery.NewRegistry("")
+		fmt.Printf("Updating model discovery data...\n")
+		if err := registry.Refresh(); err != nil {
+			return fmt.Errorf("failed to update models: %w", err)
+		}
+		fmt.Printf("Successfully updated model discovery data at %s\n", registry.GetCachePath())
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(updateModelsCmd)
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Path to config file (default: ./config.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Print commands without executing")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")

@@ -8,6 +8,7 @@ import (
 	"github.com/megatherium/blunderbuss/internal/data"
 	"github.com/megatherium/blunderbuss/internal/data/dolt"
 	"github.com/megatherium/blunderbuss/internal/data/fake"
+	"github.com/megatherium/blunderbuss/internal/discovery"
 	"github.com/megatherium/blunderbuss/internal/exec"
 	"github.com/megatherium/blunderbuss/internal/exec/tmux"
 )
@@ -29,6 +30,7 @@ type App struct {
 	launcher      exec.Launcher
 	statusChecker *tmux.StatusChecker
 	Renderer      *config.Renderer
+	Registry      *discovery.Registry
 	opts          AppOptions
 }
 
@@ -40,6 +42,7 @@ func NewApp(loader config.Loader, launcher exec.Launcher, statusChecker *tmux.St
 		launcher:      launcher,
 		statusChecker: statusChecker,
 		Renderer:      renderer,
+		Registry:      discovery.NewRegistry(""),
 		opts:          opts,
 	}
 }

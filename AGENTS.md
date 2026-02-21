@@ -202,8 +202,20 @@ When implementing CLI behavior:
 - `internal/config/yaml.go` - YAML config loading
 - `internal/config/render.go` - Template rendering for commands/prompts
 - `internal/domain/template_context.go` - Available fields for templates
+- `internal/discovery/models.go` - Model discovery from models.dev
 - `internal/ui/` - TUI implementation with Bubbletea
 - `internal/data/dolt/` - Beads/Dolt database access
+
+### Model Discovery
+
+Blunderbuss supports dynamic model discovery from `models.dev/api.json`.
+
+**Commands**:
+- `blunderbuss update-models`: Manually refresh the local model cache.
+
+**Config Patterns**:
+- `provider:<id>`: Expands to all active models for that provider.
+- `discover:active`: Expands to all models from all providers that have their required environment variables set.
 
 ## Documentation
 
