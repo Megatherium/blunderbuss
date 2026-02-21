@@ -7,10 +7,11 @@
 
 **1. Initiating Review**
 When a task is functionally complete:
-- Do NOT close the task yet.
+- **STOP**: Do NOT close the task yet.
 - Create a review ticket: `bd create --title="Review: <Task Name>" --type=task`
 - Link dependency: `bd dep add beads-<original_task_id> beads-<review_id>` (Original task blocks on Review)
-- STOP: An agent never works on a review ticket he himself created. You're on standby now awaiting the next command.
+- **CRITICAL**: An agent never works on a review ticket he himself created. You're on standby now awaiting the next command.
+- **REVIEW MUST BE DONE BY SOMEONE ELSE** - You cannot review your own work.
 
 **2. Performing Review (The Reviewer)**
 - **Criteria**: Assess quality, maintainability, smells, and patterns.
@@ -40,9 +41,11 @@ When a task is functionally complete:
 1. **Start**: Run `bd ready` to find actionable work
 2. **Claim**: Use `bd update <id> --status=in_progress`
 3. **Work**: Implement the task
-4. **Notice**: Any issues you discover should be captured with `bd create` 
+4. **Notice**: Any issues you discover should be captured with `bd create`
 5. **Pre-complete:** Now is the time to engage the CODE REVIEW & REFINEMENT PROTOCOL to see if you can close up shop or have extra steps
-6. **Complete**: Use `bd close <id>`
+   - **If you implemented the work**: You CANNOT review it. Create a review ticket and STOP.
+   - **If you are the reviewer**: Review the work and create a refinement ticket if score < 8.5
+6. **Complete**: Use `bd close <id>` - ONLY AFTER review is complete (score >= 8.5 OR refinement is implemented)
 7. **Sync**: Always run `bd sync` at session end
 
 ### Key Concepts

@@ -34,7 +34,7 @@ Phase 2 (after SOMEONE ELSE has reviewed it):
   5. **PUSH TO REMOTE** - This is MANDATORY:
     ```bash
     git pull --rebase
-    bd sync
+    bd sync  # <-- RUN THIS BEFORE git add!
     git add (careful with using -A, the user sometimes leaves untracked crap lying around) && git commit ...
     git push
     git status  # MUST show "up to date with origin"
@@ -48,6 +48,8 @@ Phase 2 (after SOMEONE ELSE has reviewed it):
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+- **ALL bd operations BEFORE any git operations** - bd sync first, then git add/commit/push
+- Failure to follow this order creates double commits (one for code, one for .beads/issues.jsonl)
 - MODIFY ticket, bd SYNC, git STAGE/PUSH - else you will be creating extra commits 
 
 ## Project Structure
@@ -109,6 +111,7 @@ The interface is nicer for humans. You pick whatever feels right for you.
   - **Example**: `feat(harvester): implement reverse-scroll logic for Gemini`
   - **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`
 - **Beads extra**: Add a line like "Affected ticket(s): bb-foo", can be multiple with e.g. review tickets
+- **WARNING**: Forgetting the ticket reference line is a commit message format violation. Double-check before committing.
 
 ## Documentation
 
