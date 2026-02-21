@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -40,6 +41,9 @@ type UIModel struct {
 	modelList   list.Model
 	agentList   list.Model
 
+	help help.Model
+	keys KeyMap
+
 	harnesses []domain.Harness
 
 	width  int
@@ -58,7 +62,7 @@ type UIModel struct {
 
 func initList(l *list.Model, width, height int, title string) {
 	l.Title = title
-	l.SetShowHelp(true)
+	l.SetShowHelp(false)
 	if width > 0 && height > 0 {
 		l.SetSize(width, height)
 	}
@@ -77,6 +81,9 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 	al := newAgentList(nil)
 	initList(&al, 0, 0, "Select an Agent (esc: back)")
 
+	h := help.New()
+	h.ShowAll = false
+
 	return UIModel{
 		app:         app,
 		step:        StepTicketList,
@@ -85,6 +92,8 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 		harnessList: hl,
 		modelList:   ml,
 		agentList:   al,
+		help:        h,
+		keys:        keys,
 		loading:     true,
 	}
 }
@@ -286,11 +295,16 @@ func (m UIModel) handleTickMsg(msg tickMsg) (tea.Model, tea.Cmd) {
 
 func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	h, v := docStyle.GetFrameSize()
-	m.width, m.height = msg.Width-h, msg.Height-v
+
+	// subtract 1 for the footer
+	m.width, m.height = msg.Width-h, msg.Height-v-1
+
 	m.ticketList.SetSize(m.width, m.height)
 	m.harnessList.SetSize(m.width, m.height)
 	m.modelList.SetSize(m.width, m.height)
 	m.agentList.SetSize(m.width, m.height)
+	m.help.Width = m.width
+
 	return m, nil
 }
 
@@ -423,7 +437,7 @@ func (m UIModel) handleAgentSkip() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m UIModel) View() string {
+func (m UIModel) renderMainContent() string {
 	var s string
 	switch m.step {
 	case StepTicketList:
@@ -456,6 +470,38 @@ func (m UIModel) View() string {
 			s += "\n" + warningStyle.Render("⚠ "+w)
 		}
 	}
+	return s
+}
 
-	return docStyle.Render(s)
+func (m UIModel) View() string {
+	s := m.renderMainContent()
+
+	// Dynamic keymap enablement based on step
+	switch m.step {
+	case StepTicketList:
+		m.keys.Back.SetEnabled(false)
+		m.keys.Refresh.SetEnabled(true)
+	case StepResult, StepError:
+		m.keys.Back.SetEnabled(false)
+		m.keys.Refresh.SetEnabled(false)
+		m.keys.Enter.SetEnabled(false)
+	default:
+		m.keys.Back.SetEnabled(true)
+		m.keys.Refresh.SetEnabled(false)
+		m.keys.Enter.SetEnabled(true)
+	}
+
+	footerStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("251")).
+		Padding(0, 1)
+
+	helpView := footerStyle.Render(m.help.View(m.keys))
+
+	// Ensure main content takes up remaining height
+	mainContentStyle := lipgloss.NewStyle().Height(m.height)
+	mainContent := mainContentStyle.Render(s)
+
+	return docStyle.Render(lipgloss.JoinVertical(lipgloss.Top, mainContent, helpView))
 }
