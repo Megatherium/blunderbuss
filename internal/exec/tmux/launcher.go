@@ -35,7 +35,10 @@ func NewTmuxLauncher(runner CommandRunner, dryRun, skipTmuxCheck bool) *Launcher
 }
 
 // Launch creates a new tmux window with the rendered command.
-func (l *Launcher) Launch(ctx context.Context, spec domain.LaunchSpec) (*domain.LaunchResult, error) {
+func (l *Launcher) Launch(
+	ctx context.Context,
+	spec domain.LaunchSpec,
+) (*domain.LaunchResult, error) {
 	if err := l.validateTmuxContext(); err != nil {
 		return nil, err
 	}
@@ -77,18 +80,28 @@ func (l *Launcher) validateTmuxContext() error {
 	return nil
 }
 
+// buildEnvFlags constructs environment flags for tmux new-window.
+// This unsets LINES and COLUMNS which are incorrectly set to 0 when
+// running inside bubbletea's alternate screen mode.
+// Per tmux(1): "If only a name is given (no =), the variable is unset."
+func (l *Launcher) buildEnvFlags() []string {
+	return []string{"-e", "LINES=", "-e", "COLUMNS="}
+}
+
 // buildCommand constructs the tmux new-window command arguments.
 func (l *Launcher) buildCommand(spec domain.LaunchSpec) []string {
-	return []string{
-		"tmux",
-		"new-window",
-		"-n", spec.WindowName,
-		spec.RenderedCommand,
-	}
+	envFlags := l.buildEnvFlags()
+	args := []string{"tmux", "new-window"}
+	args = append(args, envFlags...)
+	args = append(args, "-n", spec.WindowName, spec.RenderedCommand)
+	return args
 }
 
 // dryRunLaunch prints the command and returns a fake result.
-func (l *Launcher) dryRunLaunch(spec domain.LaunchSpec, command []string) (*domain.LaunchResult, error) {
+func (l *Launcher) dryRunLaunch(
+	spec domain.LaunchSpec,
+	command []string,
+) (*domain.LaunchResult, error) {
 	fmt.Printf("[DRY RUN] Would execute: %s\n", strings.Join(command, " "))
 
 	return &domain.LaunchResult{

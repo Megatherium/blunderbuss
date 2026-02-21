@@ -144,7 +144,7 @@ func TestLauncher_Launch_DryRun(t *testing.T) {
 
 func TestLauncher_Launch_Success(t *testing.T) {
 	fake := NewFakeRunner()
-	fake.SetOutput("tmux", []string{"new-window", "-n", "bb-3zg", "opencode --model claude-sonnet"},
+	fake.SetOutput("tmux", []string{"new-window", "-e", "LINES=", "-e", "COLUMNS=", "-n", "bb-3zg", "opencode --model claude-sonnet"},
 		[]byte("@1"))
 
 	launcher := NewTmuxLauncher(fake, false, true)
@@ -189,7 +189,7 @@ func TestLauncher_Launch_Success(t *testing.T) {
 		t.Errorf("Expected 1 command to be executed, got %d", len(fake.Commands))
 	}
 
-	expectedCmd := "tmux new-window -n bb-3zg opencode --model claude-sonnet"
+	expectedCmd := "tmux new-window -e LINES= -e COLUMNS= -n bb-3zg opencode --model claude-sonnet"
 	if fake.Commands[0] != expectedCmd {
 		t.Errorf("Expected command %q, got %q", expectedCmd, fake.Commands[0])
 	}
@@ -197,7 +197,7 @@ func TestLauncher_Launch_Success(t *testing.T) {
 
 func TestLauncher_Launch_CommandError(t *testing.T) {
 	fake := NewFakeRunner()
-	fake.SetError("tmux", []string{"new-window", "-n", "bb-3zg", "opencode"},
+	fake.SetError("tmux", []string{"new-window", "-e", "LINES=", "-e", "COLUMNS=", "-n", "bb-3zg", "opencode"},
 		errors.New("tmux command failed"))
 
 	launcher := NewTmuxLauncher(fake, false, true)
@@ -299,8 +299,8 @@ func TestLauncher_buildCommand(t *testing.T) {
 
 	cmd := launcher.buildCommand(spec)
 
-	if len(cmd) != 5 {
-		t.Fatalf("Expected 5 arguments, got %d", len(cmd))
+	if len(cmd) != 9 {
+		t.Fatalf("Expected 9 arguments, got %d: %v", len(cmd), cmd)
 	}
 
 	if cmd[0] != "tmux" {
@@ -311,17 +311,25 @@ func TestLauncher_buildCommand(t *testing.T) {
 		t.Errorf("Expected second arg to be 'new-window', got %q", cmd[1])
 	}
 
-	if cmd[2] != "-n" {
-		t.Errorf("Expected third arg to be '-n', got %q", cmd[2])
+	if cmd[2] != "-e" || cmd[3] != "LINES=" {
+		t.Errorf("Expected args 2-3 to be '-e LINES=', got %q %q", cmd[2], cmd[3])
 	}
 
-	if cmd[3] != "bb-3zg" {
-		t.Errorf("Expected fourth arg to be 'bb-3zg', got %q", cmd[3])
+	if cmd[4] != "-e" || cmd[5] != "COLUMNS=" {
+		t.Errorf("Expected args 4-5 to be '-e COLUMNS=', got %q %q", cmd[4], cmd[5])
+	}
+
+	if cmd[6] != "-n" {
+		t.Errorf("Expected sixth arg to be '-n', got %q", cmd[6])
+	}
+
+	if cmd[7] != "bb-3zg" {
+		t.Errorf("Expected seventh arg to be 'bb-3zg', got %q", cmd[7])
 	}
 
 	expectedCommand := "opencode --model claude-sonnet-4-20250514 --agent coder"
-	if cmd[4] != expectedCommand {
-		t.Errorf("Expected command %q, got %q", expectedCommand, cmd[4])
+	if cmd[8] != expectedCommand {
+		t.Errorf("Expected command %q, got %q", expectedCommand, cmd[8])
 	}
 }
 
