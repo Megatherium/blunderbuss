@@ -19,6 +19,12 @@ import (
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
+const (
+	footerBgColor = "236"
+	footerFgColor = "251"
+	footerHeight  = 1
+)
+
 type Step int
 
 const (
@@ -236,7 +242,26 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StepAgentSelect:
 		m.agentList, cmd = m.agentList.Update(msg)
 	}
+
+	m.updateKeyBindings()
 	return m, cmd
+}
+
+func (m *UIModel) updateKeyBindings() {
+	switch m.step {
+	case StepTicketList:
+		m.keys.Back.SetEnabled(false)
+		m.keys.Refresh.SetEnabled(true)
+		m.keys.Enter.SetEnabled(true)
+	case StepResult, StepError:
+		m.keys.Back.SetEnabled(false)
+		m.keys.Refresh.SetEnabled(false)
+		m.keys.Enter.SetEnabled(false)
+	default:
+		m.keys.Back.SetEnabled(true)
+		m.keys.Refresh.SetEnabled(false)
+		m.keys.Enter.SetEnabled(true)
+	}
 }
 
 func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) {
@@ -296,8 +321,7 @@ func (m UIModel) handleTickMsg(msg tickMsg) (tea.Model, tea.Cmd) {
 func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	h, v := docStyle.GetFrameSize()
 
-	// subtract 1 for the footer
-	m.width, m.height = msg.Width-h, msg.Height-v-1
+	m.width, m.height = msg.Width-h, msg.Height-v-footerHeight
 
 	m.ticketList.SetSize(m.width, m.height)
 	m.harnessList.SetSize(m.width, m.height)
@@ -476,30 +500,14 @@ func (m UIModel) renderMainContent() string {
 func (m UIModel) View() string {
 	s := m.renderMainContent()
 
-	// Dynamic keymap enablement based on step
-	switch m.step {
-	case StepTicketList:
-		m.keys.Back.SetEnabled(false)
-		m.keys.Refresh.SetEnabled(true)
-	case StepResult, StepError:
-		m.keys.Back.SetEnabled(false)
-		m.keys.Refresh.SetEnabled(false)
-		m.keys.Enter.SetEnabled(false)
-	default:
-		m.keys.Back.SetEnabled(true)
-		m.keys.Refresh.SetEnabled(false)
-		m.keys.Enter.SetEnabled(true)
-	}
-
 	footerStyle := lipgloss.NewStyle().
 		Width(m.width).
-		Background(lipgloss.Color("236")).
-		Foreground(lipgloss.Color("251")).
+		Background(lipgloss.Color(footerBgColor)).
+		Foreground(lipgloss.Color(footerFgColor)).
 		Padding(0, 1)
 
 	helpView := footerStyle.Render(m.help.View(m.keys))
 
-	// Ensure main content takes up remaining height
 	mainContentStyle := lipgloss.NewStyle().Height(m.height)
 	mainContent := mainContentStyle.Render(s)
 
