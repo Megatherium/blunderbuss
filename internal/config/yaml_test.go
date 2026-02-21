@@ -268,6 +268,213 @@ harnesses:
 	}
 }
 
+func TestYAMLLoader_Load_FileBasedTemplates(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create template files
+	templatesDir := filepath.Join(tmpDir, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		t.Fatalf("Failed to create templates dir: %v", err)
+	}
+
+	cmdTemplateContent := "opencode --model {{.Model}} --agent {{.Agent}} --debug"
+	cmdTemplatePath := filepath.Join(templatesDir, "command.txt")
+	if err := os.WriteFile(cmdTemplatePath, []byte(cmdTemplateContent), 0644); err != nil {
+		t.Fatalf("Failed to write command template: %v", err)
+	}
+
+	promptTemplateContent := "Work on ticket {{.TicketID}}: {{.TicketTitle}}\n\n{{.TicketDescription}}"
+	promptTemplatePath := filepath.Join(templatesDir, "prompt.txt")
+	if err := os.WriteFile(promptTemplatePath, []byte(promptTemplateContent), 0644); err != nil {
+		t.Fatalf("Failed to write prompt template: %v", err)
+	}
+
+	// Create config with file references
+	yamlContent := `
+harnesses:
+  - name: opencode
+    command_template: "@./templates/command.txt"
+    prompt_template: "@./templates/prompt.txt"
+    models:
+      - claude-sonnet
+      - o3
+    agents:
+      - coder
+`
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	loader := NewYAMLLoader()
+	config, err := loader.Load(configPath)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	opencode := config.Harnesses[0]
+	if opencode.CommandTemplate != cmdTemplateContent {
+		t.Errorf("Unexpected command_template: %q", opencode.CommandTemplate)
+	}
+	if opencode.PromptTemplate != promptTemplateContent {
+		t.Errorf("Unexpected prompt_template: %q", opencode.PromptTemplate)
+	}
+}
+
+func TestYAMLLoader_Load_FileBasedTemplates_MissingFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	yamlContent := `
+harnesses:
+  - name: test
+    command_template: "@./templates/missing.txt"
+`
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	loader := NewYAMLLoader()
+	_, err := loader.Load(configPath)
+
+	if err == nil {
+		t.Fatal("Expected error for missing template file")
+	}
+
+	if !strings.Contains(err.Error(), "failed to load template file") {
+		t.Errorf("Error should mention 'failed to load template file', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "file not found") {
+		t.Errorf("Error should mention 'file not found', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "@./templates/missing.txt") {
+		t.Errorf("Error should include the original reference, got: %v", err)
+	}
+}
+
+func TestYAMLLoader_Load_MixedInlineAndFileTemplates(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create one template file
+	templatesDir := filepath.Join(tmpDir, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		t.Fatalf("Failed to create templates dir: %v", err)
+	}
+
+	promptTemplateContent := "Complex prompt: {{.TicketID}}"
+	promptTemplatePath := filepath.Join(templatesDir, "prompt.txt")
+	if err := os.WriteFile(promptTemplatePath, []byte(promptTemplateContent), 0644); err != nil {
+		t.Fatalf("Failed to write prompt template: %v", err)
+	}
+
+	yamlContent := `
+harnesses:
+  - name: inline-cmd
+    command_template: "inline command {{.Model}}"
+    prompt_template: "@./templates/prompt.txt"
+  - name: file-cmd
+    command_template: "@./templates/prompt.txt"
+    prompt_template: "inline prompt {{.TicketID}}"
+`
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	loader := NewYAMLLoader()
+	config, err := loader.Load(configPath)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	inlineCmd := config.Harnesses[0]
+	if inlineCmd.CommandTemplate != "inline command {{.Model}}" {
+		t.Errorf("Unexpected inline command_template: %q", inlineCmd.CommandTemplate)
+	}
+	if inlineCmd.PromptTemplate != promptTemplateContent {
+		t.Errorf("Unexpected file-based prompt_template: %q", inlineCmd.PromptTemplate)
+	}
+
+	fileCmd := config.Harnesses[1]
+	if fileCmd.CommandTemplate != promptTemplateContent {
+		t.Errorf("Unexpected file-based command_template: %q", fileCmd.CommandTemplate)
+	}
+	if fileCmd.PromptTemplate != "inline prompt {{.TicketID}}" {
+		t.Errorf("Unexpected inline prompt_template: %q", fileCmd.PromptTemplate)
+	}
+}
+
+func TestYAMLLoader_Load_FileBasedTemplates_EmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	templatesDir := filepath.Join(tmpDir, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		t.Fatalf("Failed to create templates dir: %v", err)
+	}
+
+	emptyPath := filepath.Join(templatesDir, "empty.txt")
+	if err := os.WriteFile(emptyPath, []byte{}, 0644); err != nil {
+		t.Fatalf("Failed to write empty template: %v", err)
+	}
+
+	yamlContent := `
+harnesses:
+  - name: test
+    command_template: "@./templates/empty.txt"
+`
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	loader := NewYAMLLoader()
+	_, err := loader.Load(configPath)
+
+	if err == nil {
+		t.Fatal("Expected error for empty command template (required field)")
+	}
+
+	if !strings.Contains(err.Error(), "missing required field: command_template") {
+		t.Errorf("Error should mention missing required field, got: %v", err)
+	}
+}
+
+func TestYAMLLoader_Load_FileBasedTemplates_Subdirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create nested template directory
+	nestedDir := filepath.Join(tmpDir, "nested", "templates")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatalf("Failed to create nested templates dir: %v", err)
+	}
+
+	cmdContent := "nested command {{.Model}}"
+	cmdPath := filepath.Join(nestedDir, "cmd.txt")
+	if err := os.WriteFile(cmdPath, []byte(cmdContent), 0644); err != nil {
+		t.Fatalf("Failed to write nested command template: %v", err)
+	}
+
+	yamlContent := `
+harnesses:
+  - name: test
+    command_template: "@./nested/templates/cmd.txt"
+`
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	loader := NewYAMLLoader()
+	config, err := loader.Load(configPath)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if config.Harnesses[0].CommandTemplate != cmdContent {
+		t.Errorf("Unexpected command_template: %q", config.Harnesses[0].CommandTemplate)
+	}
+}
+
 func TestYAMLLoader_InterfaceCompliance(t *testing.T) {
 	// This test ensures YAMLLoader implements the Loader interface
 	var _ Loader = (*YAMLLoader)(nil)

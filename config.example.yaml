@@ -2,6 +2,12 @@
 # This file defines harness configurations for launching development environments
 # in tmux windows. Each harness specifies how to invoke a tool with the right
 # context for a given ticket.
+#
+# Template Loading:
+# - Inline templates: specify template directly in YAML (default behavior)
+# - File-based templates: use "@./path/to/file.txt" to load from external file
+#   Paths are relative to the config file location
+#   Example: command_template: "@./templates/opencode_command.txt"
 
 harnesses:
   # Opencode harness - launches opencode CLI with ticket context
@@ -53,6 +59,16 @@ harnesses:
     agents:
       - code
       - architect
+
+  # Example: File-based template loading
+  # Create templates directory: mkdir -p templates
+  # Create file: echo 'opencode --model {{.Model}}' > templates/cmd.txt
+  # Then reference with @ syntax:
+  # - name: file-example
+  #   command_template: "@./templates/cmd.txt"
+  #   prompt_template: "@./templates/prompt.txt"
+  #   models: []
+  #   agents: []
 
 # Default selections for quickdraw/blitzdraw modes (optional)
 defaults:

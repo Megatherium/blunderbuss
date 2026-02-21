@@ -9,6 +9,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/megatherium/blunderbuss/internal/domain"
 	"gopkg.in/yaml.v3"
@@ -45,6 +47,28 @@ func NewYAMLLoader() *YAMLLoader {
 	return &YAMLLoader{}
 }
 
+// loadTemplateValue loads a template value from a file if it starts with '@'.
+// If the value doesn't start with '@', returns it as-is.
+// Returns an actionable error if the file cannot be read.
+func loadTemplateValue(value, configDir string) (string, error) {
+	if !strings.HasPrefix(value, "@") {
+		return value, nil
+	}
+
+	filePath := strings.TrimPrefix(value, "@")
+	resolvedPath := filepath.Join(configDir, filePath)
+
+	content, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("failed to load template file: %s (file not found)", value)
+		}
+		return "", fmt.Errorf("failed to load template file: %s: %w", value, err)
+	}
+
+	return string(content), nil
+}
+
 // Load reads and parses a YAML configuration file.
 // Returns actionable errors for missing fields, parse errors, or file not found.
 func (l *YAMLLoader) Load(path string) (*domain.Config, error) {
@@ -61,11 +85,12 @@ func (l *YAMLLoader) Load(path string) (*domain.Config, error) {
 		return nil, fmt.Errorf("failed to parse YAML in %s: %w", path, err)
 	}
 
-	return l.convertAndValidate(&raw)
+	configDir := filepath.Dir(path)
+	return l.convertAndValidate(&raw, configDir)
 }
 
 // convertAndValidate converts the raw YAML to domain types and validates.
-func (l *YAMLLoader) convertAndValidate(raw *yamlConfig) (*domain.Config, error) {
+func (l *YAMLLoader) convertAndValidate(raw *yamlConfig, configDir string) (*domain.Config, error) {
 	if len(raw.Harnesses) == 0 {
 		return nil, fmt.Errorf("config must define at least one harness")
 	}
@@ -75,7 +100,7 @@ func (l *YAMLLoader) convertAndValidate(raw *yamlConfig) (*domain.Config, error)
 	}
 
 	for i, rawHarness := range raw.Harnesses {
-		harness, err := l.convertHarness(rawHarness, i)
+		harness, err := l.convertHarness(rawHarness, i, configDir)
 		if err != nil {
 			return nil, err
 		}
@@ -94,14 +119,23 @@ func (l *YAMLLoader) convertAndValidate(raw *yamlConfig) (*domain.Config, error)
 }
 
 // convertHarness validates and converts a single YAML harness to domain type.
-func (l *YAMLLoader) convertHarness(raw yamlHarness, index int) (*domain.Harness, error) {
+func (l *YAMLLoader) convertHarness(raw yamlHarness, index int, configDir string) (*domain.Harness, error) {
 	harnessName := raw.Name
 	if harnessName == "" {
 		return nil, fmt.Errorf("harness at index %d is missing required field: name", index)
 	}
 
-	if raw.CommandTemplate == "" {
+	commandTemplate, err := loadTemplateValue(raw.CommandTemplate, configDir)
+	if err != nil {
+		return nil, fmt.Errorf("harness %q: %w", harnessName, err)
+	}
+	if commandTemplate == "" {
 		return nil, fmt.Errorf("harness %q is missing required field: command_template", harnessName)
+	}
+
+	promptTemplate, err := loadTemplateValue(raw.PromptTemplate, configDir)
+	if err != nil {
+		return nil, fmt.Errorf("harness %q: %w", harnessName, err)
 	}
 
 	// Initialize empty slices to avoid nil checks downstream
@@ -122,8 +156,8 @@ func (l *YAMLLoader) convertHarness(raw yamlHarness, index int) (*domain.Harness
 
 	return &domain.Harness{
 		Name:            harnessName,
-		CommandTemplate: raw.CommandTemplate,
-		PromptTemplate:  raw.PromptTemplate,
+		CommandTemplate: commandTemplate,
+		PromptTemplate:  promptTemplate,
 		SupportedModels: models,
 		SupportedAgents: agents,
 		Env:             env,
