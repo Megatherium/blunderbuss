@@ -88,25 +88,30 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 }
 
 func (m UIModel) Init() tea.Cmd {
-	return func() tea.Msg {
-		// Load model discovery registry
-		if err := m.app.Registry.Load(); err != nil {
-			// If load fails, we still continue but discovery might be empty
-			if m.app.opts.Debug {
-				fmt.Printf("Model discovery load failed: %v\n", err)
+	return tea.Batch(
+		func() tea.Msg {
+			// Load model discovery registry in the background
+			if err := m.app.Registry.Load(); err != nil {
+				// If load fails, we still continue but discovery might be empty
+				if m.app.opts.Debug {
+					// This is not a critical error, just log it
+					return tea.Println(fmt.Sprintf("Non-critical error: Model discovery load failed: %v", err))
+				}
 			}
-		}
-
-		store, err := m.app.CreateStore(context.Background())
-		if err != nil {
-			return errMsg{err}
-		}
-		tickets, err := store.ListTickets(context.Background(), data.TicketFilter{})
-		if err != nil {
-			return errMsg{err}
-		}
-		return ticketsLoadedMsg(tickets)
-	}
+			return nil // No message needed on success
+		},
+		func() tea.Msg {
+			store, err := m.app.CreateStore(context.Background())
+			if err != nil {
+				return errMsg{err}
+			}
+			tickets, err := store.ListTickets(context.Background(), data.TicketFilter{})
+			if err != nil {
+				return errMsg{err}
+			}
+			return ticketsLoadedMsg(tickets)
+		},
+	)
 }
 
 type ticketsLoadedMsg []domain.Ticket
