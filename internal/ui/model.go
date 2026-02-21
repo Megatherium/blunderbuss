@@ -352,22 +352,23 @@ func (m UIModel) handleEnterKey() (tea.Model, tea.Cmd) {
 
 func (m UIModel) handleModelSkip() (tea.Model, tea.Cmd) {
 	models := m.selection.Harness.SupportedModels
-	
+
 	// Expand providers if requested
 	expandedModels := make([]string, 0, len(models))
 	for _, model := range models {
-		if strings.HasPrefix(model, "provider:") {
+		switch {
+		case strings.HasPrefix(model, "provider:"):
 			providerID := strings.TrimPrefix(model, "provider:")
 			providerModels := m.app.Registry.GetModelsForProvider(providerID)
 			expandedModels = append(expandedModels, providerModels...)
-		} else if model == "discover:active" {
+		case model == "discover:active":
 			activeModels := m.app.Registry.GetActiveModels()
 			expandedModels = append(expandedModels, activeModels...)
-		} else {
+		default:
 			expandedModels = append(expandedModels, model)
 		}
 	}
-	
+
 	// Deduplicate
 	uniqueModels := make([]string, 0, len(expandedModels))
 	seen := make(map[string]bool)

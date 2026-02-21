@@ -65,7 +65,7 @@ func (r *Registry) Refresh() error {
 	}
 
 	// Ensure cache directory exists
-	if err := os.MkdirAll(filepath.Dir(r.cachePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(r.cachePath), 0o750); err != nil {
 		return fmt.Errorf("creating cache directory: %w", err)
 	}
 
@@ -74,7 +74,7 @@ func (r *Registry) Refresh() error {
 		return fmt.Errorf("marshaling api.json for cache: %w", err)
 	}
 
-	if err := os.WriteFile(r.cachePath, data, 0644); err != nil {
+	if err := os.WriteFile(r.cachePath, data, 0o600); err != nil {
 		return fmt.Errorf("writing cache file: %w", err)
 	}
 

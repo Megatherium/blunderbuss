@@ -31,14 +31,14 @@ func TestGetActiveModels(t *testing.T) {
 	registry := NewRegistry("")
 	registry.Providers = map[string]Provider{
 		"p1": {
-			ID: "p1",
+			ID:  "p1",
 			Env: []string{"P1_KEY"},
 			Models: map[string]Model{
 				"m1": {ID: "m1", Name: "Model 1"},
 			},
 		},
 		"p2": {
-			ID: "p2",
+			ID:  "p2",
 			Env: []string{"P2_KEY"},
 			Models: map[string]Model{
 				"m2": {ID: "m2", Name: "Model 2"},

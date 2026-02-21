@@ -80,19 +80,17 @@ func (l *Launcher) validateTmuxContext() error {
 	return nil
 }
 
-// buildEnvFlags constructs environment flags for tmux new-window.
-// This unsets LINES and COLUMNS which are incorrectly set to 0 when
-// running inside bubbletea's alternate screen mode.
-// Per tmux(1): "If only a name is given (no =), the variable is unset."
-func (l *Launcher) buildEnvFlags() []string {
-	return []string{"-e", "LINES=", "-e", "COLUMNS="}
-}
-
-// buildCommand constructs the tmux new-window command arguments.
+// buildCommand constructs the full tmux command with environment variables.
 func (l *Launcher) buildCommand(spec domain.LaunchSpec) []string {
-	envFlags := l.buildEnvFlags()
-	args := []string{"tmux", "new-window"}
-	args = append(args, envFlags...)
+	// Preallocate with a reasonable capacity
+	args := make([]string, 0, 10)
+	args = append(args, "tmux", "new-window")
+
+	// Set environment variables
+	for key, val := range spec.Selection.Harness.Env {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", key, val))
+	}
+
 	args = append(args, "-n", spec.WindowName, spec.RenderedCommand)
 	return args
 }
