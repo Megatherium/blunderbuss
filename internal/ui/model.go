@@ -177,61 +177,22 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case ticketsLoadedMsg:
-		if len(msg) == 0 {
-			// No tickets found - show empty state
-			m.ticketList = newEmptyTicketList()
-		} else {
-			m.ticketList = newTicketList(msg)
-		}
-		initList(&m.ticketList, m.width, m.height, "Select a Ticket")
-		m.loading = false
-		return m, nil
+		return m.handleTicketsLoaded(msg)
 
 	case errMsg:
-		m.err = msg.err
-		m.loading = false
-		m.step = StepError
-		return m, nil
+		return m.handleErrMsg(msg)
 
 	case launchResultMsg:
-		m.launchResult = msg.res
-		m.err = msg.err
-		m.step = StepResult
-
-		// Start monitoring if launch was successful
-		if msg.err == nil && msg.res != nil && msg.res.WindowName != "" {
-			m.monitoringWindow = msg.res.WindowName
-			// Initial status check + start polling
-			return m, tea.Batch(
-				m.pollWindowStatusCmd(msg.res.WindowName),
-				m.startMonitoringCmd(msg.res.WindowName),
-			)
-		}
-		return m, nil
+		return m.handleLaunchResult(msg)
 
 	case statusUpdateMsg:
-		m.windowStatus = msg.status
-		m.windowStatusEmoji = msg.emoji
-		return m, nil
+		return m.handleStatusUpdate(msg)
 
 	case tickMsg:
-		// Continue polling if still on result screen and monitoring the same window
-		if m.step == StepResult && m.monitoringWindow == msg.windowName {
-			return m, tea.Batch(
-				m.pollWindowStatusCmd(msg.windowName),
-				m.startMonitoringCmd(msg.windowName),
-			)
-		}
-		return m, nil
+		return m.handleTickMsg(msg)
 
 	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
-		m.width, m.height = msg.Width-h, msg.Height-v
-		m.ticketList.SetSize(m.width, m.height)
-		m.harnessList.SetSize(m.width, m.height)
-		m.modelList.SetSize(m.width, m.height)
-		m.agentList.SetSize(m.width, m.height)
-		return m, nil
+		return m.handleWindowSizeMsg(msg)
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -248,6 +209,65 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.agentList, cmd = m.agentList.Update(msg)
 	}
 	return m, cmd
+}
+
+func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) {
+	if len(msg) == 0 {
+		m.ticketList = newEmptyTicketList()
+	} else {
+		m.ticketList = newTicketList(msg)
+	}
+	initList(&m.ticketList, m.width, m.height, "Select a Ticket")
+	m.loading = false
+	return m, nil
+}
+
+func (m UIModel) handleErrMsg(msg errMsg) (tea.Model, tea.Cmd) {
+	m.err = msg.err
+	m.loading = false
+	m.step = StepError
+	return m, nil
+}
+
+func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
+	m.launchResult = msg.res
+	m.err = msg.err
+	m.step = StepResult
+
+	if msg.err == nil && msg.res != nil && msg.res.WindowName != "" {
+		m.monitoringWindow = msg.res.WindowName
+		return m, tea.Batch(
+			m.pollWindowStatusCmd(msg.res.WindowName),
+			m.startMonitoringCmd(msg.res.WindowName),
+		)
+	}
+	return m, nil
+}
+
+func (m UIModel) handleStatusUpdate(msg statusUpdateMsg) (tea.Model, tea.Cmd) {
+	m.windowStatus = msg.status
+	m.windowStatusEmoji = msg.emoji
+	return m, nil
+}
+
+func (m UIModel) handleTickMsg(msg tickMsg) (tea.Model, tea.Cmd) {
+	if m.step == StepResult && m.monitoringWindow == msg.windowName {
+		return m, tea.Batch(
+			m.pollWindowStatusCmd(msg.windowName),
+			m.startMonitoringCmd(msg.windowName),
+		)
+	}
+	return m, nil
+}
+
+func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+	h, v := docStyle.GetFrameSize()
+	m.width, m.height = msg.Width-h, msg.Height-v
+	m.ticketList.SetSize(m.width, m.height)
+	m.harnessList.SetSize(m.width, m.height)
+	m.modelList.SetSize(m.width, m.height)
+	m.agentList.SetSize(m.width, m.height)
+	return m, nil
 }
 
 func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
