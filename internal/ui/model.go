@@ -195,7 +195,9 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWindowSizeMsg(msg)
 
 	case tea.KeyMsg:
-		return m.handleKeyMsg(msg)
+		if model, cmd, handled := m.handleKeyMsg(msg); handled {
+			return model, cmd
+		}
 	}
 
 	switch m.step {
@@ -270,19 +272,18 @@ func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd)
 	return m, nil
 }
 
-func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
 	case "ctrl+c", "q":
-		return m, tea.Quit
+		return m, tea.Quit, true
 	case "r":
 		if m.step == StepTicketList {
 			m.loading = true
-			return m, loadTicketsCmd(m.app.store)
+			return m, loadTicketsCmd(m.app.store), true
 		}
 	case "esc":
 		if m.step > StepTicketList && m.step != StepResult && m.step != StepError {
 			m.step--
-			// Handle skip backwards tracking if we skipped lists
 			if m.step == StepAgentSelect && len(m.selection.Harness.SupportedAgents) <= 1 {
 				m.step--
 			}
@@ -292,12 +293,13 @@ func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.step == StepHarnessSelect && len(m.harnesses) == 1 {
 				m.step--
 			}
-			return m, nil
+			return m, nil, true
 		}
 	case "enter":
-		return m.handleEnterKey()
+		model, cmd := m.handleEnterKey()
+		return model, cmd, true
 	}
-	return m, nil
+	return m, nil, false
 }
 
 func (m UIModel) handleEnterKey() (tea.Model, tea.Cmd) {
@@ -305,12 +307,12 @@ func (m UIModel) handleEnterKey() (tea.Model, tea.Cmd) {
 	case StepTicketList:
 		if i, ok := m.ticketList.SelectedItem().(ticketItem); ok {
 			m.selection.Ticket = i.ticket
-			m.step = StepHarnessSelect
 			if len(m.harnesses) == 1 {
 				m.selection.Harness = m.harnesses[0]
-				m.step = StepModelSelect
+				return m.handleModelSkip()
 			}
-			return m.handleModelSkip()
+			m.step = StepHarnessSelect
+			return m, nil
 		}
 	case StepHarnessSelect:
 		if i, ok := m.harnessList.SelectedItem().(harnessItem); ok {
