@@ -19,19 +19,24 @@ import (
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
+// Semantic Theme Colors
+var (
+	ThemeFooterBg   = lipgloss.AdaptiveColor{Light: "62", Dark: "62"}
+	ThemeFooterFg   = lipgloss.AdaptiveColor{Light: "230", Dark: "230"}
+	ThemeActive     = lipgloss.AdaptiveColor{Light: "205", Dark: "205"}
+	ThemeInactive   = lipgloss.AdaptiveColor{Light: "240", Dark: "240"}
+	ThemeWarning    = lipgloss.AdaptiveColor{Light: "214", Dark: "214"}
+)
+
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 const (
-	footerBgColor = "62"
-	footerFgColor = "230"
-	footerHeight  = 1
-
-	activeBorderColor   = "205"
-	inactiveBorderColor = "240"
-	filterHeight        = 3
-	minWindowWidth      = 60
-	minWindowHeight     = 10
-	sidebarBaseWidth    = 25
+	footerHeight     = 1
+	// filterHeight accounts for the top 1-line filter box + 2 lines of padding/border
+	filterHeight     = 3
+	minWindowWidth   = 60
+	minWindowHeight  = 10
+	sidebarBaseWidth = 25
 )
 
 type FocusColumn int
@@ -118,11 +123,9 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 	h.ShowAll = false
 
 	// Apply footer colors to help styles so the background isn't transparent behind the text
-	bgColor := lipgloss.Color(footerBgColor)
-	fgColor := lipgloss.Color(footerFgColor)
-	h.Styles.ShortKey = h.Styles.ShortKey.Background(bgColor).Foreground(fgColor).Bold(true)
-	h.Styles.ShortDesc = h.Styles.ShortDesc.Background(bgColor).Foreground(fgColor)
-	h.Styles.ShortSeparator = h.Styles.ShortSeparator.Background(bgColor).Foreground(fgColor)
+	h.Styles.ShortKey = h.Styles.ShortKey.Background(ThemeFooterBg).Foreground(ThemeFooterFg).Bold(true)
+	h.Styles.ShortDesc = h.Styles.ShortDesc.Background(ThemeFooterBg).Foreground(ThemeFooterFg)
+	h.Styles.ShortSeparator = h.Styles.ShortSeparator.Background(ThemeFooterBg).Foreground(ThemeFooterFg)
 
 	return UIModel{
 		app:         app,
@@ -632,7 +635,7 @@ func (m UIModel) renderMainContent() string {
 				}
 				return lipgloss.NewStyle().
 					Border(lipgloss.RoundedBorder()).
-					BorderForeground(lipgloss.Color(activeBorderColor)).
+					BorderForeground(ThemeActive).
 					Width(w - 2).
 					Height(listHeight - 2)
 			}
@@ -643,7 +646,9 @@ func (m UIModel) renderMainContent() string {
 				}
 				return lipgloss.NewStyle().
 					Border(lipgloss.RoundedBorder()).
-					BorderForeground(lipgloss.Color(inactiveBorderColor)).
+					// Keep border fully visible, don't inherit faintness
+					BorderForeground(ThemeInactive).
+					Faint(false).
 					Width(w - 2).
 					Height(listHeight - 2)
 			}
@@ -671,6 +676,7 @@ func (m UIModel) renderMainContent() string {
 			if m.focus == FocusAgent {
 				aView = activeBorder(m.aWidth).Render(m.agentList.View())
 			} else {
+				// Faint only the content, not the border
 				aView = inactiveBorder(m.aWidth).Render(lipgloss.NewStyle().Faint(true).Render(m.agentList.View()))
 			}
 
@@ -725,17 +731,26 @@ func (m UIModel) renderMainContent() string {
 	}
 
 	if m.showModal {
+		// Dim the entire background behind the modal
+		s = lipgloss.NewStyle().Faint(true).Render(s)
+
+		modalWidth := m.width - 10
+		if modalWidth < 40 {
+			modalWidth = 40
+		}
+
 		modalBox := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(activeBorderColor)).
+			BorderForeground(ThemeActive).
 			Padding(1, 2).
-			Width(m.width - 10).
+			Width(modalWidth).
 			Render(m.modalContent)
+			
 		s = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modalBox)
 	}
 
 	if len(m.warnings) > 0 {
-		warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).MarginTop(1)
+		warningStyle := lipgloss.NewStyle().Foreground(ThemeWarning).MarginTop(1)
 		for _, w := range m.warnings {
 			s += "\n" + warningStyle.Render("⚠ "+w)
 		}
@@ -748,8 +763,8 @@ func (m UIModel) View() string {
 
 	footerStyle := lipgloss.NewStyle().
 		Width(m.width).
-		Background(lipgloss.Color(footerBgColor)).
-		Foreground(lipgloss.Color(footerFgColor)).
+		Background(ThemeFooterBg).
+		Foreground(ThemeFooterFg).
 		Padding(0, 1)
 
 	helpView := footerStyle.Render(m.help.View(m.keys))
