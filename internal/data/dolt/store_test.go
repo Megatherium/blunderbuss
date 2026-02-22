@@ -501,7 +501,7 @@ func TestBuildServerDSN(t *testing.T) {
 			metadata: Metadata{
 				DoltDatabase: "beads_default",
 			},
-			expected: "root@tcp(127.0.0.1:3306)/beads_default?parseTime=true",
+			expected: "root@tcp(127.0.0.1:3307)/beads_default?parseTime=true",
 		},
 	}
 
