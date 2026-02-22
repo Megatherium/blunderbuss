@@ -10,6 +10,7 @@ require (
 	github.com/dolthub/driver v0.2.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/spf13/cobra v1.10.2
+	github.com/stretchr/testify v1.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -37,6 +38,7 @@ require (
 	github.com/clipperhouse/displaywidth v0.9.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.5.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/dolthub/dolt/go v0.40.5-0.20240702155756-bcf4dd5f5cc1 // indirect
 	github.com/dolthub/dolt/go/gen/proto/dolt/services/eventsapi v0.0.0-20240212175631-02e9f99a3a9b // indirect
@@ -99,7 +101,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/tetratelabs/wazero v1.6.0 // indirect
 	github.com/vbauerster/mpb/v8 v8.7.2 // indirect
 	github.com/xitongsys/parquet-go v1.6.2 // indirect

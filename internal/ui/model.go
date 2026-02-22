@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,6 +25,13 @@ const (
 	footerBgColor = "62"
 	footerFgColor = "230"
 	footerHeight  = 1
+
+	activeBorderColor   = "205"
+	inactiveBorderColor = "240"
+	filterHeight        = 3
+	minWindowWidth      = 60
+	minWindowHeight     = 10
+	sidebarBaseWidth    = 25
 )
 
 type FocusColumn int
@@ -87,7 +95,7 @@ type UIModel struct {
 func initList(l *list.Model, width, height int, title string) {
 	l.Title = title
 	l.SetShowHelp(false)
-	l.SetShowStatusBar(false)
+	l.SetShowStatusBar(true)
 	if width > 0 && height > 0 {
 		l.SetSize(width, height)
 	}
@@ -268,7 +276,8 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleTickMsg(msg)
 
 	case tea.WindowSizeMsg:
-		return m.handleWindowSizeMsg(msg)
+		m, cmd = m.handleWindowSizeMsg(msg)
+		return m, cmd
 
 	case tea.KeyMsg:
 		if model, cmd, handled := m.handleKeyMsg(msg); handled {
@@ -376,9 +385,17 @@ func (m UIModel) handleTickMsg(msg tickMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (UIModel, tea.Cmd) {
 	h, v := docStyle.GetFrameSize()
 	m.width, m.height = msg.Width-h, msg.Height-v-footerHeight
+	
+	if m.width < minWindowWidth {
+		m.width = minWindowWidth
+	}
+	if m.height < minWindowHeight {
+		m.height = minWindowHeight
+	}
+	
 	m.updateSizes()
 	return m, nil
 }
@@ -388,26 +405,31 @@ func (m *UIModel) updateSizes() {
 		return
 	}
 
-	filterHeight := 3
 	listHeight := m.height - filterHeight
 	innerListHeight := listHeight - 2
 
+	// Calculate gaps: 4 columns = 3 gaps of 2 chars = 6. With sidebar = 4 gaps = 8.
+	var usableWidth int
 	if m.showSidebar {
-		usableWidth := m.width - 8 // 4 gaps of 2
-		baseX := usableWidth / 4
+		usableWidth = m.width - 8
+	} else {
+		usableWidth = m.width - 6
+	}
+
+	baseX := usableWidth / 4
+
+	if m.showSidebar {
 		m.sidebarWidth = baseX
 		m.tWidth = baseX
 		m.hWidth = baseX / 2
 		m.mWidth = baseX
-		m.aWidth = usableWidth - (m.sidebarWidth + m.tWidth + m.hWidth + m.mWidth) // absorb remainder
+		m.aWidth = usableWidth - (m.sidebarWidth + m.tWidth + m.hWidth + m.mWidth)
 	} else {
-		usableWidth := m.width - 6 // 3 gaps of 2
-		baseX := usableWidth / 4
 		m.sidebarWidth = 0
 		m.tWidth = baseX
 		m.hWidth = baseX
 		m.mWidth = baseX
-		m.aWidth = usableWidth - (m.tWidth + m.hWidth + m.mWidth) // absorb remainder
+		m.aWidth = usableWidth - (m.tWidth + m.hWidth + m.mWidth)
 	}
 
 	safeW := func(w int) int {
@@ -426,23 +448,23 @@ func (m *UIModel) updateSizes() {
 
 func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	if m.showModal {
-		switch msg.String() {
-		case "esc", "q", "enter", "i":
+		if key.Matches(msg, m.keys.Back, m.keys.Quit, m.keys.Enter, m.keys.Info) {
 			m.showModal = false
 		}
 		// Capture all keystrokes while modal is open
 		return m, nil, true
 	}
 
-	switch msg.String() {
-	case "ctrl+c", "q":
+	if key.Matches(msg, m.keys.Quit) {
 		return m, tea.Quit, true
-	case "r":
+	}
+	if key.Matches(msg, m.keys.Refresh) {
 		if m.state == ViewStateMatrix && m.focus == FocusTickets {
 			m.loading = true
 			return m, loadTicketsCmd(m.app.store), true
 		}
-	case "esc":
+	}
+	if key.Matches(msg, m.keys.Back) {
 		if m.state == ViewStateConfirm {
 			m.state = ViewStateMatrix
 			return m, nil, true
@@ -452,12 +474,8 @@ func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			// Optionally clear selection when going back
 			return m, nil, true
 		}
-	case "left":
-		if m.state == ViewStateMatrix && m.focus > FocusTickets {
-			m.focus--
-			return m, nil, true
-		}
-	case "i":
+	}
+	if key.Matches(msg, m.keys.Info) {
 		if m.state == ViewStateMatrix && m.focus == FocusTickets {
 			if i, ok := m.ticketList.SelectedItem().(ticketItem); ok {
 				m.showModal = true
@@ -465,10 +483,20 @@ func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 				return m, loadModalCmd(i.ticket.ID), true
 			}
 		}
-	case "p":
+	}
+	if key.Matches(msg, m.keys.ToggleSidebar) {
 		m.showSidebar = !m.showSidebar
 		m.updateSizes()
 		return m, nil, true
+	}
+	
+	// Handle manual left/right navigation outside of keys.go since it's intrinsic to the matrix
+	switch msg.String() {
+	case "left":
+		if m.state == ViewStateMatrix && m.focus > FocusTickets {
+			m.focus--
+			return m, nil, true
+		}
 	case "right":
 		if m.state == ViewStateMatrix && m.focus < FocusAgent {
 			// Ensure current selection is valid before allowing right movement
@@ -476,10 +504,13 @@ func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			m.focus++
 			return m, nil, true
 		}
-	case "enter":
+	}
+
+	if key.Matches(msg, m.keys.Enter) {
 		model, cmd := m.handleEnterKey()
 		return model, cmd, true
 	}
+	
 	return m, nil, false
 }
 
@@ -593,7 +624,7 @@ func (m UIModel) renderMainContent() string {
 		if m.loading {
 			s = "Loading tickets...\n"
 		} else {
-			listHeight := m.height - 3
+			listHeight := m.height - filterHeight
 
 			activeBorder := func(w int) lipgloss.Style {
 				if w < 2 {
@@ -601,7 +632,7 @@ func (m UIModel) renderMainContent() string {
 				}
 				return lipgloss.NewStyle().
 					Border(lipgloss.RoundedBorder()).
-					BorderForeground(lipgloss.Color("205")).
+					BorderForeground(lipgloss.Color(activeBorderColor)).
 					Width(w - 2).
 					Height(listHeight - 2)
 			}
@@ -612,7 +643,7 @@ func (m UIModel) renderMainContent() string {
 				}
 				return lipgloss.NewStyle().
 					Border(lipgloss.RoundedBorder()).
-					BorderForeground(lipgloss.Color("240")).
+					BorderForeground(lipgloss.Color(inactiveBorderColor)).
 					Width(w - 2).
 					Height(listHeight - 2)
 			}
@@ -696,7 +727,7 @@ func (m UIModel) renderMainContent() string {
 	if m.showModal {
 		modalBox := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("205")).
+			BorderForeground(lipgloss.Color(activeBorderColor)).
 			Padding(1, 2).
 			Width(m.width - 10).
 			Render(m.modalContent)
