@@ -101,6 +101,13 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 
 	h := help.New()
 	h.ShowAll = false
+	
+	// Apply footer colors to help styles so the background isn't transparent behind the text
+	bgColor := lipgloss.Color(footerBgColor)
+	fgColor := lipgloss.Color(footerFgColor)
+	h.Styles.ShortKey = h.Styles.ShortKey.Background(bgColor).Foreground(fgColor).Bold(true)
+	h.Styles.ShortDesc = h.Styles.ShortDesc.Background(bgColor).Foreground(fgColor)
+	h.Styles.ShortSeparator = h.Styles.ShortSeparator.Background(bgColor).Foreground(fgColor)
 
 	return UIModel{
 		app:         app,
