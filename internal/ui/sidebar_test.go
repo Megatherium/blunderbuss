@@ -239,7 +239,7 @@ func TestSidebarModel_handleSelect_ProjectNode(t *testing.T) {
 	m.State().SetNodes(nodes)
 	assert.True(t, m.State().Nodes[0].IsExpanded)
 
-	cmd := m.handleSelect()
+	_, cmd := m.handleSelect()
 	assert.Nil(t, cmd)
 }
 
@@ -262,7 +262,7 @@ func TestSidebarModel_handleSelect_WorktreeNode(t *testing.T) {
 	m.State().SetNodes(nodes)
 	m.State().MoveDown()
 
-	cmd := m.handleSelect()
+	_, cmd := m.handleSelect()
 	assert.NotNil(t, cmd)
 
 	msg := cmd()
@@ -296,14 +296,14 @@ func TestSidebarModel_handleSelect_HarnessNode(t *testing.T) {
 	m.State().SetNodes(nodes)
 	m.State().MoveDown()
 
-	cmd := m.handleSelect()
+	_, cmd := m.handleSelect()
 	assert.Nil(t, cmd)
 }
 
 func TestSidebarModel_handleSelect_NilNode(t *testing.T) {
 	m := NewSidebarModel()
 
-	cmd := m.handleSelect()
+	_, cmd := m.handleSelect()
 	assert.Nil(t, cmd)
 }
 
@@ -326,7 +326,7 @@ func TestSidebarModel_handleSelect_WorktreeWithNilInfo(t *testing.T) {
 	m.State().SetNodes(nodes)
 	m.State().MoveDown()
 
-	cmd := m.handleSelect()
+	_, cmd := m.handleSelect()
 	assert.NotNil(t, cmd)
 
 	msg := cmd()

@@ -128,9 +128,17 @@ func (m SidebarModel) handleKey(msg tea.KeyMsg) (SidebarModel, tea.Cmd) {
 	case key.Matches(msg, sidebarKeys.Down):
 		m.state.MoveDown()
 	case key.Matches(msg, sidebarKeys.Enter):
-		return m, m.handleSelect()
+		return m.handleSelect()
 	case key.Matches(msg, sidebarKeys.Expand):
-		m.state.ToggleExpand()
+		node := m.state.CurrentNode()
+		if node != nil && len(node.Children) > 0 && !node.IsExpanded {
+			m.state.ToggleExpand()
+		}
+	case key.Matches(msg, sidebarKeys.Collapse):
+		node := m.state.CurrentNode()
+		if node != nil && len(node.Children) > 0 && node.IsExpanded {
+			m.state.ToggleExpand()
+		}
 	}
 	return m, nil
 }
@@ -145,28 +153,28 @@ func (m SidebarModel) shouldApplyStyle(isCursor bool) bool {
 // handleSelect processes selection of the current node.
 // For projects, it toggles expansion. For worktrees, it emits SelectWorktreeCmd.
 // For harnesses, it returns nil (no action). For agents, it emits SelectAgentCmd.
-func (m SidebarModel) handleSelect() tea.Cmd {
+func (m SidebarModel) handleSelect() (SidebarModel, tea.Cmd) {
 	node := m.state.CurrentNode()
 	if node == nil {
-		return nil
+		return m, nil
 	}
 
 	switch node.Type {
 	case domain.NodeTypeProject:
 		m.state.ToggleExpand()
-		return nil
+		return m, nil
 	case domain.NodeTypeWorktree:
 		m.selectedPath = node.Path
-		return SelectWorktreeCmd(node.Path)
+		return m, SelectWorktreeCmd(node.Path)
 	case domain.NodeTypeHarness:
-		return nil
+		return m, nil
 	case domain.NodeTypeAgent:
 		if node.AgentInfo != nil {
-			return SelectAgentCmd(node.AgentInfo.ID)
+			return m, SelectAgentCmd(node.AgentInfo.ID)
 		}
-		return nil
+		return m, nil
 	}
-	return nil
+	return m, nil
 }
 
 // View implements tea.Model.
@@ -427,10 +435,11 @@ type AgentSelectedMsg struct {
 
 // sidebarKeys defines the keybindings for sidebar navigation.
 var sidebarKeys = struct {
-	Up     key.Binding
-	Down   key.Binding
-	Enter  key.Binding
-	Expand key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	Enter    key.Binding
+	Expand   key.Binding
+	Collapse key.Binding
 }{
 	Up: key.NewBinding(
 		key.WithKeys("up", "k"),
@@ -447,5 +456,9 @@ var sidebarKeys = struct {
 	Expand: key.NewBinding(
 		key.WithKeys("right", "l"),
 		key.WithHelp("→/l", "expand"),
+	),
+	Collapse: key.NewBinding(
+		key.WithKeys("left", "h"),
+		key.WithHelp("←/h", "collapse"),
 	),
 }

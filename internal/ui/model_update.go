@@ -36,7 +36,7 @@ func (m UIModel) handleQuitKeyMsg() (tea.Model, tea.Cmd, bool) {
 func (m UIModel) handleRefreshKeyMsg() (tea.Model, tea.Cmd, bool) {
 	if m.state == ViewStateMatrix && m.focus == FocusTickets {
 		m.loading = true
-		return m, tea.Batch(loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app.Project().RootPath())), true
+		return m, tea.Batch(loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app)), true
 	}
 	return m, nil, false
 }
@@ -86,15 +86,31 @@ func (m UIModel) handleToggleThemeKeyMsg() (tea.Model, tea.Cmd, bool) {
 
 func (m UIModel) handleNavigationKeysMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
-	case "left":
-		if m.state == ViewStateMatrix && m.focus > FocusSidebar {
-			m.retreatFocus()
-			return m, nil, true
+	case "left", "h":
+		if m.state == ViewStateMatrix {
+			if m.focus == FocusSidebar {
+				node := m.sidebar.State().CurrentNode()
+				if node != nil && len(node.Children) > 0 && node.IsExpanded {
+					return m, nil, false // Let sidebar handle collapse
+				}
+			}
+			if m.focus > FocusSidebar {
+				m.retreatFocus()
+				return m, nil, true
+			}
 		}
-	case "right":
-		if m.state == ViewStateMatrix && m.focus < FocusAgent {
-			m.advanceFocus()
-			return m, nil, true
+	case "right", "l":
+		if m.state == ViewStateMatrix {
+			if m.focus == FocusSidebar {
+				node := m.sidebar.State().CurrentNode()
+				if node != nil && len(node.Children) > 0 && !node.IsExpanded {
+					return m, nil, false // Let sidebar handle expand
+				}
+			}
+			if m.focus < FocusAgent {
+				m.advanceFocus()
+				return m, nil, true
+			}
 		}
 	case "tab":
 		if m.state == ViewStateMatrix {
@@ -474,6 +490,7 @@ func (m UIModel) handleWorktreesDiscovered(msg worktreesDiscoveredMsg) (tea.Mode
 func (m UIModel) handleWorktreeSelected(msg WorktreeSelectedMsg) (tea.Model, tea.Cmd) {
 	m.selectedWorktree = msg.Path
 	m.sidebar.SetSelectedPath(msg.Path)
+
 	m.focus = FocusTickets
 	m.sidebar.SetFocused(false)
 	return m, nil
@@ -787,7 +804,7 @@ func (m UIModel) handleTicketsAutoRefreshed() (tea.Model, tea.Cmd) {
 	m.refreshedRecently = true
 	m.refreshAnimationFrame = 0
 
-	cmds := []tea.Cmd{loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app.Project().RootPath())}
+	cmds := []tea.Cmd{loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app)}
 
 	if m.app.Fonts.HasNerdFont {
 		cmds = append(cmds, tea.Tick(animationTickInterval, func(t time.Time) tea.Msg {

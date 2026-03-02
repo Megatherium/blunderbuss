@@ -43,21 +43,21 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 	h.Styles.ShortSeparator = h.Styles.ShortSeparator.Background(ThemeFooterBg).Foreground(ThemeFooterFg)
 
 	return UIModel{
-		app:         app,
-		state:       ViewStateMatrix,
-		focus:       FocusSidebar,
-		harnesses:   harnesses,
-		ticketList:  tl,
-		harnessList: hl,
-		modelList:   ml,
-		agentList:   al,
-		sidebar:     NewSidebarModel(),
-		help:        h,
-		keys:        keys,
-		loading:     true,
-		showModal:   false,
-		showSidebar: true,
-		agents:      make(map[string]*RunningAgent),
+		app:          app,
+		state:        ViewStateMatrix,
+		focus:        FocusSidebar,
+		harnesses:    harnesses,
+		ticketList:   tl,
+		harnessList:  hl,
+		modelList:    ml,
+		agentList:    al,
+		sidebar:      NewSidebarModel(),
+		help:         h,
+		keys:         keys,
+		loading:      true,
+		showModal:    false,
+		showSidebar:  true,
+		agents:       make(map[string]*RunningAgent),
 		currentTheme: &TokyoNightTheme, // Default to TokyoNight theme
 		animState: AnimationState{
 			StartTime:       time.Now(),
@@ -85,7 +85,7 @@ func (m UIModel) Init() tea.Cmd {
 			func() tea.Msg {
 				return errMsg{err}
 			},
-			discoverWorktreesCmd(m.app.opts.BeadsDir),
+			discoverWorktreesCmd(m.app),
 			animationTickCmd(),
 		)
 	}
@@ -104,7 +104,7 @@ func (m UIModel) Init() tea.Cmd {
 			}
 			return ticketsLoadedMsg(tickets)
 		},
-		discoverWorktreesCmd(project.RootPath()),
+		discoverWorktreesCmd(m.app),
 		animationTickCmd(),
 		checkTicketUpdatesCmd(project.Store(), time.Time{}),
 	)
@@ -200,7 +200,43 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.state == ViewStateMatrix {
 		switch m.focus {
 		case FocusSidebar:
+			prevCursor := m.sidebar.State().Cursor
 			m.sidebar, cmd = m.sidebar.Update(msg)
+
+			if m.sidebar.State().Cursor != prevCursor {
+				node := m.sidebar.State().CurrentNode()
+				if node != nil {
+					var newProjectDir string
+					if node.Type == domain.NodeTypeWorktree {
+						state := m.sidebar.State()
+						for _, pnode := range state.Nodes {
+							if pnode.Type == domain.NodeTypeProject {
+								for _, child := range pnode.Children {
+									if child.Path == node.Path {
+										newProjectDir = pnode.Path
+										break
+									}
+								}
+							}
+							if newProjectDir != "" {
+								break
+							}
+						}
+					} else if node.Type == domain.NodeTypeProject {
+						newProjectDir = node.Path
+					}
+
+					if newProjectDir != "" && newProjectDir != m.app.activeProject {
+						err := m.app.SetActiveProject(context.Background(), newProjectDir)
+						if err == nil {
+							m.selection.Ticket = domain.Ticket{}
+							m.selection.Model = ""
+							m.selection.Agent = ""
+							cmd = tea.Batch(cmd, loadTicketsCmd(m.app.Project().Store()))
+						}
+					}
+				}
+			}
 		case FocusTickets:
 			m.ticketList, cmd = m.ticketList.Update(msg)
 		case FocusHarness:
