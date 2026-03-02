@@ -462,7 +462,7 @@ func TestHandleTicketsAutoRefreshed(t *testing.T) {
 	app := newTestApp()
 	m := NewUIModel(app, nil)
 	mockStore := &mockStore{}
-	app.project = data.NewProjectContext(mockStore, ".beads", "/repo/root")
+	app.project, _ = data.NewProjectContext(mockStore, ".beads", "/repo/root")
 	
 	newM, cmd := m.handleTicketsAutoRefreshed()
 	updatedM := newM.(UIModel)

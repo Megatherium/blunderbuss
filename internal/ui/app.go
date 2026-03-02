@@ -77,7 +77,10 @@ func (a *App) CreateProjectContext(ctx context.Context) (*data.ProjectContext, e
 	}
 
 	rootPath := extractRepoRoot(a.opts.BeadsDir)
-	project := data.NewProjectContext(store, a.opts.BeadsDir, rootPath)
+	project, err := data.NewProjectContext(store, a.opts.BeadsDir, rootPath)
+	if err != nil {
+		return nil, err
+	}
 	a.project = project
 	return project, nil
 }
