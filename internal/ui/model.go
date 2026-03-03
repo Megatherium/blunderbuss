@@ -85,12 +85,7 @@ func (m UIModel) Init() tea.Cmd {
 					func() tea.Msg {
 						return errMsg{err}
 					},
-					func() tea.Msg {
-						if err := m.app.Registry.Load(context.Background()); err != nil {
-							return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-						}
-						return registryLoadedMsg{}
-					},
+					m.loadRegistryCmd(),
 				)
 			}
 			// Show add-project modal
@@ -98,12 +93,7 @@ func (m UIModel) Init() tea.Cmd {
 				func() tea.Msg {
 					return addProjectPromptMsg{projectPath: targetProject}
 				},
-				func() tea.Msg {
-					if err := m.app.Registry.Load(context.Background()); err != nil {
-						return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-					}
-					return registryLoadedMsg{}
-				},
+				m.loadRegistryCmd(),
 			)
 		}
 		// Project is in workspace, activate it
@@ -112,12 +102,7 @@ func (m UIModel) Init() tea.Cmd {
 				func() tea.Msg {
 					return errMsg{err}
 				},
-				func() tea.Msg {
-					if err := m.app.Registry.Load(context.Background()); err != nil {
-						return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-					}
-					return registryLoadedMsg{}
-				},
+				m.loadRegistryCmd(),
 			)
 		}
 	}
@@ -126,12 +111,7 @@ func (m UIModel) Init() tea.Cmd {
 	project, err := m.app.CreateProjectContext(context.Background())
 	if err != nil {
 		return tea.Batch(
-			func() tea.Msg {
-				if err := m.app.Registry.Load(context.Background()); err != nil {
-					return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-				}
-				return registryLoadedMsg{}
-			},
+			m.loadRegistryCmd(),
 			func() tea.Msg {
 				return errMsg{err}
 			},
@@ -141,12 +121,6 @@ func (m UIModel) Init() tea.Cmd {
 	}
 
 	return tea.Batch(
-		func() tea.Msg {
-			if err := m.app.Registry.Load(context.Background()); err != nil {
-				return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-			}
-			return registryLoadedMsg{}
-		},
 		func() tea.Msg {
 			tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
 			if err != nil {
@@ -369,4 +343,15 @@ func (m UIModel) continueNormalInit() tea.Cmd {
 		},
 		discoverWorktreesCmd(m.app),
 	)
+}
+
+// loadRegistryCmd returns a command that loads the model registry.
+// Extracted to avoid code duplication in Init().
+func (m UIModel) loadRegistryCmd() tea.Cmd {
+	return func() tea.Msg {
+		if err := m.app.Registry.Load(context.Background()); err != nil {
+			return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
+		}
+		return registryLoadedMsg{}
+	}
 }
