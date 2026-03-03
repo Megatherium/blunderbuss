@@ -270,5 +270,11 @@ func (a *App) ValidateProject(projectDir string) error {
 
 // AddProject adds a new project to the workspace.
 func (a *App) AddProject(project domain.Project) {
+	// Check for duplicates before adding
+	for _, p := range a.projects {
+		if p.Dir == project.Dir {
+			return // Already exists
+		}
+	}
 	a.projects = append(a.projects, project)
 }
