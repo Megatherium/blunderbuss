@@ -159,6 +159,11 @@ func (a *App) createStore(ctx context.Context, beadsDir string) (data.TicketStor
 	return store, nil
 }
 
+// CreateStore creates a TicketStore for given beads directory.
+func (a *App) CreateStore(ctx context.Context, beadsDir string) (data.TicketStore, error) {
+	return a.createStore(ctx, beadsDir)
+}
+
 // StatusChecker returns the status checker for monitoring tmux windows.
 func (a *App) StatusChecker() *tmux.StatusChecker {
 	return a.statusChecker
@@ -231,5 +236,58 @@ func (a *App) ValidateProject(projectDir string) error {
 
 // AddProject adds a new project to the workspace.
 func (a *App) AddProject(project domain.Project) {
+	for _, p := range a.projects {
+		if p.Dir == project.Dir {
+			return
+		}
+	}
+
+	project.Name = a.deduplicateProjectName(project.Name)
+
 	a.projects = append(a.projects, project)
+}
+
+// AddStore adds a store for a project directory.
+func (a *App) AddStore(projectDir string, store data.TicketStore) {
+	if a.stores == nil {
+		a.stores = make(map[string]data.TicketStore)
+	}
+	a.stores[projectDir] = store
+}
+
+// SaveConfig saves the current configuration to the config file.
+// It reloads the config first to ensure fresh data (in case user or another
+// process modified it).
+func (a *App) SaveConfig() error {
+	cfg, err := a.loader.Load(a.opts.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to reload config: %w", err)
+	}
+
+	cfg.Workspace.Projects = a.projects
+
+	if err := a.loader.Save(a.opts.ConfigPath, cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	return nil
+}
+
+// deduplicateProjectName ensures unique project names by adding counter suffix
+func (a *App) deduplicateProjectName(name string) string {
+	existingNames := make(map[string]bool)
+	for _, p := range a.projects {
+		existingNames[p.Name] = true
+	}
+
+	if !existingNames[name] {
+		return name
+	}
+
+	for i := 1; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", name, i)
+		if !existingNames[candidate] {
+			return candidate
+		}
+	}
 }

@@ -8,9 +8,9 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
-
+	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
 var (
@@ -120,9 +120,6 @@ type UIModel struct {
 	showModal    bool
 	modalContent string
 
-	showAddProjectModal bool
-	pendingProjectPath  string
-
 	showSidebar      bool
 	sidebarWidth     int
 	tWidth           int
@@ -149,6 +146,9 @@ type UIModel struct {
 	lastTicketUpdate      time.Time
 	refreshedRecently     bool
 	refreshAnimationFrame int
+
+	// Error recovery
+	retryStore data.TicketStore // Store preserved for retry/start operations after errors
 
 	// File picker for adding projects
 	filepicker          filepicker.Model

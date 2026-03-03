@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
@@ -245,7 +247,21 @@ func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (UIModel, tea.Cmd) {
 }
 
 func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
-	// Handle add-project modal keys first
+	if m.showFilePicker {
+		switch msg.String() {
+		case "a":
+			currentDir := m.filepicker.CurrentDirectory
+			if currentDir != "" {
+				return m, m.checkAndPromptAddProject(currentDir), true
+			}
+			return m, nil, true
+		case "esc":
+			m.showFilePicker = false
+			return m, nil, true
+		}
+		return m, nil, false
+	}
+
 	if m.showAddProjectModal {
 		switch msg.String() {
 		case "y", "Y":
@@ -257,7 +273,30 @@ func (m UIModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 				return addProjectResultMsg{success: false}
 			}, true
 		}
-		// Block all other keys when add-project modal is shown
+		return m, nil, true
+	}
+
+	if m.state == ViewStateError {
+		switch msg.String() {
+		case "q", "Q":
+			return m, tea.Quit, true
+		case "r", "R":
+			if m.retryStore != nil {
+				m.loading = true
+				m.state = ViewStateMatrix
+				return m, loadTicketsCmd(m.retryStore), true
+			}
+		case "s", "S":
+			if m.retryStore != nil {
+				if doltStore, ok := m.retryStore.(*dolt.Store); ok {
+					if doltStore.CanRetryConnection() {
+						m.loading = true
+						m.state = ViewStateMatrix
+						return m, startServerAndRetryCmd(m.app, doltStore), true
+					}
+				}
+			}
+		}
 		return m, nil, true
 	}
 
@@ -893,4 +932,49 @@ func (m UIModel) handleSidebarAgentKeysMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, 
 	}
 
 	return m, nil, false
+}
+
+func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Model, tea.Cmd) {
+	projectDir := msg.path
+
+	for _, project := range m.app.GetProjects() {
+		if filepath.Clean(project.Dir) == filepath.Clean(projectDir) {
+			m.warnings = append(m.warnings, fmt.Sprintf("Project already exists: %s", projectDir))
+			m.showAddProjectModal = false
+			m.showFilePicker = true
+			return m, nil
+		}
+	}
+
+	project := domain.Project{
+		Dir:  projectDir,
+		Name: filepath.Base(projectDir),
+	}
+	m.app.AddProject(project)
+
+	ctx := context.Background()
+	beadsDir := filepath.Join(projectDir, ".beads")
+	store, err := m.app.CreateStore(ctx, beadsDir)
+	if err != nil {
+		m.warnings = append(m.warnings, fmt.Sprintf("Failed to create store for %s: %v", projectDir, err))
+		m.showAddProjectModal = false
+		m.showFilePicker = true
+		return m, nil
+	}
+	m.app.AddStore(projectDir, store)
+
+	if err := m.app.SaveConfig(); err != nil {
+		m.warnings = append(m.warnings, fmt.Sprintf("Failed to save config: %v", err))
+	}
+
+	m.showAddProjectModal = false
+	m.showFilePicker = false
+	m.pendingProjectPath = ""
+
+	return m, tea.Batch(
+		discoverWorktreesCmd(m.app),
+		func() tea.Msg {
+			return warningMsg{fmt.Errorf("Added project: %s", projectDir)}
+		},
+	)
 }

@@ -29,6 +29,19 @@ type addProjectResultMsg struct {
 	err     error
 }
 
+// addProjectConfirmedMsg is emitted when user confirms adding a project.
+type addProjectConfirmedMsg struct {
+	path string
+}
+
+// addProjectCancelledMsg is emitted when user cancels adding a project.
+type addProjectCancelledMsg struct{}
+
+// ShowAddProjectModalMsg is emitted to show the add project confirmation modal.
+type ShowAddProjectModalMsg struct {
+	path string
+}
+
 type worktreesDiscoveredMsg struct {
 	nodes []domain.SidebarNode
 	err   error

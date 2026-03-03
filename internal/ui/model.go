@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -71,6 +72,18 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 func (m UIModel) initSidebar() UIModel {
 	m.sidebar.SetHasNerdFont(m.app.Fonts.HasNerdFont)
 	return m
+}
+
+func (m UIModel) checkAndPromptAddProject(dirPath string) tea.Cmd {
+	return func() tea.Msg {
+		beadsPath := filepath.Join(dirPath, ".beads")
+		if _, err := os.Stat(beadsPath); os.IsNotExist(err) {
+			return errMsg{fmt.Errorf("no .beads directory found in %s", dirPath)}
+		} else if err != nil {
+			return errMsg{fmt.Errorf("error checking .beads directory: %w", err)}
+		}
+		return ShowAddProjectModalMsg{path: dirPath}
+	}
 }
 
 func (m UIModel) Init() tea.Cmd {
@@ -210,6 +223,34 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case refreshAnimationTickMsg:
 		return m.handleRefreshAnimationTick()
+
+	case serverStartedMsg:
+		activeProject := m.app.activeProject
+		if activeProject != "" {
+			m.app.stores[activeProject] = msg.store
+		}
+		return m, loadTicketsCmd(msg.store)
+
+	case OpenFilePickerMsg:
+		m.showFilePicker = true
+		m.showAddProjectModal = false
+		m.pendingProjectPath = ""
+		return m, nil
+
+	case ShowAddProjectModalMsg:
+		m.showFilePicker = false
+		m.showAddProjectModal = true
+		m.pendingProjectPath = msg.path
+		return m, nil
+
+	case addProjectConfirmedMsg:
+		return m.handleAddProjectConfirmed(msg)
+
+	case addProjectCancelledMsg:
+		m.showFilePicker = true
+		m.showAddProjectModal = false
+		m.pendingProjectPath = ""
+		return m, nil
 
 	case tea.WindowSizeMsg:
 		m, cmd = m.handleWindowSizeMsg(msg)
