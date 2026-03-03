@@ -46,6 +46,46 @@ func IsErrServerNotRunning(err error) bool {
 	return errors.As(err, &e)
 }
 
+func handleServerMode(ctx context.Context, beadsDir string, metadata *Metadata, opts domain.AppOptions, autostart bool) (*Store, error) {
+	if opts.Debug {
+		fmt.Fprintf(os.Stderr, "Dolt server mode enabled\n")
+	}
+	// Resolve server port if not explicitly configured
+	if metadata.ServerPort == 0 {
+		resolvedPort, err := metadata.ResolveServerPort(beadsDir)
+		if err != nil && opts.Debug {
+			fmt.Fprintf(os.Stderr, "Warning: failed to auto-detect Dolt port: %v\n", err)
+		}
+		if resolvedPort > 0 && opts.Debug {
+			fmt.Fprintf(os.Stderr, "Auto-detected Dolt server port: %d\n", resolvedPort)
+		}
+	}
+	store, err := newServerStore(ctx, beadsDir, metadata, autostart)
+	if err != nil {
+		// Check if it's a connection error
+		if !IsConnectionError(err) {
+			return nil, err
+		}
+
+		if !autostart {
+			// Autostart is disabled, return special error
+			return nil, &ErrServerNotRunning{
+				Message: "Dolt server is not running. Start dolt server? [y/N]",
+			}
+		}
+
+		if opts.Debug {
+			fmt.Fprintf(os.Stderr, "Dolt server not running, attempting to start...\n")
+		}
+		if startErr := StartServer(ctx, beadsDir, metadata); startErr != nil {
+			return nil, fmt.Errorf("failed to auto-start dolt server: %w", startErr)
+		}
+		// Retry connection after starting server
+		return newServerStore(ctx, beadsDir, metadata, autostart)
+	}
+	return store, nil
+}
+
 // NewStore creates a TicketStore connected to a Dolt database.
 // It reads metadata.json from the beads directory to determine connection mode.
 //
@@ -65,41 +105,7 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 
 	switch metadata.ConnectionMode() {
 	case ServerMode:
-		if opts.Debug {
-			fmt.Fprintf(os.Stderr, "Dolt server mode enabled\n")
-		}
-		// Resolve server port if not explicitly configured
-		if metadata.ServerPort == 0 {
-			resolvedPort, err := metadata.ResolveServerPort(beadsDir)
-			if err != nil && opts.Debug {
-				fmt.Fprintf(os.Stderr, "Warning: failed to auto-detect Dolt port: %v\n", err)
-			}
-			if resolvedPort > 0 && opts.Debug {
-				fmt.Fprintf(os.Stderr, "Auto-detected Dolt server port: %d\n", resolvedPort)
-			}
-		}
-		store, err := newServerStore(ctx, beadsDir, metadata, autostart)
-		if err != nil {
-			// Check if it's a connection error
-			if IsConnectionError(err) {
-				if autostart {
-					if opts.Debug {
-						fmt.Fprintf(os.Stderr, "Dolt server not running, attempting to start...\n")
-					}
-					if startErr := StartServer(beadsDir, metadata); startErr != nil {
-						return nil, fmt.Errorf("failed to auto-start dolt server: %w", startErr)
-					}
-					// Retry connection after starting server
-					return newServerStore(ctx, beadsDir, metadata, autostart)
-				}
-				// Autostart is disabled, return special error
-				return nil, &ErrServerNotRunning{
-					Message: "Dolt server is not running. Start dolt server? [y/N]",
-				}
-			}
-			return nil, err
-		}
-		return store, nil
+		return handleServerMode(ctx, beadsDir, metadata, opts, autostart)
 	case EmbeddedMode:
 		if opts.Debug {
 			fmt.Fprintf(os.Stderr, "Dolt embedded mode enabled\n")
@@ -154,7 +160,7 @@ func (s *Store) TryStartServer(ctx context.Context) (*Store, error) {
 		return nil, fmt.Errorf("cannot start server for embedded mode")
 	}
 
-	if startErr := StartServer(s.beadsDir, s.metadata); startErr != nil {
+	if startErr := StartServer(ctx, s.beadsDir, s.metadata); startErr != nil {
 		return nil, fmt.Errorf("failed to start dolt server: %w", startErr)
 	}
 

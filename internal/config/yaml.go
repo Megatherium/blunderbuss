@@ -119,22 +119,71 @@ func (l *YAMLLoader) Load(path string) (*domain.Config, error) {
 	return l.convertAndValidate(&raw, configDir)
 }
 
+// validateHarnessNames checks for duplicate harness names.
+func (l *YAMLLoader) validateHarnessNames(harnesses []yamlHarness) error {
+	seenNames := make(map[string]int)
+	for i, rawHarness := range harnesses {
+		name := rawHarness.Name
+		if name == "" {
+			continue
+		}
+		if firstIdx, exists := seenNames[name]; exists {
+			return fmt.Errorf("duplicate harness name %q at index %d (first defined at index %d)", name, i, firstIdx)
+		}
+		seenNames[name] = i
+	}
+	return nil
+}
+
+// parseWorkspace parses and validates workspace projects.
+func (l *YAMLLoader) parseWorkspace(defaultWorkspace yamlWorkspace) ([]domain.Project, error) {
+	var projects []domain.Project
+	seenDirs := make(map[string]bool)
+
+	for _, p := range defaultWorkspace.Projects {
+		if p.Dir == "" {
+			return nil, fmt.Errorf("project must specify a directory")
+		}
+
+		// Validate directory exists
+		info, err := os.Stat(p.Dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("project directory does not exist: %s", p.Dir)
+			}
+			return nil, fmt.Errorf("error checking project directory %s: %w", p.Dir, err)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("project path is not a directory: %s", p.Dir)
+		}
+
+		// Validate directory uniqueness
+		cleanDir := filepath.Clean(p.Dir)
+		if seenDirs[cleanDir] {
+			return nil, fmt.Errorf("duplicate project directory: %s", cleanDir)
+		}
+		seenDirs[cleanDir] = true
+
+		name := p.Name
+		if name == "" {
+			name = filepath.Base(p.Dir)
+		}
+		projects = append(projects, domain.Project{
+			Dir:  cleanDir,
+			Name: name,
+		})
+	}
+	return projects, nil
+}
+
 // convertAndValidate converts the raw YAML to domain types and validates.
 func (l *YAMLLoader) convertAndValidate(raw *yamlConfig, configDir string) (*domain.Config, error) {
 	if len(raw.Harnesses) == 0 {
 		return nil, fmt.Errorf("config must define at least one harness")
 	}
 
-	seenNames := make(map[string]int)
-	for i, rawHarness := range raw.Harnesses {
-		name := rawHarness.Name
-		if name == "" {
-			continue
-		}
-		if firstIdx, exists := seenNames[name]; exists {
-			return nil, fmt.Errorf("duplicate harness name %q at index %d (first defined at index %d)", name, i, firstIdx)
-		}
-		seenNames[name] = i
+	if err := l.validateHarnessNames(raw.Harnesses); err != nil {
+		return nil, err
 	}
 
 	config := &domain.Config{
@@ -150,48 +199,14 @@ func (l *YAMLLoader) convertAndValidate(raw *yamlConfig, configDir string) (*dom
 	}
 
 	if defaultWorkspace, ok := raw.Workspaces["default"]; ok {
-		var projects []domain.Project
-		seenDirs := make(map[string]bool)
-
-		for _, p := range defaultWorkspace.Projects {
-			if p.Dir == "" {
-				return nil, fmt.Errorf("project must specify a directory")
-			}
-
-			// Validate directory exists
-			info, err := os.Stat(p.Dir)
-			if err != nil {
-				if os.IsNotExist(err) {
-					return nil, fmt.Errorf("project directory does not exist: %s", p.Dir)
-				}
-				return nil, fmt.Errorf("error checking project directory %s: %w", p.Dir, err)
-			}
-			if !info.IsDir() {
-				return nil, fmt.Errorf("project path is not a directory: %s", p.Dir)
-			}
-
-			// Validate directory uniqueness
-			cleanDir := filepath.Clean(p.Dir)
-			if seenDirs[cleanDir] {
-				return nil, fmt.Errorf("duplicate project directory: %s", cleanDir)
-			}
-			seenDirs[cleanDir] = true
-
-			name := p.Name
-			if name == "" {
-				name = filepath.Base(p.Dir)
-			}
-			projects = append(projects, domain.Project{
-				Dir:  cleanDir,
-				Name: name,
-			})
+		projects, err := l.parseWorkspace(defaultWorkspace)
+		if err != nil {
+			return nil, err
 		}
 		config.Workspace = domain.Workspace{
 			Name:     "default",
 			Projects: projects,
 		}
-	} else {
-		// Backward compatibility: handled by the caller/App using beadsDir if Workspace.Projects is empty
 	}
 
 	if raw.Launcher != nil {
@@ -300,7 +315,7 @@ func (l *YAMLLoader) Save(path string, cfg *domain.Config) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

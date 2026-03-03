@@ -149,7 +149,7 @@ func (m *Metadata) detectPortFromDoltStatus(beadsDir string) (int, error) {
 	if err != nil {
 		// bd command might fail if dolt is not initialized, which is okay
 		// we'll fall back to default port
-		return 0, nil
+		return 0, nil //nolint:nilerr // Expected behavior when dolt is not initialized
 	}
 
 	outputStr := string(output)

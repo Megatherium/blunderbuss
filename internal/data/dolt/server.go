@@ -103,15 +103,15 @@ func buildServerDSN(metadata *Metadata) string {
 // StartServer attempts to start the Dolt server by running 'bd dolt start'.
 // It waits for the server to be ready by polling at fixed 500ms intervals.
 // Returns an error if the server fails to start or doesn't become ready within the timeout.
-func StartServer(beadsDir string, metadata *Metadata) error {
+func StartServer(ctx context.Context, beadsDir string, metadata *Metadata) error {
 	projectDir := filepath.Dir(beadsDir)
 	timeout := metadata.ServerReadyTimeout()
 
 	// Run 'bd dolt start' with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	startCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "bd", "dolt", "start")
+	cmd := exec.CommandContext(startCtx, "bd", "dolt", "start")
 	cmd.Dir = projectDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -123,7 +123,7 @@ func StartServer(beadsDir string, metadata *Metadata) error {
 	// Wait for the command to complete (it should daemonize)
 	if err := cmd.Wait(); err != nil {
 		// Check if it's just the context timeout (server still starting)
-		if ctx.Err() == context.DeadlineExceeded {
+		if startCtx.Err() == context.DeadlineExceeded {
 			// This is expected if the server takes time to start
 			// Continue to polling below
 		} else {
@@ -132,16 +132,21 @@ func StartServer(beadsDir string, metadata *Metadata) error {
 	}
 
 	// Poll for server readiness
-	return waitForServerReady(beadsDir, timeout)
+	return waitForServerReady(ctx, beadsDir, timeout)
 }
 
 // waitForServerReady polls the Dolt server status until it's ready or timeout.
-func waitForServerReady(beadsDir string, timeout time.Duration) error {
+func waitForServerReady(ctx context.Context, beadsDir string, timeout time.Duration) error {
 	projectDir := filepath.Dir(beadsDir)
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
-		cmd := exec.Command("bd", "dolt", "status")
+		// Check context cancellation
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		cmd := exec.CommandContext(ctx, "bd", "dolt", "status")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
