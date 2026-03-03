@@ -85,12 +85,7 @@ func (m UIModel) Init() tea.Cmd {
 					func() tea.Msg {
 						return errMsg{err}
 					},
-					func() tea.Msg {
-						if err := m.app.Registry.Load(context.Background()); err != nil {
-							return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-						}
-						return registryLoadedMsg{}
-					},
+					m.loadRegistryCmd(),
 				)
 			}
 			// Show add-project modal
@@ -98,12 +93,7 @@ func (m UIModel) Init() tea.Cmd {
 				func() tea.Msg {
 					return addProjectPromptMsg{projectPath: targetProject}
 				},
-				func() tea.Msg {
-					if err := m.app.Registry.Load(context.Background()); err != nil {
-						return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-					}
-					return registryLoadedMsg{}
-				},
+				m.loadRegistryCmd(),
 			)
 		}
 		// Project is in workspace, activate it
@@ -112,51 +102,14 @@ func (m UIModel) Init() tea.Cmd {
 				func() tea.Msg {
 					return errMsg{err}
 				},
-				func() tea.Msg {
-					if err := m.app.Registry.Load(context.Background()); err != nil {
-						return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-					}
-					return registryLoadedMsg{}
-				},
+				m.loadRegistryCmd(),
 			)
 		}
 	}
 
-	// Normal initialization flow
-	project, err := m.app.CreateProjectContext(context.Background())
-	if err != nil {
-		return tea.Batch(
-			func() tea.Msg {
-				if err := m.app.Registry.Load(context.Background()); err != nil {
-					return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-				}
-				return registryLoadedMsg{}
-			},
-			func() tea.Msg {
-				return errMsg{err}
-			},
-			discoverWorktreesCmd(m.app),
-			animationTickCmd(),
-		)
-	}
-
+	// Normal initialization flow - load registry first, then continue with tickets/worktrees
 	return tea.Batch(
-		func() tea.Msg {
-			if err := m.app.Registry.Load(context.Background()); err != nil {
-				return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
-			}
-			return registryLoadedMsg{}
-		},
-		func() tea.Msg {
-			tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
-			if err != nil {
-				return errMsg{err}
-			}
-			return ticketsLoadedMsg(tickets)
-		},
-		discoverWorktreesCmd(m.app),
-		animationTickCmd(),
-		checkTicketUpdatesCmd(project.Store(), time.Time{}),
+		m.loadRegistryCmd(),
 	)
 }
 
@@ -172,10 +125,14 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m, _ = m.handleAgentSkip()
 			}
 		}
-		return m, nil
+		return m, m.continueInitAfterRegistry()
 
 	case ticketsLoadedMsg:
-		return m.handleTicketsLoaded(msg)
+		m.lastTicketUpdate = time.Now()
+		updatedM, _ := m.handleTicketsLoaded(msg)
+		return updatedM, tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
+			return ticketUpdateCheckMsg{}
+		})
 
 	case errMsg:
 		return m.handleErrMsg(msg)
@@ -322,6 +279,8 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // activateProjectAndInit adds the project and initializes the TUI with it.
 func (m UIModel) activateProjectAndInit(projectPath string) tea.Cmd {
+	// Capture app reference explicitly to avoid confusion about what we're mutating
+	app := m.app
 	return tea.Batch(
 		func() tea.Msg {
 			// Add project to workspace
@@ -329,15 +288,15 @@ func (m UIModel) activateProjectAndInit(projectPath string) tea.Cmd {
 				Dir:  projectPath,
 				Name: filepath.Base(projectPath),
 			}
-			m.app.AddProject(project)
+			app.AddProject(project)
 
 			// Activate the project
-			if err := m.app.SetActiveProject(context.Background(), projectPath); err != nil {
+			if err := app.SetActiveProject(context.Background(), projectPath); err != nil {
 				return errMsg{err}
 			}
 
 			// Load tickets
-			projectCtx := m.app.Project()
+			projectCtx := app.Project()
 			if projectCtx == nil {
 				return errMsg{fmt.Errorf("failed to get project context")}
 			}
@@ -348,15 +307,26 @@ func (m UIModel) activateProjectAndInit(projectPath string) tea.Cmd {
 			}
 			return ticketsLoadedMsg(tickets)
 		},
-		discoverWorktreesCmd(m.app),
+		discoverWorktreesCmd(app),
 	)
 }
 
 // continueNormalInit proceeds with normal TUI initialization.
 func (m UIModel) continueNormalInit() tea.Cmd {
 	return tea.Batch(
+		m.loadRegistryCmd(),
+	)
+}
+
+// continueInitAfterRegistry loads tickets and worktrees after registry is ready.
+// This is called from registryLoadedMsg handler to ensure registry is loaded
+// before any model discovery happens.
+func (m UIModel) continueInitAfterRegistry() tea.Cmd {
+	// Capture app reference explicitly for clarity
+	app := m.app
+	return tea.Batch(
 		func() tea.Msg {
-			project, err := m.app.CreateProjectContext(context.Background())
+			project, err := app.CreateProjectContext(context.Background())
 			if err != nil {
 				return errMsg{err}
 			}
@@ -367,6 +337,18 @@ func (m UIModel) continueNormalInit() tea.Cmd {
 			}
 			return ticketsLoadedMsg(tickets)
 		},
-		discoverWorktreesCmd(m.app),
+		discoverWorktreesCmd(app),
+		animationTickCmd(),
 	)
+}
+
+// loadRegistryCmd returns a command that loads the model registry.
+// Extracted to avoid code duplication in Init().
+func (m UIModel) loadRegistryCmd() tea.Cmd {
+	return func() tea.Msg {
+		if err := m.app.Registry.Load(context.Background()); err != nil {
+			return warningMsg{err: fmt.Errorf("model discovery load failed: %w", err)}
+		}
+		return registryLoadedMsg{}
+	}
 }

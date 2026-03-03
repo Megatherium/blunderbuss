@@ -401,18 +401,34 @@ func (m UIModel) handleEnterKey() (tea.Model, tea.Cmd) {
 func (m UIModel) handleModelSkip() (UIModel, tea.Cmd) {
 	models := m.selection.Harness.SupportedModels
 
+	var warnings []string
 	expandedModels := make([]string, 0, len(models))
 	for _, model := range models {
 		switch {
 		case strings.HasPrefix(model, discovery.PrefixProvider):
 			providerID := strings.TrimPrefix(model, discovery.PrefixProvider)
 			providerModels := m.app.Registry.GetModelsForProvider(providerID)
-			expandedModels = append(expandedModels, providerModels...)
+			if len(providerModels) == 0 {
+				warnings = append(warnings, fmt.Sprintf("no models found for provider: %s (registry may not be loaded)", providerID))
+			} else {
+				expandedModels = append(expandedModels, providerModels...)
+			}
 		case model == discovery.KeywordDiscoverActive:
 			activeModels := m.app.Registry.GetActiveModels()
-			expandedModels = append(expandedModels, activeModels...)
+			if len(activeModels) == 0 {
+				warnings = append(warnings, "no active models found (check provider API keys and ensure registry is loaded)")
+			} else {
+				expandedModels = append(expandedModels, activeModels...)
+			}
 		default:
 			expandedModels = append(expandedModels, model)
+		}
+	}
+
+	var cmd tea.Cmd
+	if len(warnings) > 0 {
+		cmd = func() tea.Msg {
+			return warningMsg{err: fmt.Errorf("%s", strings.Join(warnings, "; "))}
 		}
 	}
 
@@ -426,14 +442,13 @@ func (m UIModel) handleModelSkip() (UIModel, tea.Cmd) {
 	}
 	models = uniqueModels
 
-	// Set disabled flag based on whether there are any models
 	m.modelColumnDisabled = len(models) == 0
 	if m.modelColumnDisabled {
 		m.selection.Model = ""
 	}
 	m.modelList = newModelList(models)
 	m.updateSizes()
-	return m, nil
+	return m, cmd
 }
 
 func (m UIModel) handleAgentSkip() (UIModel, tea.Cmd) {

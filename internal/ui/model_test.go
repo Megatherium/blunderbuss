@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/megatherium/blunderbust/internal/data"
+	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
@@ -592,4 +593,353 @@ func (m *mockStore) ListTickets(ctx context.Context, filter data.TicketFilter) (
 
 func (m *mockStore) Close() error {
 	return nil
+}
+
+func TestContinueNormalInit_LoadsRegistry(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{ConfigPath: "", BeadsDir: "./.beads"},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+	app.stores = make(map[string]data.TicketStore)
+	app.stores["."] = &mockStore{}
+	app.activeProject = "."
+
+	m := NewUIModel(app, nil)
+	cmd := m.continueNormalInit()
+
+	assert.NotNil(t, cmd, "continueNormalInit should return commands")
+
+	// Verify the command is actually a tea.Cmd by executing it
+	registryLoaded := cmd()
+	assert.IsType(t, registryLoadedMsg{}, registryLoaded, "Command should return registryLoadedMsg")
+}
+
+func TestContinueInitAfterRegistry_LoadsTickets(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{ConfigPath: "", BeadsDir: "./.beads"},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+	app.stores = make(map[string]data.TicketStore)
+	app.stores["."] = &mockStore{}
+	app.activeProject = "."
+
+	m := NewUIModel(app, nil)
+	cmd := m.continueInitAfterRegistry()
+
+	assert.NotNil(t, cmd, "continueInitAfterRegistry should return commands")
+}
+
+func TestRegistryLoadedMsg_HandlesTwoPhaseInit(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	harnesses := []domain.Harness{
+		{Name: "test", SupportedModels: []string{"provider:openai"}, SupportedAgents: []string{"agent"}},
+	}
+	m := NewUIModel(app, harnesses)
+
+	assert.NotNil(t, m.continueInitAfterRegistry, "continueInitAfterRegistry should return commands")
+
+	// Simulate registry loaded message
+	updatedM, cmd := m.Update(registryLoadedMsg{})
+	assert.NotNil(t, cmd, "registryLoadedMsg should trigger continueInitAfterRegistry")
+
+	m1 := updatedM.(UIModel)
+
+	// Verify harness selection is updated when registry loads
+	assert.NotNil(t, m1.selection.Harness, "Harness should be selected after registry loads")
+	assert.Equal(t, "test", m1.selection.Harness.Name, "Correct harness should be selected")
+}
+
+func TestHandleModelSkip_ReturnsWarningForUnknownProvider(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	m := NewUIModel(app, nil)
+	m.selection.Harness = domain.Harness{
+		Name:            "test-harness",
+		SupportedModels: []string{"provider:unknown-provider"},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	updatedM, cmd := m.handleModelSkip()
+	assert.NotNil(t, cmd, "handleModelSkip should return warning for unknown provider")
+
+	// Execute the command to get warningMsg
+	msg := cmd()
+	assert.IsType(t, warningMsg{}, msg, "Command should return warningMsg")
+	warning := msg.(warningMsg)
+	assert.Contains(t, warning.err.Error(), "no models found for provider: unknown-provider", "Warning should mention unknown provider")
+
+	// Model column should be disabled
+	assert.True(t, updatedM.modelColumnDisabled, "Model column should be disabled when no models found")
+}
+
+func TestHandleModelSkip_AppendsWarningsToModel(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	m := NewUIModel(app, nil)
+	m.selection.Harness = domain.Harness{
+		Name:            "test-harness",
+		SupportedModels: []string{"provider:unknown"},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	_, cmd := m.handleModelSkip()
+
+	// Execute the warning command
+	_ = cmd()
+	warning := cmd().(warningMsg)
+
+	// Verify warning is appended to m.warnings
+	assert.Contains(t, warning.err.Error(), "no models found", "Warning should be about missing models")
+}
+
+func TestHandleModelSkip_MixedDiscoveryKeywords(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	registry.SetProviders(map[string]discovery.Provider{
+		"openai": {
+			ID:   "openai",
+			Name: "OpenAI",
+			Env:  []string{},
+			Models: map[string]discovery.Model{
+				"gpt-4": {ID: "gpt-4", Name: "GPT-4"},
+			},
+		},
+	})
+
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	m := NewUIModel(app, nil)
+	m.selection.Harness = domain.Harness{
+		Name: "test-harness",
+		SupportedModels: []string{
+			"provider:openai",    // Working: returns 1 model
+			"provider:unknown",   // Failing: returns 0 models
+			"discover:active",    // Failing: no env vars set
+		},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	updatedM, cmd := m.handleModelSkip()
+	assert.NotNil(t, cmd, "handleModelSkip should return warning for failing keywords")
+
+	// Even with failing keywords, working keywords should still populate models
+	assert.False(t, updatedM.modelColumnDisabled, "Model column should be enabled since openai provider works")
+	assert.Equal(t, 1, len(updatedM.modelList.VisibleItems()), "Should have 1 model from openai provider")
+}
+
+func TestHandleModelSkip_AllDiscoveryKeywordsFail(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	m := NewUIModel(app, nil)
+	m.selection.Harness = domain.Harness{
+		Name: "test-harness",
+		SupportedModels: []string{
+			"provider:unknown1",
+			"provider:unknown2",
+			"discover:active",
+		},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	updatedM, cmd := m.handleModelSkip()
+	assert.NotNil(t, cmd, "handleModelSkip should return warning when all keywords fail")
+
+	// Model column should be disabled gracefully
+	assert.True(t, updatedM.modelColumnDisabled, "Model column should be disabled when all keywords fail")
+	assert.Empty(t, updatedM.selection.Model, "Model selection should be cleared")
+}
+
+func TestHandleModelSkip_InitializationWithEmptyRegistry(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	// Don't set any providers - registry is empty
+
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	m := NewUIModel(app, nil)
+	m.selection.Harness = domain.Harness{
+		Name: "test-harness",
+		SupportedModels: []string{"provider:anyprovider"},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	updatedM, cmd := m.handleModelSkip()
+	assert.NotNil(t, cmd, "handleModelSkip should return warning for empty registry")
+
+	// Should gracefully degrade with warning
+	assert.True(t, updatedM.modelColumnDisabled, "Model column should be disabled with empty registry")
+}
+
+func TestIntegration_RegistryLoadsBeforeHarnessSelection(t *testing.T) {
+	// This test simulates the actual flow:
+	// 1. Init() loads registry (continueNormalInit)
+	// 2. registryLoadedMsg arrives and triggers continueInitAfterRegistry()
+	// 3. User selects a harness
+	// 4. handleModelSkip() is called to expand provider: keywords
+
+	registry, _ := discovery.NewRegistry("")
+	registry.SetProviders(map[string]discovery.Provider{
+		"openai": {
+			ID:   "openai",
+			Name: "OpenAI",
+			Env:  []string{},
+			Models: map[string]discovery.Model{
+				"gpt-4": {ID: "gpt-4", Name: "GPT-4"},
+			},
+		},
+	})
+
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	harnesses := []domain.Harness{
+		{
+			Name:            "test-harness",
+			SupportedModels: []string{"provider:openai"},
+			SupportedAgents: []string{"agent1"},
+		},
+	}
+	m := NewUIModel(app, harnesses)
+
+	// Simulate the initialization flow
+	initCmd := m.continueNormalInit()
+	assert.NotNil(t, initCmd, "continueNormalInit should return a command")
+
+	// Simulate registry loaded message
+	updatedM, _ := m.Update(registryLoadedMsg{})
+	m1 := updatedM.(UIModel)
+
+	// Simulate selecting a harness
+	m1.selection.Harness = harnesses[0]
+	updatedM, cmd := m1.handleModelSkip()
+	assert.Nil(t, cmd, "handleModelSkip should not return warning for known provider")
+
+	// Model list should have openai models
+	finalM := updatedM.(UIModel)
+	assert.Equal(t, 1, len(finalM.modelList.VisibleItems()), "Should have 1 model from openai provider")
+}
+
+func TestHandleModelSkip_WithDiscoveryKeywords(t *testing.T) {
+	registry, _ := discovery.NewRegistry("")
+	registry.SetProviders(map[string]discovery.Provider{
+		"openai": {
+			ID:   "openai",
+			Name: "OpenAI",
+			Env:  []string{"OPENAI_API_KEY"},
+			Models: map[string]discovery.Model{
+				"gpt-4":         {ID: "gpt-4", Name: "GPT-4"},
+				"gpt-3.5-turbo": {ID: "gpt-3.5-turbo", Name: "GPT-3.5 Turbo"},
+			},
+		},
+	})
+
+	app := &App{
+		loader:        mockConfigLoader{},
+		Registry:      registry,
+		opts:          domain.AppOptions{},
+		launcher:      nil,
+		statusChecker: nil,
+		runner:        nil,
+		Renderer:      nil,
+	}
+
+	m := NewUIModel(app, nil)
+	m.selection.Harness = domain.Harness{
+		Name:            "test-harness",
+		SupportedModels: []string{"provider:openai", "discover:active"},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	updatedM, cmd := m.handleModelSkip()
+	assert.NotNil(t, cmd, "handleModelSkip should return a warning command when discover:active returns no models")
+
+	assert.False(t, updatedM.modelColumnDisabled, "Model column should be enabled since provider:openai returns models")
+	assert.Equal(t, 2, len(updatedM.modelList.VisibleItems()), "Should have 2 models from openai provider")
+}
+
+func TestHandleModelSkip_WithHardcodedModels(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+
+	m.selection.Harness = domain.Harness{
+		Name:            "test-harness",
+		SupportedModels: []string{"openai/gpt-4", "anthropic/claude-3-opus"},
+		SupportedAgents: []string{"agent1"},
+	}
+
+	updatedM, cmd := m.handleModelSkip()
+	assert.Nil(t, cmd, "handleModelSkip should not return a command for hardcoded models")
+
+	assert.False(t, updatedM.modelColumnDisabled, "Model column should be enabled with hardcoded models")
+	assert.Equal(t, 2, len(updatedM.modelList.VisibleItems()), "Should have 2 models in the list")
 }
