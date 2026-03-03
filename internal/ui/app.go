@@ -276,5 +276,30 @@ func (a *App) AddProject(project domain.Project) {
 			return // Already exists
 		}
 	}
+
+	// Deduplicate project name if collision exists
+	project.Name = a.deduplicateProjectName(project.Name)
+
 	a.projects = append(a.projects, project)
+}
+
+// deduplicateProjectName ensures unique project names by adding counter suffix
+func (a *App) deduplicateProjectName(name string) string {
+	existingNames := make(map[string]bool)
+	for _, p := range a.projects {
+		existingNames[p.Name] = true
+	}
+
+	if !existingNames[name] {
+		return name
+	}
+
+	// Find unique suffix
+	counter := 1
+	candidate := fmt.Sprintf("%s-%d", name, counter)
+	for existingNames[candidate] {
+		counter++
+		candidate = fmt.Sprintf("%s-%d", name, counter)
+	}
+	return candidate
 }
