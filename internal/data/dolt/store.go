@@ -20,9 +20,12 @@ import (
 
 // Store implements data.TicketStore using Dolt.
 type Store struct {
-	db     *sql.DB
-	mode   Mode
-	closed bool
+	db         *sql.DB
+	mode       Mode
+	closed     bool
+	beadsDir   string
+	metadata    *Metadata
+	autostart  bool
 }
 
 // Verify interface compliance at compile time.
@@ -75,10 +78,10 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 				fmt.Fprintf(os.Stderr, "Auto-detected Dolt server port: %d\n", resolvedPort)
 			}
 		}
-		store, err := newServerStore(ctx, beadsDir, metadata)
+		store, err := newServerStore(ctx, beadsDir, metadata, autostart)
 		if err != nil {
 			// Check if it's a connection error
-			if isConnectionError(err) {
+			if IsConnectionError(err) {
 				if autostart {
 					if opts.Debug {
 						fmt.Fprintf(os.Stderr, "Dolt server not running, attempting to start...\n")
@@ -87,7 +90,7 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 						return nil, fmt.Errorf("failed to auto-start dolt server: %w", startErr)
 					}
 					// Retry connection after starting server
-					return newServerStore(ctx, beadsDir, metadata)
+					return newServerStore(ctx, beadsDir, metadata, autostart)
 				}
 				// Autostart is disabled, return special error
 				return nil, &ErrServerNotRunning{
@@ -101,14 +104,14 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 		if opts.Debug {
 			fmt.Fprintf(os.Stderr, "Dolt embedded mode enabled\n")
 		}
-		return newEmbeddedStore(ctx, beadsDir, metadata)
+		return newEmbeddedStore(ctx, beadsDir, metadata, autostart)
 	default:
 		return nil, fmt.Errorf("unknown connection mode: %v", metadata.ConnectionMode())
 	}
 }
 
-// isConnectionError returns true if the error indicates the server is not running.
-func isConnectionError(err error) bool {
+// IsConnectionError returns true if the error indicates the server is not running.
+func IsConnectionError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -133,6 +136,32 @@ func (s *Store) DB() *sql.DB {
 	return s.db
 }
 
+// CanRetryConnection returns true if this is a server-mode store that
+// supports connection retry and server restart.
+func (s *Store) CanRetryConnection() bool {
+	return s.mode == ServerMode
+}
+
+// AutostartEnabled returns whether autostart is enabled for this store.
+func (s *Store) AutostartEnabled() bool {
+	return s.autostart
+}
+
+// TryStartServer attempts to start the Dolt server and re-establish
+// a new connection to it. Returns a new Store instance if successful.
+func (s *Store) TryStartServer(ctx context.Context) (*Store, error) {
+	if s.mode != ServerMode {
+		return nil, fmt.Errorf("cannot start server for embedded mode")
+	}
+	
+	if startErr := StartServer(s.beadsDir, s.metadata); startErr != nil {
+		return nil, fmt.Errorf("failed to start dolt server: %w", startErr)
+	}
+	
+	// Create new store with fresh connection
+	return newServerStore(ctx, s.beadsDir, s.metadata, s.autostart)
+}
+
 // ListTickets queries the ready_issues view and returns tickets matching the filter.
 func (s *Store) ListTickets(ctx context.Context, filter data.TicketFilter) ([]domain.Ticket, error) {
 	if s.closed {
@@ -143,6 +172,17 @@ func (s *Store) ListTickets(ctx context.Context, filter data.TicketFilter) ([]do
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
+		if s.mode == ServerMode && IsConnectionError(err) {
+			// Return a more descriptive error that wraps the connection failure
+			if s.autostart {
+				return nil, &ErrServerNotRunning{
+					Message: "Dolt server connection failed. Would you like to restart it?",
+				}
+			}
+			return nil, &ErrServerNotRunning{
+				Message: "Dolt server connection failed. Please check that it's running.",
+			}
+		}
 		return nil, fmt.Errorf("failed to query tickets: %w", err)
 	}
 	defer rows.Close()

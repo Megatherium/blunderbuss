@@ -16,6 +16,22 @@ import (
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
+func startServerAndRetryCmd(app *App, store *dolt.Store) tea.Cmd {
+	return func() tea.Msg {
+		if app == nil || store == nil {
+			return errMsg{err: fmt.Errorf("invalid app or store for retry")}
+		}
+		
+		// Try to start the server
+		newStore, err := store.TryStartServer(context.Background())
+		if err != nil {
+			return errMsg{err: err}
+		}
+		
+		return serverStartedMsg{store: newStore}
+	}
+}
+
 func loadTicketsCmd(store data.TicketStore) tea.Cmd {
 	return func() tea.Msg {
 		tickets, err := store.ListTickets(context.Background(), data.TicketFilter{})
@@ -195,6 +211,12 @@ func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time) tea.Cmd
 		var dbUpdate time.Time
 		err := doltStore.DB().QueryRow("SELECT MAX(updated_at) FROM ready_issues").Scan(&dbUpdate)
 		if err != nil {
+			// Check if this is a connection error
+			if doltStore.CanRetryConnection() && dolt.IsConnectionError(err) {
+				// Return error message to trigger recovery UI
+				return errMsg{err: err}
+			}
+			// If not retryable, continue polling silently
 			return tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
 				return ticketUpdateCheckMsg{}
 			})

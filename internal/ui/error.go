@@ -22,7 +22,7 @@ var (
 )
 
 // errorView renders an error screen with actionable messaging.
-func errorView(err error) string {
+func errorView(err error, hasRetry bool, hasStart bool) string {
 	if err == nil {
 		return "An unknown error occurred"
 	}
@@ -53,9 +53,7 @@ func errorView(err error) string {
 		b.WriteString("Please check that the Dolt server is running and the connection details are correct.")
 
 	case dolt.IsErrServerNotRunning(err):
-		b.WriteString(errorStyle.Render("Dolt server is not running."))
-		b.WriteString("\n\n")
-		b.WriteString("Start dolt server? [y/N]")
+		b.WriteString(errorStyle.Render(errStr))
 
 	case strings.Contains(errStr, "connection refused"):
 		b.WriteString(errorStyle.Render("Connection refused."))
@@ -68,7 +66,21 @@ func errorView(err error) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("\nPress 'q' to quit."))
+	
+	var helpParts []string
+	if hasRetry {
+		helpParts = append(helpParts, "[r] Retry connection")
+	}
+	if hasStart {
+		helpParts = append(helpParts, "[s] Start server")
+	}
+	helpParts = append(helpParts, "[q] Quit")
+	
+	if len(helpParts) > 0 {
+		b.WriteString(helpStyle.Render("\n" + strings.Join(helpParts, "  ")))
+	} else {
+		b.WriteString(helpStyle.Render("\nPress 'q' to quit."))
+	}
 
 	return b.String()
 }

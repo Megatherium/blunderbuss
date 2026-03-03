@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
@@ -78,7 +79,15 @@ func (m UIModel) renderMainContent() string {
 	case ViewStateConfirm:
 		s = confirmView(m.selection, m.app.Renderer, m.app.opts.DryRun, m.selectedWorktree, m.currentTheme)
 	case ViewStateError:
-		s = errorView(m.err)
+		hasRetry := false
+		hasStart := false
+		if m.retryStore != nil {
+			hasRetry = true
+			if doltStore, ok := m.retryStore.(*dolt.Store); ok {
+				hasStart = doltStore.CanRetryConnection()
+			}
+		}
+		s = errorView(m.err, hasRetry, hasStart)
 	}
 
 	if m.showModal {

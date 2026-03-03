@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/megatherium/blunderbust/internal/domain"
+import (
+	"github.com/megatherium/blunderbust/internal/data"
+	"github.com/megatherium/blunderbust/internal/domain"
+)
 
 type ticketsLoadedMsg []domain.Ticket
 
@@ -63,5 +66,9 @@ type ticketsAutoRefreshedMsg struct{}
 type clearRefreshIndicatorMsg struct{}
 
 type refreshAnimationTickMsg struct{}
+
+type serverStartedMsg struct {
+	store data.TicketStore
+}
 
 func (e errMsg) Error() string { return e.err.Error() }

@@ -23,7 +23,7 @@ import (
 // Uses standard MySQL driver for remote connections.
 // Note: beadsDir parameter is unused in server mode since we connect to a
 // remote server rather than a local database directory.
-func newServerStore(ctx context.Context, _ string, metadata *Metadata) (*Store, error) {
+func newServerStore(ctx context.Context, beadsDir string, metadata *Metadata, autostart bool) (*Store, error) {
 	// Build MySQL DSN
 	dsn := buildServerDSN(metadata)
 
@@ -57,8 +57,11 @@ func newServerStore(ctx context.Context, _ string, metadata *Metadata) (*Store, 
 	}
 
 	return &Store{
-		db:   db,
-		mode: ServerMode,
+		db:        db,
+		mode:      ServerMode,
+		beadsDir:  beadsDir,
+		metadata:  metadata,
+		autostart: autostart,
 	}, nil
 }
 

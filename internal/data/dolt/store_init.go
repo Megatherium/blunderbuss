@@ -13,7 +13,7 @@ import (
 	"fmt"
 )
 
-func newEmbeddedStore(ctx context.Context, beadsDir string, metadata *Metadata) (*Store, error) {
+func newEmbeddedStore(ctx context.Context, beadsDir string, metadata *Metadata, autostart bool) (*Store, error) {
 	return nil, fmt.Errorf(
 		"embedded Dolt mode is not available in this build. " +
 			"Rebuild with 'make build-full' or 'go build -tags=embedded ./cmd/blunderbust', " +

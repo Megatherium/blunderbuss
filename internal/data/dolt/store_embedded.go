@@ -18,7 +18,7 @@ import (
 	_ "github.com/dolthub/driver"
 )
 
-func newEmbeddedStore(ctx context.Context, beadsDir string, metadata *Metadata) (*Store, error) {
+func newEmbeddedStore(ctx context.Context, beadsDir string, metadata *Metadata, autostart bool) (*Store, error) {
 	doltPath := DoltDir(beadsDir)
 
 	if _, err := os.Stat(doltPath); os.IsNotExist(err) {
@@ -64,7 +64,10 @@ func newEmbeddedStore(ctx context.Context, beadsDir string, metadata *Metadata) 
 	}
 
 	return &Store{
-		db:   db,
-		mode: EmbeddedMode,
+		db:        db,
+		mode:      EmbeddedMode,
+		beadsDir:  beadsDir,
+		metadata:  metadata,
+		autostart: autostart,
 	}, nil
 }

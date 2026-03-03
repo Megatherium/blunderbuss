@@ -148,6 +148,15 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case serverStartedMsg:
+		// Update the store in the app
+		activeProject := m.app.activeProject
+		if activeProject != "" {
+			m.app.stores[activeProject] = msg.store
+		}
+		// Now reload tickets with the new store
+		return m, loadTicketsCmd(msg.store)
+
 	case ticketsLoadedMsg:
 		return m.handleTicketsLoaded(msg)
 
