@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/megatherium/blunderbust/internal/domain"
@@ -370,4 +371,103 @@ func TestSidebarModel_RenderHarnessName_NilInfo(t *testing.T) {
 
 	name := m.renderHarnessName(node, "harness-1", false)
 	assert.Equal(t, "harness-1", name)
+}
+
+func TestSidebarModel_Update_EmitsAgentHoverMessages(t *testing.T) {
+	m := NewSidebarModel()
+	m.SetFocused(true)
+
+	nodes := []domain.SidebarNode{
+		{
+			ID:         "project",
+			Name:       "Project",
+			Path:       "/tmp/project",
+			Type:       domain.NodeTypeProject,
+			IsExpanded: true,
+			Children: []domain.SidebarNode{
+				{ID: "wt1", Name: "main", Path: "/tmp/project/main", Type: domain.NodeTypeWorktree},
+				{
+					ID:   "a1",
+					Name: "bb-1",
+					Path: "agent:a1",
+					Type: domain.NodeTypeAgent,
+					AgentInfo: &domain.AgentInfo{
+						ID: "a1",
+					},
+				},
+			},
+		},
+	}
+	m, _ = m.Update(SidebarNodesMsg{Nodes: nodes})
+
+	// project -> worktree: no hover message
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.Nil(t, cmd)
+
+	// worktree -> agent: AgentHoveredMsg
+	m, cmd = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.NotNil(t, cmd)
+	msg := cmd()
+	hovered, ok := msg.(AgentHoveredMsg)
+	assert.True(t, ok)
+	assert.Equal(t, "a1", hovered.AgentID)
+
+	// agent -> worktree: AgentHoverEndedMsg
+	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	assert.NotNil(t, cmd)
+	msg = cmd()
+	_, ok = msg.(AgentHoverEndedMsg)
+	assert.True(t, ok)
+}
+
+func TestSidebarModel_Update_EmitsHoverOnRapidAgentSwitch(t *testing.T) {
+	m := NewSidebarModel()
+	m.SetFocused(true)
+
+	nodes := []domain.SidebarNode{
+		{
+			ID:         "project",
+			Name:       "Project",
+			Path:       "/tmp/project",
+			Type:       domain.NodeTypeProject,
+			IsExpanded: true,
+			Children: []domain.SidebarNode{
+				{
+					ID:   "a1",
+					Name: "bb-1",
+					Path: "agent:a1",
+					Type: domain.NodeTypeAgent,
+					AgentInfo: &domain.AgentInfo{
+						ID: "a1",
+					},
+				},
+				{
+					ID:   "a2",
+					Name: "bb-2",
+					Path: "agent:a2",
+					Type: domain.NodeTypeAgent,
+					AgentInfo: &domain.AgentInfo{
+						ID: "a2",
+					},
+				},
+			},
+		},
+	}
+	m, _ = m.Update(SidebarNodesMsg{Nodes: nodes})
+
+	// project -> agent a1
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.NotNil(t, cmd)
+	msg := cmd()
+	hovered, ok := msg.(AgentHoveredMsg)
+	assert.True(t, ok)
+	assert.Equal(t, "a1", hovered.AgentID)
+
+	// agent a1 -> agent a2 should emit AgentHoveredMsg for a2
+	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.NotNil(t, cmd)
+	msg = cmd()
+	hovered, ok = msg.(AgentHoveredMsg)
+	assert.True(t, ok)
+	assert.Equal(t, "a2", hovered.AgentID)
 }

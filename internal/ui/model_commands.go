@@ -192,6 +192,7 @@ func saveRunningAgentCmd(app *App, spec *domain.LaunchSpec, result *domain.Launc
 			TmuxSession:   result.TmuxSession,
 			WindowName:    result.WindowName,
 			Ticket:        spec.Selection.Ticket.ID,
+			TicketTitle:   spec.Selection.Ticket.Title,
 			HarnessName:   spec.Selection.Harness.Name,
 			HarnessBinary: harnessBinary,
 			Model:         spec.Selection.Model,

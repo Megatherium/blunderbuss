@@ -104,6 +104,10 @@ type AgentInfo struct {
 	Status       AgentStatus
 	StartedAt    time.Time
 	TicketID     string
+	TicketTitle  string
+	HarnessName  string
+	ModelName    string
+	AgentName    string
 }
 
 // SidebarState manages the state of the sidebar tree including

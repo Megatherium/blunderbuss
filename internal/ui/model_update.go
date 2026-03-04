@@ -232,6 +232,10 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 			Status:       domain.AgentRunning,
 			StartedAt:    time.Now(),
 			TicketID:     selection.Ticket.ID,
+			TicketTitle:  selection.Ticket.Title,
+			HarnessName:  selection.Harness.Name,
+			ModelName:    selection.Model,
+			AgentName:    selection.Agent,
 		}
 
 		// Start output capture
@@ -777,6 +781,10 @@ func (m UIModel) handleRunningAgentsLoaded(msg runningAgentsLoadedMsg) (tea.Mode
 			Status:       domain.AgentRunning,
 			StartedAt:    persisted.StartedAt,
 			TicketID:     persisted.Ticket,
+			TicketTitle:  persisted.TicketTitle,
+			HarnessName:  persisted.HarnessName,
+			ModelName:    persisted.Model,
+			AgentName:    persisted.Agent,
 		}
 		m.agents[agentID] = &RunningAgent{Info: info}
 		addAgentNodeToSidebar(&m, info)
@@ -808,10 +816,16 @@ func (m UIModel) handleWorktreeSelected(msg WorktreeSelectedMsg) (tea.Model, tea
 
 func addAgentNodeToSidebar(m *UIModel, agentInfo *domain.AgentInfo) {
 	state := m.sidebar.State()
+	prevPath := ""
+	if node := state.CurrentNode(); node != nil {
+		prevPath = node.Path
+	}
+
 	for i := range state.Nodes {
 		addAgentToProject(&state.Nodes[i], agentInfo)
 	}
 	state.RebuildFlatNodes()
+	restoreSidebarCursorByPath(state, prevPath)
 }
 
 func addAgentToProject(projectNode *domain.SidebarNode, agentInfo *domain.AgentInfo) {
@@ -865,8 +879,19 @@ func updateAgentNodeStatus(m *UIModel, agentID string, status domain.AgentStatus
 	}
 }
 
+func (m UIModel) handleAgentHovered(msg AgentHoveredMsg) (tea.Model, tea.Cmd) {
+	m.hoveredAgentID = msg.AgentID
+	return m, nil
+}
+
+func (m UIModel) handleAgentHoverEnded(msg AgentHoverEndedMsg) (tea.Model, tea.Cmd) {
+	m.hoveredAgentID = ""
+	return m, nil
+}
+
 func (m UIModel) handleAgentSelected(msg AgentSelectedMsg) (tea.Model, tea.Cmd) {
 	m.viewingAgentID = msg.AgentID
+	m.hoveredAgentID = ""
 
 	var readOutputCmd tea.Cmd
 	if agent, ok := m.agents[msg.AgentID]; ok {
@@ -922,6 +947,9 @@ func (m UIModel) handleAgentOutput(msg agentOutputMsg) (tea.Model, tea.Cmd) {
 func (m UIModel) handleAgentCleared(msg AgentClearedMsg) (tea.Model, tea.Cmd) {
 	// Remove from agents map
 	delete(m.agents, msg.AgentID)
+	if m.hoveredAgentID == msg.AgentID {
+		m.hoveredAgentID = ""
+	}
 
 	// If we were viewing this agent, stop viewing
 	if m.viewingAgentID == msg.AgentID {
@@ -940,6 +968,9 @@ func (m UIModel) handleAllStoppedAgentsCleared(msg AllStoppedAgentsClearedMsg) (
 		if m.viewingAgentID == id {
 			m.viewingAgentID = ""
 		}
+		if m.hoveredAgentID == id {
+			m.hoveredAgentID = ""
+		}
 	}
 
 	// Rebuild sidebar to remove all cleared agents
@@ -949,10 +980,16 @@ func (m UIModel) handleAllStoppedAgentsCleared(msg AllStoppedAgentsClearedMsg) (
 
 func removeAgentNodeFromSidebar(m *UIModel, agentID string) {
 	state := m.sidebar.State()
+	prevPath := ""
+	if node := state.CurrentNode(); node != nil {
+		prevPath = node.Path
+	}
+
 	for i := range state.Nodes {
 		removeAgentFromProject(&state.Nodes[i], agentID)
 	}
 	state.RebuildFlatNodes()
+	restoreSidebarCursorByPath(state, prevPath)
 }
 
 func removeAgentFromProject(projectNode *domain.SidebarNode, agentID string) {
@@ -973,10 +1010,32 @@ func removeAgentFromProject(projectNode *domain.SidebarNode, agentID string) {
 
 func rebuildAgentNodesInSidebar(m *UIModel) {
 	state := m.sidebar.State()
+	prevPath := ""
+	if node := state.CurrentNode(); node != nil {
+		prevPath = node.Path
+	}
+
 	for i := range state.Nodes {
 		rebuildAgentsInProject(&state.Nodes[i], m.agents)
 	}
 	state.RebuildFlatNodes()
+	restoreSidebarCursorByPath(state, prevPath)
+}
+
+func restoreSidebarCursorByPath(state *domain.SidebarState, path string) {
+	if path == "" {
+		return
+	}
+	if state.SelectByPath(path) {
+		return
+	}
+	if len(state.FlatNodes) == 0 {
+		state.Cursor = 0
+		return
+	}
+	if state.Cursor >= len(state.FlatNodes) {
+		state.Cursor = len(state.FlatNodes) - 1
+	}
 }
 
 func rebuildAgentsInProject(projectNode *domain.SidebarNode, agents map[string]*RunningAgent) {

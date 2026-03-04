@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS running_agents (
     tmux_session VARCHAR(100) NOT NULL,
     window_name VARCHAR(100),
     ticket VARCHAR(100),
+    ticket_title TEXT,
     harness_name VARCHAR(50) NOT NULL,
     harness_binary VARCHAR(100),
     model VARCHAR(50),
@@ -64,6 +65,9 @@ CREATE TABLE IF NOT EXISTS running_agents (
 	_, err := s.db.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to ensure running_agents table: %w", err)
+	}
+	if err := ensureRunningAgentsTicketTitleColumn(ctx, s); err != nil {
+		return err
 	}
 
 	const ignoreQuery = `
@@ -91,13 +95,14 @@ func (s *Store) UpsertRunningAgent(ctx context.Context, a domain.PersistedRunnin
 	}
 	const query = `
 INSERT INTO running_agents (
-	project_dir, worktree_path, pid, tmux_session, window_name, ticket,
+	project_dir, worktree_path, pid, tmux_session, window_name, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON DUPLICATE KEY UPDATE
 	tmux_session = VALUES(tmux_session),
 	window_name = VALUES(window_name),
 	ticket = VALUES(ticket),
+	ticket_title = VALUES(ticket_title),
 	harness_name = VALUES(harness_name),
 	harness_binary = VALUES(harness_binary),
 	model = VALUES(model),
@@ -110,6 +115,7 @@ ON DUPLICATE KEY UPDATE
 		a.TmuxSession,
 		a.WindowName,
 		a.Ticket,
+		a.TicketTitle,
 		a.HarnessName,
 		a.HarnessBinary,
 		a.Model,
@@ -139,7 +145,7 @@ func (s *Store) ListRunningAgentsByProjects(ctx context.Context, projectDirs []s
 
 	query := fmt.Sprintf(`
 SELECT
-	id, project_dir, worktree_path, pid, tmux_session, window_name, ticket,
+	id, project_dir, worktree_path, pid, tmux_session, window_name, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
 FROM running_agents
 WHERE project_dir IN (%s)
@@ -162,6 +168,7 @@ ORDER BY started_at DESC`, strings.Join(placeholders, ", "))
 			&a.TmuxSession,
 			&a.WindowName,
 			&a.Ticket,
+			&a.TicketTitle,
 			&a.HarnessName,
 			&a.HarnessBinary,
 			&a.Model,
@@ -177,6 +184,22 @@ ORDER BY started_at DESC`, strings.Join(placeholders, ", "))
 		return nil, fmt.Errorf("failed iterating running agent rows: %w", err)
 	}
 	return agents, nil
+}
+
+func ensureRunningAgentsTicketTitleColumn(ctx context.Context, s *Store) error {
+	_, err := s.db.ExecContext(ctx, `ALTER TABLE running_agents ADD COLUMN ticket_title TEXT`)
+	if err == nil {
+		return nil
+	}
+	// Column already exists on upgraded/newer schemas. Dolt/MySQL variants:
+	// - "Duplicate column name 'ticket_title'"
+	// - `Column "ticket_title" already exists`
+	errMsg := strings.ToLower(err.Error())
+	if strings.Contains(errMsg, "duplicate column name") ||
+		(strings.Contains(errMsg, "ticket_title") && strings.Contains(errMsg, "already exists")) {
+		return nil
+	}
+	return fmt.Errorf("failed to ensure running_agents.ticket_title column: %w", err)
 }
 
 // ValidateAndPruneRunningAgents validates running agents and removes invalid rows.

@@ -38,6 +38,32 @@ func TestStore_EnsureRunningAgentsTable(t *testing.T) {
 	store := &Store{db: db}
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS running_agents").
 		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("ALTER TABLE running_agents ADD COLUMN ticket_title TEXT").
+		WillReturnError(errors.New("Error 1060: Duplicate column name 'ticket_title'"))
+	mock.ExpectExec("INSERT INTO dolt_ignore").
+		WithArgs().
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	if err := store.EnsureRunningAgentsTable(context.Background()); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled expectations: %v", err)
+	}
+}
+
+func TestStore_EnsureRunningAgentsTable_ColumnAlreadyExistsVariant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock: %v", err)
+	}
+	defer db.Close()
+
+	store := &Store{db: db}
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS running_agents").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("ALTER TABLE running_agents ADD COLUMN ticket_title TEXT").
+		WillReturnError(errors.New(`Error 1105 (HY000): Column "ticket_title" already exists`))
 	mock.ExpectExec("INSERT INTO dolt_ignore").
 		WithArgs().
 		WillReturnResult(sqlmock.NewResult(0, 0))
@@ -65,6 +91,7 @@ func TestStore_UpsertRunningAgent(t *testing.T) {
 		TmuxSession:   "s0",
 		WindowName:    "bb-1",
 		Ticket:        "bb-1",
+		TicketTitle:   "Test ticket",
 		HarnessName:   "kilocode",
 		HarnessBinary: "kilo",
 		Model:         "m",
@@ -72,7 +99,7 @@ func TestStore_UpsertRunningAgent(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO running_agents").
-		WithArgs("/repo", "/repo", 1234, "s0", "bb-1", "bb-1", "kilocode", "kilo", "m", "a").
+		WithArgs("/repo", "/repo", 1234, "s0", "bb-1", "bb-1", "Test ticket", "kilocode", "kilo", "m", "a").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	if err := store.UpsertRunningAgent(context.Background(), agent); err != nil {
@@ -93,13 +120,13 @@ func TestStore_ListRunningAgentsByProjects(t *testing.T) {
 	store := &Store{db: db}
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{
-		"id", "project_dir", "worktree_path", "pid", "tmux_session", "window_name", "ticket",
+		"id", "project_dir", "worktree_path", "pid", "tmux_session", "window_name", "ticket", "ticket_title",
 		"harness_name", "harness_binary", "model", "agent", "started_at", "last_seen",
-	}).AddRow(1, "/repo", "/repo", 555, "s0", "bb-1", "bb-1", "kilocode", "kilo", "m", "a", now, now)
+	}).AddRow(1, "/repo", "/repo", 555, "s0", "bb-1", "bb-1", "Title 1", "kilocode", "kilo", "m", "a", now, now)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT
-	id, project_dir, worktree_path, pid, tmux_session, window_name, ticket,
+	id, project_dir, worktree_path, pid, tmux_session, window_name, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
 FROM running_agents
 WHERE project_dir IN (?)
@@ -113,6 +140,9 @@ ORDER BY started_at DESC`)).
 	}
 	if len(got) != 1 || got[0].PID != 555 {
 		t.Fatalf("unexpected rows: %+v", got)
+	}
+	if got[0].TicketTitle != "Title 1" {
+		t.Fatalf("expected ticket title to be restored, got %q", got[0].TicketTitle)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unfulfilled expectations: %v", err)
@@ -129,12 +159,12 @@ func TestStore_ValidateAndPruneRunningAgents(t *testing.T) {
 	store := &Store{db: db}
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{
-		"id", "project_dir", "worktree_path", "pid", "tmux_session", "window_name", "ticket",
+		"id", "project_dir", "worktree_path", "pid", "tmux_session", "window_name", "ticket", "ticket_title",
 		"harness_name", "harness_binary", "model", "agent", "started_at", "last_seen",
 	}).
-		AddRow(1, "/repo", "/repo", 101, "s0", "bb-1", "bb-1", "kilocode", "kilo", "m", "a", now, now).
-		AddRow(2, "/repo", "/repo", 202, "s0", "bb-2", "bb-2", "codex", "codex", "m", "a", now, now).
-		AddRow(3, "/repo", "/repo", 303, "s0", "bb-3", "bb-3", "codex", "codex", "m", "a", now, now)
+		AddRow(1, "/repo", "/repo", 101, "s0", "bb-1", "bb-1", "Title 1", "kilocode", "kilo", "m", "a", now, now).
+		AddRow(2, "/repo", "/repo", 202, "s0", "bb-2", "bb-2", "Title 2", "codex", "codex", "m", "a", now, now).
+		AddRow(3, "/repo", "/repo", 303, "s0", "bb-3", "bb-3", "Title 3", "codex", "codex", "m", "a", now, now)
 
 	mock.ExpectQuery("FROM running_agents").
 		WithArgs("/repo").

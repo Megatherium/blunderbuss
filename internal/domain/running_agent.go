@@ -11,6 +11,7 @@ type PersistedRunningAgent struct {
 	TmuxSession   string
 	WindowName    string
 	Ticket        string
+	TicketTitle   string
 	HarnessName   string
 	HarnessBinary string
 	Model         string

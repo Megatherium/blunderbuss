@@ -276,6 +276,50 @@ func TestUIModel_HandleWorktreesDiscovered_InitialSelection(t *testing.T) {
 	assert.Len(t, updatedM.warnings, 0)
 }
 
+func TestHandleWorktreesDiscovered_PreservesCursorWhenReaddingAgents(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+
+	m.agents["agent-1"] = &RunningAgent{
+		Info: &domain.AgentInfo{
+			ID:           "agent-1",
+			Name:         "bb-1",
+			WorktreePath: "/repo/wt-1",
+			Status:       domain.AgentRunning,
+			TicketID:     "bb-1",
+			HarnessName:  "h1",
+			ModelName:    "m1",
+			AgentName:    "a1",
+		},
+	}
+
+	nodes := []domain.SidebarNode{
+		{
+			Type: domain.NodeTypeProject,
+			Name: "project",
+			Path: "/repo",
+			Children: []domain.SidebarNode{
+				{Type: domain.NodeTypeWorktree, Name: "wt-1", Path: "/repo/wt-1"},
+				{Type: domain.NodeTypeWorktree, Name: "wt-2", Path: "/repo/wt-2"},
+			},
+		},
+	}
+
+	m.sidebar, _ = m.sidebar.Update(SidebarNodesMsg{Nodes: nodes})
+	m.sidebar.State().MoveDown() // /repo/wt-1
+	m.sidebar.State().MoveDown() // /repo/wt-2
+	requirePath := m.sidebar.State().CurrentNode()
+	assert.NotNil(t, requirePath)
+	assert.Equal(t, "/repo/wt-2", requirePath.Path)
+
+	updatedModel, _ := m.handleWorktreesDiscovered(worktreesDiscoveredMsg{nodes: nodes})
+	updated := updatedModel.(UIModel)
+
+	node := updated.sidebar.State().CurrentNode()
+	assert.NotNil(t, node)
+	assert.Equal(t, "/repo/wt-2", node.Path)
+}
+
 func TestUIModel_HandleWorktreesDiscovered_MultipleProjects(t *testing.T) {
 	app := newTestApp()
 	m := NewUIModel(app, nil)
@@ -1338,4 +1382,114 @@ func TestHandleTicketsLoaded_StoreError(t *testing.T) {
 	errItem, ok := visibleItems[0].(errorItem)
 	assert.True(t, ok, "First item should be errorItem")
 	assert.Contains(t, errItem.Title(), "Couldn't load ticket list")
+}
+
+func TestBuildMatrixConfig_UsesMaterializedLaunchContextForAgentNode(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+
+	m.hoveredAgentID = "bb-123"
+	m.agents["bb-123"] = &RunningAgent{
+		Info: &domain.AgentInfo{
+			ID:          "bb-123",
+			TicketID:    "bb-123",
+			TicketTitle: "Fix hover tracking",
+			HarnessName: "default-harness",
+			ModelName:   "gpt-4",
+			AgentName:   "claude",
+		},
+	}
+
+	cfg := m.buildMatrixConfig()
+	assert.Equal(t, "bb-123: Fix hover tracking", cfg.TicketView)
+	assert.Equal(t, "default-harness", cfg.HarnessView)
+	assert.Equal(t, "gpt-4", cfg.ModelView)
+	assert.Equal(t, "claude", cfg.AgentView)
+	assert.False(t, cfg.ModelColumnDisabled)
+	assert.False(t, cfg.AgentColumnDisabled)
+}
+
+func TestBuildMatrixConfig_KeepsLiveListsWhenCursorNotOnAgent(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+	m.hoveredAgentID = ""
+
+	expectedTicketView := m.ticketList.View()
+	expectedHarnessView := m.harnessList.View()
+	expectedModelView := m.modelList.View()
+	expectedAgentView := m.agentList.View()
+
+	cfg := m.buildMatrixConfig()
+	assert.Equal(t, expectedTicketView, cfg.TicketView)
+	assert.Equal(t, expectedHarnessView, cfg.HarnessView)
+	assert.Equal(t, expectedModelView, cfg.ModelView)
+	assert.Equal(t, expectedAgentView, cfg.AgentView)
+}
+
+func TestBuildMatrixConfig_KeepsLiveListsWhenHoverEnds(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+
+	hoveredTicket := "bb-hovered"
+	m.hoveredAgentID = "agent-1"
+	m.agents["agent-1"] = &RunningAgent{
+		Info: &domain.AgentInfo{
+			ID:          "agent-1",
+			TicketID:    hoveredTicket,
+			TicketTitle: "Hovered title",
+		},
+	}
+
+	cfgHovered := m.buildMatrixConfig()
+	assert.Equal(t, "bb-hovered: Hovered title", cfgHovered.TicketView)
+
+	endedModel, _ := m.handleAgentHoverEnded(AgentHoverEndedMsg{})
+	m = endedModel.(UIModel)
+	cfgNormal := m.buildMatrixConfig()
+	assert.Equal(t, m.ticketList.View(), cfgNormal.TicketView)
+}
+
+func TestHandleRunningAgentsLoaded_RestoresMaterializedLaunchContext(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+
+	msg := runningAgentsLoadedMsg{
+		agents: []domain.PersistedRunningAgent{
+			{
+				ID:           1,
+				PID:          42,
+				WindowName:   "agent-window",
+				Ticket:       "bb-999",
+				TicketTitle:  "Persisted title",
+				WorktreePath: "/repo/wt",
+				HarnessName:  "h1",
+				Model:        "m1",
+				Agent:        "a1",
+				StartedAt:    time.Now(),
+			},
+		},
+	}
+
+	newModel, _ := m.handleRunningAgentsLoaded(msg)
+	updated := newModel.(UIModel)
+
+	info := updated.agents["agent-window:42"].Info
+	assert.Equal(t, "bb-999", info.TicketID)
+	assert.Equal(t, "Persisted title", info.TicketTitle)
+	assert.Equal(t, "h1", info.HarnessName)
+	assert.Equal(t, "m1", info.ModelName)
+	assert.Equal(t, "a1", info.AgentName)
+}
+
+func TestHandleAgentSelected_ClearsHoveredAgentID(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+	m.hoveredAgentID = "agent-1"
+	m.agents["agent-1"] = &RunningAgent{}
+
+	newModel, _ := m.handleAgentSelected(AgentSelectedMsg{AgentID: "agent-1"})
+	updated := newModel.(UIModel)
+
+	assert.Equal(t, "agent-1", updated.viewingAgentID)
+	assert.Equal(t, "", updated.hoveredAgentID)
 }

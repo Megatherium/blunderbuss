@@ -131,6 +131,7 @@ type UIModel struct {
 	// Agent tracking
 	agents         map[string]*RunningAgent // Keyed by agent ID
 	viewingAgentID string                   // Which agent output is displayed ("" = show matrix)
+	hoveredAgentID string                   // Agent currently hovered in sidebar ("" = no hover)
 
 	// Column disable state - set based on harness configuration
 	modelColumnDisabled bool // true when harness has no models

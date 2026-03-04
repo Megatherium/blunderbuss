@@ -61,6 +61,12 @@ type AgentStatusMsg struct {
 	Status  domain.AgentStatus
 }
 
+type AgentHoveredMsg struct {
+	AgentID string
+}
+
+type AgentHoverEndedMsg struct{}
+
 type AgentClearedMsg struct {
 	AgentID string
 }

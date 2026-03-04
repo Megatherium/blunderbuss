@@ -223,6 +223,12 @@ func (m UIModel) handleAgentMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case launchResultMsg:
 		newM, cmd := m.handleLaunchResult(msg)
 		return newM, cmd, true
+	case AgentHoveredMsg:
+		newM, cmd := m.handleAgentHovered(msg)
+		return newM, cmd, true
+	case AgentHoverEndedMsg:
+		newM, cmd := m.handleAgentHoverEnded(msg)
+		return newM, cmd, true
 	case AgentSelectedMsg:
 		newM, cmd := m.handleAgentSelected(msg)
 		return newM, cmd, true

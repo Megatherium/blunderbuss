@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -96,7 +98,7 @@ func (m UIModel) buildMatrixConfig() MatrixConfig {
 	} else {
 		theme = MatrixTheme
 	}
-	return MatrixConfig{
+	cfg := MatrixConfig{
 		Width:               m.width,
 		Height:              m.height,
 		ShowSidebar:         m.showSidebar,
@@ -119,6 +121,44 @@ func (m UIModel) buildMatrixConfig() MatrixConfig {
 		HarnessTitle:        m.harnessList.Title,
 		ModelTitle:          m.modelList.Title,
 		AgentTitle:          m.agentList.Title,
+	}
+
+	if m.hoveredAgentID != "" {
+		if agent, ok := m.agents[m.hoveredAgentID]; ok && agent != nil && agent.Info != nil {
+			info := agent.Info
+			cfg.TicketView = matrixTicketLaunchContextValue(info.TicketID, info.TicketTitle)
+			cfg.HarnessView = matrixSingleValue(info.HarnessName)
+			cfg.ModelView = matrixSingleValue(info.ModelName)
+			cfg.AgentView = matrixSingleValue(info.AgentName)
+			cfg.ModelColumnDisabled = false
+			cfg.AgentColumnDisabled = false
+		}
+	}
+
+	return cfg
+}
+
+func matrixSingleValue(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "(unknown)"
+	}
+	return trimmed
+}
+
+func matrixTicketLaunchContextValue(ticketID, ticketTitle string) string {
+	id := strings.TrimSpace(ticketID)
+	title := strings.TrimSpace(ticketTitle)
+
+	switch {
+	case id == "" && title == "":
+		return "(unknown)"
+	case id == "":
+		return title
+	case title == "":
+		return id
+	default:
+		return id + ": " + title
 	}
 }
 

@@ -109,16 +109,22 @@ func (m SidebarModel) Init() tea.Cmd {
 
 // Update implements tea.Model.
 func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
+	prevAgentID := hoveredAgentIDFromNode(m.state.CurrentNode())
+
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.focused {
-			return m.handleKey(msg)
+			m, cmd = m.handleKey(msg)
 		}
 	case SidebarNodesMsg:
 		m.state.SetNodes(msg.Nodes)
 		m.state.ExpandAll()
 	}
-	return m, nil
+
+	nextAgentID := hoveredAgentIDFromNode(m.state.CurrentNode())
+	hoverCmd := hoverTransitionCmd(prevAgentID, nextAgentID)
+	return m, tea.Batch(cmd, hoverCmd)
 }
 
 func (m SidebarModel) handleKey(msg tea.KeyMsg) (SidebarModel, tea.Cmd) {
@@ -143,6 +149,30 @@ func (m SidebarModel) handleKey(msg tea.KeyMsg) (SidebarModel, tea.Cmd) {
 		return m, OpenFilePickerCmd()
 	}
 	return m, nil
+}
+
+func hoveredAgentIDFromNode(node *domain.SidebarNode) string {
+	if node == nil || node.Type != domain.NodeTypeAgent || node.AgentInfo == nil {
+		return ""
+	}
+	return node.AgentInfo.ID
+}
+
+func hoverTransitionCmd(prevAgentID, nextAgentID string) tea.Cmd {
+	if prevAgentID == nextAgentID {
+		return nil
+	}
+	if nextAgentID != "" {
+		return func() tea.Msg {
+			return AgentHoveredMsg{AgentID: nextAgentID}
+		}
+	}
+	if prevAgentID != "" {
+		return func() tea.Msg {
+			return AgentHoverEndedMsg{}
+		}
+	}
+	return nil
 }
 
 // shouldApplyStyle returns true if styling should be applied based on cursor and focus state.
