@@ -266,7 +266,7 @@ func TestCreateActiveBorder(t *testing.T) {
 	activeColor := lipgloss.Color("#ff0000")
 	glowColor := lipgloss.Color("#00ff00")
 
-	borderFunc := createActiveBorder(listHeight, activeColor, glowColor)
+	borderFunc := createActiveBorder(listHeight, activeColor, glowColor, MatrixTheme)
 	style := borderFunc(10)
 
 	// Should return a valid style
@@ -276,7 +276,7 @@ func TestCreateActiveBorder(t *testing.T) {
 func TestCreateInactiveBorder(t *testing.T) {
 	listHeight := 20
 
-	borderFunc := createInactiveBorder(listHeight)
+	borderFunc := createInactiveBorder(listHeight, MatrixTheme)
 	style := borderFunc(10)
 
 	// Should return a valid style
@@ -284,8 +284,8 @@ func TestCreateInactiveBorder(t *testing.T) {
 }
 
 func TestRenderMatrixColumn_Focused(t *testing.T) {
-	activeBorder := createActiveBorder(20, lipgloss.Color("#ff0000"), lipgloss.Color("#00ff00"))
-	inactiveBorder := createInactiveBorder(20)
+	activeBorder := createActiveBorder(20, lipgloss.Color("#ff0000"), lipgloss.Color("#00ff00"), MatrixTheme)
+	inactiveBorder := createInactiveBorder(20, MatrixTheme)
 	capView := func(view string, w int) string { return view }
 	faintCapView := func(view string, w int) string { return view }
 	theme := MatrixTheme
@@ -308,8 +308,8 @@ func TestRenderMatrixColumn_Focused(t *testing.T) {
 }
 
 func TestRenderMatrixColumn_NotFocused(t *testing.T) {
-	activeBorder := createActiveBorder(20, lipgloss.Color("#ff0000"), lipgloss.Color("#00ff00"))
-	inactiveBorder := createInactiveBorder(20)
+	activeBorder := createActiveBorder(20, lipgloss.Color("#ff0000"), lipgloss.Color("#00ff00"), MatrixTheme)
+	inactiveBorder := createInactiveBorder(20, MatrixTheme)
 	capView := func(view string, w int) string { return view }
 	faintCapView := func(view string, w int) string { return view }
 	theme := MatrixTheme
@@ -345,4 +345,14 @@ func TestApplySidebarBorder(t *testing.T) {
 
 	assert.NotEmpty(t, s)
 	assert.Contains(t, s, "sidebar content")
+}
+
+func TestBlendHex_MixesBaseAndAccent(t *testing.T) {
+	color := blendHex("#000000", "#ffffff", 0.5)
+	assert.Equal(t, "#7f7f7f", string(color))
+}
+
+func TestBlendHex_InvalidHexFallsBackToBase(t *testing.T) {
+	color := blendHex("bad", "#ffffff", 0.5)
+	assert.Equal(t, "bad", string(color))
 }

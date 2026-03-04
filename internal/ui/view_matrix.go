@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -59,8 +61,8 @@ func RenderMatrix(cfg MatrixConfig) string {
 	activeColor := getActiveColor(cfg.AnimState, cfg.Focus, theme)
 	glowColor := getGlowColor(cfg.AnimState.PulsePhase, &theme)
 
-	activeBorder := createActiveBorder(listHeight, activeColor, glowColor)
-	inactiveBorder := createInactiveBorder(listHeight)
+	activeBorder := createActiveBorder(listHeight, activeColor, glowColor, theme)
+	inactiveBorder := createInactiveBorder(listHeight, theme)
 
 	capView := func(view string, w int) string {
 		return lipgloss.NewStyle().MaxHeight(listHeight - 2).MaxWidth(w - 2).Render(view)
@@ -81,12 +83,24 @@ func RenderMatrix(cfg MatrixConfig) string {
 
 	matrixWidth := cfg.TWidth + cfg.HWidth + cfg.MWidth + cfg.AWidth + 6
 
+	filterLabel := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.FocusIndicator).
+		Render("Filters:")
+	filterHint := lipgloss.NewStyle().
+		Faint(true).
+		Foreground(theme.AppFg).
+		Render("(Press / to search)")
+	filterContent := lipgloss.JoinHorizontal(lipgloss.Left, filterLabel, " [All]  |  ", filterHint)
+
 	filterBox := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder()).
+		BorderForeground(theme.TitleColor).
+		Background(blendHex(string(theme.AppBg), string(theme.GlowColor), 0.25)).
 		Width(matrixWidth-2).
 		Height(1).
 		Padding(0, 1).
-		Render("Filters: [All] | (Press / to search)")
+		Render(filterContent)
 
 	matrixBox := lipgloss.JoinHorizontal(lipgloss.Top,
 		tView,
@@ -114,7 +128,7 @@ func getActiveColor(animState AnimationState, focus FocusColumn, theme ThemePale
 	return getCyclingColor(animState.PulsePhase, animState.ColorCycleIndex, &theme)
 }
 
-func createActiveBorder(listHeight int, activeColor, glowColor lipgloss.Color) func(int) lipgloss.Style {
+func createActiveBorder(listHeight int, activeColor, glowColor lipgloss.Color, theme ThemePalette) func(int) lipgloss.Style {
 	return func(w int) lipgloss.Style {
 		if w < 2 {
 			w = 2
@@ -122,13 +136,15 @@ func createActiveBorder(listHeight int, activeColor, glowColor lipgloss.Color) f
 		return lipgloss.NewStyle().
 			Border(lipgloss.ThickBorder()).
 			BorderForeground(activeColor).
-			Background(glowColor).
+			Background(blendHex(string(theme.AppBg), string(glowColor), 0.45)).
+			Foreground(theme.AppFg).
+			Padding(0, 1).
 			Width(w - 2).
 			Height(listHeight - 2)
 	}
 }
 
-func createInactiveBorder(listHeight int) func(int) lipgloss.Style {
+func createInactiveBorder(listHeight int, theme ThemePalette) func(int) lipgloss.Style {
 	return func(w int) lipgloss.Style {
 		if w < 2 {
 			w = 2
@@ -136,7 +152,10 @@ func createInactiveBorder(listHeight int) func(int) lipgloss.Style {
 		return lipgloss.NewStyle().
 			Border(lipgloss.ThickBorder()).
 			BorderForeground(ThemeInactive).
+			Background(blendHex(string(theme.AppBg), string(theme.GlowColor), 0.12)).
+			Foreground(theme.AppFg).
 			Faint(false).
+			Padding(0, 1).
 			Width(w - 2).
 			Height(listHeight - 2)
 	}
@@ -153,15 +172,26 @@ func renderMatrixColumn(
 	const focusIndicator = "▶ "
 	const noIndicator = "  "
 
-	focusedTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.FocusIndicator)
+	focusedTitleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.FocusIndicator)
+	focusedTitleBadgeStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.AppBg).
+		Background(theme.TitleColor).
+		Padding(0, 1)
+	inactiveTitleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.TitleColor).
+		Faint(true)
 
 	if isFocused {
 		indicator := focusedTitleStyle.Render(focusIndicator)
-		titledView := indicator + title + "\n" + view
+		titledView := indicator + focusedTitleBadgeStyle.Render(title) + "\n" + view
 		return activeBorder(width).Render(capView(titledView, width))
 	}
 
-	titledView := noIndicator + title + "\n" + view
+	titledView := noIndicator + inactiveTitleStyle.Render(title) + "\n" + view
 	return inactiveBorder(width).Render(faintCapView(titledView, width))
 }
 
@@ -171,9 +201,11 @@ func renderModelColumn(cfg MatrixConfig, theme ThemePalette, listHeight int,
 		disabledStyle := lipgloss.NewStyle().
 			Border(lipgloss.ThickBorder()).
 			BorderForeground(ThemeInactive).
+			Background(blendHex(string(theme.AppBg), string(theme.GlowColor), 0.08)).
 			Faint(true).
 			Width(cfg.MWidth-2).
 			Height(listHeight-2).
+			Padding(0, 1).
 			Align(lipgloss.Center, lipgloss.Center)
 		return disabledStyle.Render("Models\n\nN/A\n\nNo models available\nfor this harness")
 	}
@@ -181,9 +213,9 @@ func renderModelColumn(cfg MatrixConfig, theme ThemePalette, listHeight int,
 	return renderMatrixColumn(cfg.ModelView, cfg.MWidth, cfg.Focus == FocusModel,
 		"Models", theme,
 		func(w int) lipgloss.Style {
-			return createActiveBorder(listHeight, getActiveColor(cfg.AnimState, FocusModel, theme), getGlowColor(cfg.AnimState.PulsePhase, &theme))(w)
+			return createActiveBorder(listHeight, getActiveColor(cfg.AnimState, FocusModel, theme), getGlowColor(cfg.AnimState.PulsePhase, &theme), theme)(w)
 		},
-		createInactiveBorder(listHeight),
+		createInactiveBorder(listHeight, theme),
 		capView, faintCapView)
 }
 
@@ -193,9 +225,11 @@ func renderAgentColumn(cfg MatrixConfig, theme ThemePalette, listHeight int,
 		disabledStyle := lipgloss.NewStyle().
 			Border(lipgloss.ThickBorder()).
 			BorderForeground(ThemeInactive).
+			Background(blendHex(string(theme.AppBg), string(theme.GlowColor), 0.08)).
 			Faint(true).
 			Width(cfg.AWidth-2).
 			Height(listHeight-2).
+			Padding(0, 1).
 			Align(lipgloss.Center, lipgloss.Center)
 		return disabledStyle.Render("Agents\n\nN/A\n\nNo agents available\nfor this harness")
 	}
@@ -203,9 +237,9 @@ func renderAgentColumn(cfg MatrixConfig, theme ThemePalette, listHeight int,
 	return renderMatrixColumn(cfg.AgentView, cfg.AWidth, cfg.Focus == FocusAgent,
 		"Agents", theme,
 		func(w int) lipgloss.Style {
-			return createActiveBorder(listHeight, getActiveColor(cfg.AnimState, FocusAgent, theme), getGlowColor(cfg.AnimState.PulsePhase, &theme))(w)
+			return createActiveBorder(listHeight, getActiveColor(cfg.AnimState, FocusAgent, theme), getGlowColor(cfg.AnimState.PulsePhase, &theme), theme)(w)
 		},
-		createInactiveBorder(listHeight),
+		createInactiveBorder(listHeight, theme),
 		capView, faintCapView)
 }
 
@@ -217,6 +251,9 @@ func applySidebarBorder(cfg MatrixConfig, rightPanelBox string, activeColor lipg
 
 	sidebarBorder := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder()).
+		Background(blendHex(string(cfg.Theme.AppBg), string(cfg.Theme.GlowColor), 0.16)).
+		Foreground(cfg.Theme.AppFg).
+		Padding(0, 1).
 		Width(w - 2).
 		Height(cfg.Height - 2)
 
@@ -229,4 +266,29 @@ func applySidebarBorder(cfg MatrixConfig, rightPanelBox string, activeColor lipg
 	sidebarBox := sidebarBorder.Render(cfg.SidebarView)
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarBox,
 		lipgloss.NewStyle().Width(2).Render("  "), rightPanelBox)
+}
+
+func blendHex(baseHex, accentHex string, ratio float64) lipgloss.Color {
+	if ratio <= 0 {
+		return lipgloss.Color(baseHex)
+	}
+	if ratio > 1 {
+		ratio = 1
+	}
+
+	br, bg, bb, baseErr := parseHexColor(baseHex)
+	ar, ag, ab, accentErr := parseHexColor(accentHex)
+	if baseErr != nil || accentErr != nil {
+		return lipgloss.Color(baseHex)
+	}
+
+	mix := func(base, accent uint8, t float64) uint8 {
+		return uint8(float64(base) + (float64(accent)-float64(base))*t)
+	}
+
+	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
+		mix(br, ar, ratio),
+		mix(bg, ag, ratio),
+		mix(bb, ab, ratio),
+	))
 }

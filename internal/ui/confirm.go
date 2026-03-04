@@ -24,8 +24,8 @@ func confirmView(selection domain.Selection, renderer *config.Renderer, dryRun b
 	readyTextStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(theme.ReadyColor).
-		MarginTop(1).
-		MarginBottom(1)
+		MarginBottom(1).
+		Align(lipgloss.Center)
 
 	launchButtonStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -33,6 +33,16 @@ func confirmView(selection domain.Selection, renderer *config.Renderer, dryRun b
 		Background(theme.LaunchBg).
 		Padding(0, 4).
 		Width(20).
+		Align(lipgloss.Center)
+
+	readyPanelStyle := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(theme.ReadyColor).
+		Background(blendHex(string(theme.AppBg), string(theme.GlowColor), 0.25)).
+		Padding(0, 2).
+		MarginTop(1).
+		MarginBottom(1).
+		Width(26).
 		Align(lipgloss.Center)
 
 	// Update title style with theme color
@@ -86,11 +96,12 @@ func confirmView(selection domain.Selection, renderer *config.Renderer, dryRun b
 	}
 
 	// Arcade-style ready indicator
-	s += readyTextStyle.Render("READY?") + "\n"
-
-	// Big launch button
-	s += launchButtonStyle.Render("LAUNCH") + "\n\n"
-
-	s += "[Press Enter to launch, esc to go back]"
+	readyBlock := lipgloss.JoinVertical(
+		lipgloss.Center,
+		readyTextStyle.Render("READY?"),
+		launchButtonStyle.Render("LAUNCH"),
+	)
+	s += readyPanelStyle.Render(readyBlock) + "\n"
+	s += lipgloss.NewStyle().Faint(true).Render("[Press Enter to launch, esc to go back]")
 	return s
 }

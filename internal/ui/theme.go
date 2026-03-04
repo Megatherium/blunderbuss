@@ -243,10 +243,17 @@ func getPulsingColorWithTheme(phase float64, theme *ThemePalette) lipgloss.Color
 // Uses cycleIndex to select base color, phase for pulse within that color
 func getCyclingColor(phase float64, cycleIndex int, theme *ThemePalette) lipgloss.Color {
 	var cycles []ColorCycle
-	if theme == &CyberpunkTheme {
-		cycles = CyberpunkThemeColorCycles
-	} else {
+	if theme == nil {
 		cycles = MatrixThemeColorCycles
+	} else {
+		switch theme.Name {
+		case CyberpunkTheme.Name:
+			cycles = CyberpunkThemeColorCycles
+		case TokyoNightTheme.Name:
+			cycles = TokyoNightThemeColorCycles
+		default:
+			cycles = MatrixThemeColorCycles
+		}
 	}
 
 	if len(cycles) == 0 {
@@ -289,13 +296,22 @@ func getGlowColor(phase float64, theme *ThemePalette) lipgloss.Color {
 		opacity = GlowOpacityNormal + (GlowOpacityEnhanced-GlowOpacityNormal)*peakFactor
 	}
 
-	// Apply opacity to RGB (for background color, we just use the color as-is
-	// but in a real alpha blend, we'd mix with terminal background)
-	// Since lipgloss doesn't support alpha, we dim the color
-	dimFactor := 0.3 + opacity*0.7 // At least 30% brightness
-	r = uint8(float64(r) * dimFactor)
-	g = uint8(float64(g) * dimFactor)
-	b = uint8(float64(b) * dimFactor)
+	// Blend glow into app background for depth without flattening list content.
+	bgR, bgG, bgB, bgErr := parseHexColor(string(theme.AppBg))
+	if bgErr != nil {
+		// Keep theme-consistent fallback for non-hex app backgrounds.
+		// In this mode, return the pulsing glow color directly.
+		return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", r, g, b))
+	}
+	blend := opacity * 0.85
+	mix := func(a, b uint8, t float64) uint8 {
+		return uint8(float64(a) + (float64(b)-float64(a))*t)
+	}
 
-	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", r, g, b))
+	return lipgloss.Color(fmt.Sprintf(
+		"#%02x%02x%02x",
+		mix(bgR, r, blend),
+		mix(bgG, g, blend),
+		mix(bgB, b, blend),
+	))
 }

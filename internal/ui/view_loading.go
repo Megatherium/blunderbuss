@@ -25,11 +25,24 @@ func RenderLoading(cfg LoadingConfig) string {
 	arcadeStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(theme.ArcadeGold)
+	spinnerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(spinnerColor)
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(theme.TitleColor).
+		Background(blendHex(string(theme.AppBg), string(theme.GlowColor), 0.22)).
+		Padding(1, 3).
+		Align(lipgloss.Center)
+	subtitleStyle := lipgloss.NewStyle().
+		Faint(true).
+		Foreground(theme.AppFg)
 
 	var s string
 	s = "\n\n"
-	s += lipgloss.NewStyle().Foreground(spinnerColor).Render(frame+" Initializing...") + "\n\n"
-	s += arcadeStyle.Render("INSERT COIN TO START") + "\n"
-	s += lipgloss.NewStyle().Faint(true).Render("(Loading tickets...)")
+	content := spinnerStyle.Render(frame+" Initializing...") + "\n\n" +
+		arcadeStyle.Render("INSERT COIN TO START") + "\n" +
+		subtitleStyle.Render("(Loading tickets...)")
+	s += panelStyle.Render(content)
 	return s
 }
