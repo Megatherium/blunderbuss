@@ -29,7 +29,7 @@ func newTicketList(tickets []domain.Ticket) list.Model {
 	return l
 }
 
-// emptyTicketItem represents the empty state message
+// emptyTicketItem represents an empty state message
 type emptyTicketItem struct{}
 
 func (i emptyTicketItem) Title() string       { return "No ready tickets found" }
