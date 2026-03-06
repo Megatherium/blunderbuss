@@ -52,6 +52,7 @@
 {"created_at":"2026-03-03T23:55:31Z","created_by":"Megatherium","depends_on_id":"bb-rf26","issue_id":"bb-rans","type":"blocks"}
 {"created_at":"2026-03-01T15:59:31Z","created_by":"Megatherium","depends_on_id":"bb-zfm","issue_id":"bb-rk0","type":"blocks"}
 {"created_at":"2026-03-03T23:16:05Z","created_by":"Megatherium","depends_on_id":"bb-rans","issue_id":"bb-rzwx","type":"discovered-from"}
+{"created_at":"2026-03-06T10:51:57Z","created_by":"Megatherium","depends_on_id":"bb-7fns","issue_id":"bb-sjt8","type":"blocks"}
 {"created_at":"2026-03-06T10:47:36Z","created_by":"Megatherium","depends_on_id":"bb-zgtf","issue_id":"bb-sjt8","type":"blocks"}
 {"created_at":"2026-03-04T21:53:16Z","created_by":"Megatherium","depends_on_id":"bb-bzp","issue_id":"bb-ulo0","type":"discovered-from"}
 {"created_at":"2026-03-05T08:16:07Z","created_by":"Megatherium","depends_on_id":"bb-edwt","issue_id":"bb-ulo0","type":"blocks"}
