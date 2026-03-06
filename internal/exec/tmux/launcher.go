@@ -73,9 +73,6 @@ func (l *Launcher) Launch(
 	windowID := l.parseWindowID(string(output))
 	paneID, pid, session := l.fetchPaneMetadata(ctx, windowID, spec.WindowName)
 
-	fmt.Fprintf(os.Stderr, "[DEBUG] tmux.Launch: windowID=%s, paneID=%s, PID=%d, session=%s\n",
-		windowID, paneID, pid, session)
-
 	return &domain.LaunchResult{
 		WindowName:  spec.WindowName,
 		WindowID:    windowID,

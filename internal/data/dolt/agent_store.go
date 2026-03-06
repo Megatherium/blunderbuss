@@ -3,7 +3,6 @@ package dolt
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -100,7 +99,7 @@ ON DUPLICATE KEY UPDATE
 	model = VALUES(model),
 	agent = VALUES(agent),
 	last_seen = CURRENT_TIMESTAMP`
-	result, err := s.db.ExecContext(ctx, query,
+	_, err := s.db.ExecContext(ctx, query,
 		a.ProjectDir,
 		a.WorktreePath,
 		a.PID,
@@ -116,13 +115,7 @@ ON DUPLICATE KEY UPDATE
 	if err != nil {
 		return fmt.Errorf("failed to upsert running agent: %w", err)
 	}
-	
-	// Debug: check rows affected
-	rowsAffected, _ := result.RowsAffected()
-	lastID, _ := result.LastInsertId()
-	fmt.Fprintf(os.Stderr, "[DEBUG] UpsertRunningAgent: rowsAffected=%d, lastID=%d, PID=%d, ticket=%s\n",
-		rowsAffected, lastID, a.PID, a.Ticket)
-	
+
 	return nil
 }
 
@@ -132,11 +125,8 @@ func (s *Store) ListRunningAgentsByProjects(ctx context.Context, projectDirs []s
 		return nil, fmt.Errorf("store is closed")
 	}
 	if len(projectDirs) == 0 {
-		fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: no projectDirs provided\n")
 		return nil, nil
 	}
-
-	fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: querying for projectDirs=%v\n", projectDirs)
 
 	placeholders := make([]string, 0, len(projectDirs))
 	args := make([]any, 0, len(projectDirs))
@@ -153,19 +143,14 @@ FROM running_agents
 WHERE project_dir IN (%s)
 ORDER BY started_at DESC`, strings.Join(placeholders, ", "))
 
-	fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: SQL query with %d placeholders\n", len(placeholders))
-
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: query error: %v\n", err)
 		return nil, fmt.Errorf("failed to query running agents: %w", err)
 	}
 	defer rows.Close()
 
 	var agents []domain.PersistedRunningAgent
-	rowCount := 0
 	for rows.Next() {
-		rowCount++
 		var a domain.PersistedRunningAgent
 		if err := rows.Scan(
 			&a.ID,
@@ -183,20 +168,15 @@ ORDER BY started_at DESC`, strings.Join(placeholders, ", "))
 			&a.StartedAt,
 			&a.LastSeen,
 		); err != nil {
-			fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: scan error at row %d: %v\n", rowCount, err)
 			return nil, fmt.Errorf("failed to scan running agent row: %w", err)
 		}
 		agents = append(agents, a)
 	}
-	
-	fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: scanned %d rows\n", rowCount)
-	
+
 	if err := rows.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: rows.Err(): %v\n", err)
 		return nil, fmt.Errorf("error iterating running agent rows: %w", err)
 	}
-	
-	fmt.Fprintf(os.Stderr, "[DEBUG] ListRunningAgentsByProjects: returning %d agents\n", len(agents))
+
 	return agents, nil
 }
 
@@ -227,62 +207,43 @@ func (s *Store) ValidateAndPruneRunningAgents(ctx context.Context, projectDirs [
 		return nil, err
 	}
 
-	fmt.Fprintf(os.Stderr, "[DEBUG] ValidateAndPruneRunningAgents: found %d agents in DB for projectDirs=%v\n", len(agents), projectDirs)
-
 	valid := make([]domain.PersistedRunningAgent, 0, len(agents))
 	for _, a := range agents {
-		fmt.Fprintf(os.Stderr, "[DEBUG]   validating: %s (PID=%d, harness=%s, binary=%s)\n", 
-			a.Ticket, a.PID, a.HarnessName, a.HarnessBinary)
-		
 		isValid, err := s.validateRunningAgent(ctx, a, inspector)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[DEBUG]     validation error: %v\n", err)
 			return nil, err
 		}
 		if !isValid {
-			fmt.Fprintf(os.Stderr, "[DEBUG]     -> INVALID (pruned)\n")
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "[DEBUG]     -> VALID\n")
 		if err := s.touchRunningAgentByID(ctx, a.ID); err != nil {
 			return nil, err
 		}
 		valid = append(valid, a)
 	}
 
-	fmt.Fprintf(os.Stderr, "[DEBUG] ValidateAndPruneRunningAgents: %d/%d agents valid\n", len(valid), len(agents))
 	return valid, nil
 }
 
 func (s *Store) validateRunningAgent(ctx context.Context, a domain.PersistedRunningAgent, inspector ProcessInspector) (bool, error) {
 	if !inspector.PIDExists(a.PID) {
-		fmt.Fprintf(os.Stderr, "[DEBUG]     PID %d does not exist\n", a.PID)
 		return false, s.deleteRunningAgentByID(ctx, a.ID)
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG]     PID %d exists\n", a.PID)
 
 	cmd, err := inspector.CommandForPID(ctx, a.PID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG]     failed to get command for PID %d: %v\n", a.PID, err)
 		return false, s.deleteRunningAgentByID(ctx, a.ID)
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG]     command for PID %d: %s\n", a.PID, cmd)
 
 	candidates := config.HarnessBinaryCandidates(a.HarnessName)
 	if a.HarnessBinary != "" {
 		candidates = append(candidates, a.HarnessBinary)
 	}
-	
-	extractedBinary := config.ExtractCommandBinary(cmd)
-	fmt.Fprintf(os.Stderr, "[DEBUG]     harness=%s, candidates=%v\n", a.HarnessName, candidates)
-	fmt.Fprintf(os.Stderr, "[DEBUG]     extracted binary from command: %s\n", extractedBinary)
-	
+
 	if !config.CommandMatchesAnyBinary(cmd, candidates) {
-		fmt.Fprintf(os.Stderr, "[DEBUG]     command does not match any candidate binary\n")
 		return false, s.deleteRunningAgentByID(ctx, a.ID)
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG]     command matches candidate binary\n")
 
 	return true, nil
 }
