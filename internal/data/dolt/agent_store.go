@@ -215,29 +215,11 @@ func (s *Store) ValidateAndPruneRunningAgents(ctx context.Context, projectDirs [
 
 	valid := make([]domain.PersistedRunningAgent, 0, len(agents))
 	for _, a := range agents {
-		if !inspector.PIDExists(a.PID) {
-			if err := s.deleteRunningAgentByID(ctx, a.ID); err != nil {
-				return nil, err
-			}
-			continue
-		}
-
-		cmd, err := inspector.CommandForPID(ctx, a.PID)
+		isValid, err := s.validateRunningAgent(ctx, a, inspector)
 		if err != nil {
-			if err := s.deleteRunningAgentByID(ctx, a.ID); err != nil {
-				return nil, err
-			}
-			continue
+			return nil, err
 		}
-
-		candidates := config.HarnessBinaryCandidates(a.HarnessName)
-		if a.HarnessBinary != "" {
-			candidates = append(candidates, a.HarnessBinary)
-		}
-		if !config.CommandMatchesAnyBinary(cmd, candidates) {
-			if err := s.deleteRunningAgentByID(ctx, a.ID); err != nil {
-				return nil, err
-			}
+		if !isValid {
 			continue
 		}
 
@@ -248,6 +230,27 @@ func (s *Store) ValidateAndPruneRunningAgents(ctx context.Context, projectDirs [
 	}
 
 	return valid, nil
+}
+
+func (s *Store) validateRunningAgent(ctx context.Context, a domain.PersistedRunningAgent, inspector ProcessInspector) (bool, error) {
+	if !inspector.PIDExists(a.PID) {
+		return false, s.deleteRunningAgentByID(ctx, a.ID)
+	}
+
+	cmd, err := inspector.CommandForPID(ctx, a.PID)
+	if err != nil {
+		return false, s.deleteRunningAgentByID(ctx, a.ID)
+	}
+
+	candidates := config.HarnessBinaryCandidates(a.HarnessName)
+	if a.HarnessBinary != "" {
+		candidates = append(candidates, a.HarnessBinary)
+	}
+	if !config.CommandMatchesAnyBinary(cmd, candidates) {
+		return false, s.deleteRunningAgentByID(ctx, a.ID)
+	}
+
+	return true, nil
 }
 
 // DeleteStaleRunningAgents deletes rows older than maxAge by last_seen.

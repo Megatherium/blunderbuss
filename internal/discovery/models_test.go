@@ -33,6 +33,10 @@ func TestIsProviderActive(t *testing.T) {
 	if !registry.isProviderActive(provider) {
 		t.Errorf("expected provider to be active when env var is set")
 	}
+
+	if !registry.isProviderActive(Provider{ID: "no-env-provider"}) {
+		t.Errorf("expected provider with no required env vars to be active")
+	}
 }
 
 func TestGetActiveModels(t *testing.T) {

@@ -23,14 +23,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/discovery"
-	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
-	"github.com/megatherium/blunderbust/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -117,114 +111,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// runRoot executes the main bdb workflow.
-// For the bootstrap phase, this validates flags and prints configuration.
-func runRoot(cmd *cobra.Command, args []string) error {
-	// Check if running inside tmux before starting TUI
-	if os.Getenv("TMUX") == "" {
-		fmt.Fprintln(os.Stderr, "Error: bdb must be run inside a tmux session")
-		fmt.Fprintln(os.Stderr, "Start tmux first: tmux")
-		os.Exit(3)
-	}
-
-	if debug {
-		fmt.Fprintln(os.Stderr, "Debug mode enabled")
-	}
-
-	// Get optional positional argument for target project
-	var targetProject string
-	if len(args) > 0 {
-		targetProject = args[0]
-		// Resolve to absolute path
-		if absPath, err := filepath.Abs(targetProject); err == nil {
-			targetProject = absPath
-		}
-		if debug {
-			fmt.Fprintf(os.Stderr, "Target project: %s\n", targetProject)
-		}
-	}
-
-	// Resolve beads directory
-	beadsPath := beadsDir
-	if beadsPath == "" {
-		beadsPath = "./.beads"
-	}
-	if debug {
-		fmt.Fprintf(os.Stderr, "Beads directory: %s\n", beadsPath)
-	}
-
-	// Validate and resolve configuration path.
-	cfgPath := configPath
-	if cfgPath == "" {
-		// Check for config in XDG config directory first
-		home, err := os.UserHomeDir()
-		if err == nil {
-			xdgConfig := filepath.Join(home, ".config", "blunderbust", "config.yaml")
-			if _, err := os.Stat(xdgConfig); err == nil {
-				cfgPath = xdgConfig
-			}
-		}
-		// Fall back to local config.yaml
-		if cfgPath == "" {
-			cfgPath = "./config.yaml"
-		}
-	}
-
-	if debug {
-		fmt.Fprintf(os.Stderr, "Config path: %s\n", cfgPath)
-		fmt.Fprintf(os.Stderr, "Dry run: %v\n", dryRun)
-		fmt.Fprintf(os.Stderr, "Demo mode: %v\n", demo)
-	}
-
-	// Load configuration from YAML file
-	cfgLoader := config.NewYAMLLoader()
-	cfg, err := cfgLoader.Load(cfgPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Config error: %v\n", err)
-		os.Exit(2)
-	}
-
-	if debug {
-		fmt.Fprintf(os.Stderr, "Loaded %d harness(es) from config\n", len(cfg.Harnesses))
-	}
-
-	target := cfg.Launcher.Target
-
-	if debug {
-		fmt.Fprintf(os.Stderr, "Launcher target: %s\n", target)
-	}
-
-	// Wire real tmux launcher and status checker
-	runner := tmux.NewRealRunner()
-	launcher := tmux.NewTmuxLauncher(runner, dryRun, false, target)
-	statusChecker := tmux.NewStatusChecker(runner)
-
-	renderer := config.NewRenderer()
-
-	app, err := ui.NewApp(cfgLoader, launcher, statusChecker, runner, renderer, domain.AppOptions{
-		ConfigPath:    cfgPath,
-		BeadsDir:      beadsPath,
-		DSN:           dsn,
-		DryRun:        dryRun,
-		Debug:         debug,
-		Demo:          demo,
-		AutostartDolt: cfg.General != nil && cfg.General.AutostartDolt,
-		TargetProject: targetProject,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	defer app.Close() // Ensure store is closed on exit
-
-	m := ui.NewUIModel(app, cfg.Harnesses)
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("running TUI: %w", err)
-	}
-
-	return nil
 }

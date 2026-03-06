@@ -908,6 +908,49 @@ harnesses:
 	}
 }
 
+func TestYAMLLoader_Load_RelativeProjectDirectoryFromConfigDir(t *testing.T) {
+	rootDir := t.TempDir()
+	configDir := filepath.Join(rootDir, "configs")
+	projectDir := filepath.Join(rootDir, "projects", "alpha")
+
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatalf("failed to create project dir: %v", err)
+	}
+
+	relativeProjectDir := filepath.ToSlash(filepath.Join("..", "projects", "alpha"))
+	yamlContent := fmt.Sprintf(`
+workspaces:
+  default:
+    projects:
+      - dir: %q
+harnesses:
+  - name: test
+    command_template: "test"
+`, relativeProjectDir)
+
+	configPath := filepath.Join(configDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	loader := NewYAMLLoader()
+	cfg, err := loader.Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(cfg.Workspace.Projects) != 1 {
+		t.Fatalf("expected 1 project, got %d", len(cfg.Workspace.Projects))
+	}
+
+	expected := filepath.Clean(filepath.Join(configDir, relativeProjectDir))
+	if cfg.Workspace.Projects[0].Dir != expected {
+		t.Errorf("project dir = %q, want %q", cfg.Workspace.Projects[0].Dir, expected)
+	}
+}
+
 func TestYAMLLoader_Load_DuplicateProjectDirectory(t *testing.T) {
 	tmpProjectDir := t.TempDir()
 
