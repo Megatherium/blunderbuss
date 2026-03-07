@@ -80,11 +80,13 @@ type Defaults struct {
 
 // Config holds the top-level blunderbust configuration.
 type Config struct {
-	Harnesses []Harness
-	Launcher  *LauncherConfig
-	Defaults  *Defaults
-	General   *GeneralConfig
-	Workspace Workspace
+	Harnesses         []Harness
+	Launcher          *LauncherConfig
+	Defaults          *Defaults
+	General           *GeneralConfig
+	Workspace         Workspace
+	FilePickerRecents []string
+	FilePickerMaxRecents int
 }
 
 // Workspace represents a collection of projects defined in configuration.

@@ -3,7 +3,6 @@ package ui
 import (
 	"time"
 
-	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
@@ -11,6 +10,7 @@ import (
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
+	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
 
 var (

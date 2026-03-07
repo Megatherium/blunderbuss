@@ -13,6 +13,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
+	_ "github.com/megatherium/blunderbust/internal/ui/filepicker"
+
 	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
@@ -318,7 +320,11 @@ func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 		m.showFilePicker = false
 		return m, nil, true
 	}
-	return m, nil, false
+
+	var cmd tea.Cmd
+	m.filepicker, cmd = m.filepicker.Update(msg)
+
+	return m, cmd, true
 }
 
 func (m UIModel) handleAddProjectModalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {

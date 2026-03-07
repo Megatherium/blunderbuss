@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
 
 // FilePickerConfig holds configuration for rendering the file picker view
@@ -33,7 +34,7 @@ func RenderFilePicker(cfg FilePickerConfig) string {
 	s.WriteString("\n\n")
 	s.WriteString(cfg.Filepicker.View())
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render("Press 'a' to select highlighted directory, 'esc' to cancel"))
+	s.WriteString(helpStyle.Render("Press 'a' to select highlighted directory, 'tab' to swap views, 'esc' to cancel"))
 
 	return s.String()
 }

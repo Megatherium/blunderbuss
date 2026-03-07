@@ -1,13 +1,13 @@
 package ui
 
 import (
-	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
 
 // MainContentConfig holds configuration for rendering the main content

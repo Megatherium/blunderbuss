@@ -13,6 +13,7 @@ import (
 
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
 
 func initList(l *list.Model, width, height int, title string) {
@@ -41,11 +42,28 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 	initList(&al, 0, 0, "Select an Agent")
 
 	h := help.New()
-	h.ShowAll = false
-
 	h.Styles.ShortKey = h.Styles.ShortKey.Background(ThemeFooterBg).Foreground(ThemeFooterFg).Bold(true)
 	h.Styles.ShortDesc = h.Styles.ShortDesc.Background(ThemeFooterBg).Foreground(ThemeFooterFg)
 	h.Styles.ShortSeparator = h.Styles.ShortSeparator.Background(ThemeFooterBg).Foreground(ThemeFooterFg)
+
+	var recents []string
+	var maxRecents int
+	if app != nil && app.loader != nil {
+		if cfg, err := app.loader.Load(app.opts.ConfigPath); err == nil && cfg != nil {
+			recents = cfg.FilePickerRecents
+			maxRecents = cfg.FilePickerMaxRecents
+		}
+	}
+
+	fp := filepicker.New()
+	fp.ShowRecents = true
+	fp.Recents = recents
+	if maxRecents > 0 {
+		fp.MaxRecents = maxRecents
+	}
+	if wd, err := os.Getwd(); err == nil {
+		fp.CurrentDirectory = wd
+	}
 
 	return UIModel{
 		app:          app,
@@ -56,6 +74,7 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 		harnessList:  hl,
 		modelList:    ml,
 		agentList:    al,
+		filepicker:   fp,
 		sidebar:      NewSidebarModel(),
 		help:         h,
 		keys:         keys,
@@ -209,13 +228,23 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.showAddProjectModal = true
 		m.pendingProjectPath = msg.path
 		return m, nil, true
-	case addProjectConfirmedMsg:
-		newM, cmd := m.handleAddProjectConfirmed(msg)
-		return newM, cmd, true
 	case addProjectCancelledMsg:
 		m.showFilePicker = true
 		m.showAddProjectModal = false
 		m.pendingProjectPath = ""
+		return m, nil, true
+	case filepicker.RecentsChangedMsg:
+		// Save recents to config when they change
+		if m.app != nil && m.app.loader != nil {
+			cfg, err := m.app.loader.Load(m.app.opts.ConfigPath)
+			if err == nil && cfg != nil {
+				cfg.FilePickerRecents = msg.Recents
+				if err := m.app.loader.Save(m.app.opts.ConfigPath, cfg); err != nil {
+					// Log error to stderr
+					fmt.Fprintf(os.Stderr, "Failed to save recents: %v\n", err)
+				}
+			}
+		}
 		return m, nil, true
 	}
 	return m, nil, false
@@ -345,6 +374,19 @@ func (m UIModel) handleFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 }
 
 func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.showFilePicker {
+		switch msg.(type) {
+		case tea.KeyMsg, tea.WindowSizeMsg:
+			// Let normal flow handle it so we process app-level keys and resize
+		default:
+			var fpCmd tea.Cmd
+			m.filepicker, fpCmd = m.filepicker.Update(msg)
+			if fpCmd != nil {
+				return m, fpCmd
+			}
+		}
+	}
+
 	if newModel, cmd, handled := m.handleCoreMsgs(msg); handled {
 		return newModel, cmd
 	}

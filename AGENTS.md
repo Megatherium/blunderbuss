@@ -103,6 +103,46 @@ Before working in these areas, you MUST read the corresponding reference file:
   - Working on ticket store implementations
   - Debugging database connection issues
 
+## File Picker Recents
+
+The file picker (accessed via `p` key) uses a bubbles fork with recents support.
+
+### Architecture
+
+- **bubbles fork**: `internal/ui/filepicker/filepicker.go`
+  - `MaxRecents` field controls maximum recents (default: 5)
+  - `RecentsChangedMsg` emitted when recents list changes
+  - `ShowRecents` enables dual-pane UI (filepicker + recents)
+
+### Configuration Fields
+
+- `domain.Config.FilePickerMaxRecents` - Maximum recent directories
+- `domain.Config.FilePickerRecents` - Recent directories list
+- YAML: `filepicker_max_recents` and `filepicker_recents`
+
+### Key Implementation Points
+
+1. **Loading**: In `NewUIModel()` (model.go), config is loaded and:
+   - `fp.Recents` is populated from `cfg.FilePickerRecents`
+   - `fp.MaxRecents` is set from `cfg.FilePickerMaxRecents`
+
+2. **Saving**: In `handleProjectMsgs()` (model.go), `filepicker.RecentsChangedMsg`:
+   - Updates `cfg.FilePickerRecents` with new recents
+   - Saves config immediately using `app.loader.Save()`
+   - Logs errors to stderr
+
+3. **UI**: Dual-pane view in `RenderFilePicker()` (view_filepicker.go):
+   - Left: Directory browser
+   - Right: Recents list (when `ShowRecents=true`)
+   - `Tab` key swaps focus between panes
+
+### Testing
+
+See `internal/ui/filepicker_test.go`:
+- `TestNewUIModel_FilePickerMaxRecents` - Custom max recents
+- `TestNewUIModel_FilePickerMaxRecents_Default` - Default value
+- `TestUpdate_RecentsChangedMsg_SavesConfig` - Persistence
+
 <!-- BEGIN BEADS INTEGRATION -->
 ## Issue Tracking with bd (beads)
 

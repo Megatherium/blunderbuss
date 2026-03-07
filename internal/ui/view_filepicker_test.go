@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/charmbracelet/bubbles/filepicker"
+	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 	"github.com/stretchr/testify/assert"
 )
 

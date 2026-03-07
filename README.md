@@ -212,6 +212,31 @@ command_template: "ai-agent --prompt \"{{.Prompt}}\""
 prompt_template: "Work on {{.TicketID}}: {{.TicketTitle}}"
 ```
 
+### File Picker Recents
+
+When adding projects via the file picker (`p` key), blunderbust maintains a list of recently selected directories for quick access.
+
+**Key bindings in file picker:**
+- `↑/↓` or `j/k` - Navigate directories
+- `Enter` - Open directory
+- `a` - Select highlighted directory as project
+- `Tab` - Swap between file browser and recents list
+- `Esc` - Cancel
+
+**Configuration:**
+- `filepicker_max_recents` - Maximum number of recent directories to remember (default: 5)
+- `filepicker_recents` - List of recent directories (auto-populated)
+
+```yaml
+# Remember up to 10 recent directories
+filepicker_max_recents: 10
+
+# Recent directories are automatically managed
+filepicker_recents:
+  - /home/user/projects/myapp
+  - /home/user/work/website
+```
+
 ## Beads Database Connection
 
 Blunderbust reads ticket data from a Beads/Dolt database. The connection mode is determined by `.beads/metadata.json`:
