@@ -761,6 +761,28 @@ func TestRefreshAnimationCycle(t *testing.T) {
 	assert.Equal(t, 0, updatedM.refreshAnimationFrame, "Animation should cycle from 3 to 0")
 }
 
+func TestHandleTicketUpdateCheckNeeded(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, nil)
+
+	newM, cmd := m.handleTicketUpdateCheckNeeded()
+	updatedM := newM.(UIModel)
+
+	assert.NotNil(t, cmd, "Should return tick command")
+	assert.Equal(t, m.lastTicketUpdate, updatedM.lastTicketUpdate)
+}
+
+func TestCheckTicketUpdatesCmd_DemoMode(t *testing.T) {
+	store := &mockStore{}
+	lastUpdate := time.Now()
+
+	cmd := checkTicketUpdatesCmd(store, lastUpdate)
+	assert.NotNil(t, cmd)
+
+	msg := cmd()
+	assert.IsType(t, ticketUpdateCheckNeededMsg{}, msg)
+}
+
 type mockStore struct{}
 
 func (m *mockStore) ListTickets(ctx context.Context, filter data.TicketFilter) ([]domain.Ticket, error) {

@@ -1211,6 +1211,12 @@ func (m UIModel) handleTicketUpdateCheck() (tea.Model, tea.Cmd) {
 	return m, checkTicketUpdatesCmd(store, m.lastTicketUpdate)
 }
 
+func (m UIModel) handleTicketUpdateCheckNeeded() (tea.Model, tea.Cmd) {
+	return m, tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
+		return ticketUpdateCheckMsg{}
+	})
+}
+
 func (m UIModel) handleTicketsAutoRefreshed(msg ticketsAutoRefreshedMsg) (tea.Model, tea.Cmd) {
 	if !msg.dbUpdatedAt.IsZero() {
 		m.lastTicketUpdate = msg.dbUpdatedAt

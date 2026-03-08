@@ -88,6 +88,8 @@ type agentOutputMsg struct {
 // Auto-refresh messages
 type ticketUpdateCheckMsg struct{}
 
+type ticketUpdateCheckNeededMsg struct{}
+
 type ticketsAutoRefreshedMsg struct {
 	dbUpdatedAt time.Time
 }

@@ -297,6 +297,9 @@ func (m UIModel) handleAgentMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case ticketUpdateCheckMsg:
 		newM, cmd := m.handleTicketUpdateCheck()
 		return newM, cmd, true
+	case ticketUpdateCheckNeededMsg:
+		newM, cmd := m.handleTicketUpdateCheckNeeded()
+		return newM, cmd, true
 	case ticketsAutoRefreshedMsg:
 		newM, cmd := m.handleTicketsAutoRefreshed(msg)
 		return newM, cmd, true

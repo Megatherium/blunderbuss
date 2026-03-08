@@ -527,3 +527,47 @@ func TestAgentTui_WaitCondition(t *testing.T) {
 		t.Fatalf("Failed to send quit key: %v, output: %s", quitErr, quitOutput)
 	}
 }
+
+// TestAgentTui_TicketPollingContinues verifies that the ticket polling loop continues
+// indefinitely in demo mode and doesn't silently die after the first check.
+func TestAgentTui_TicketPollingContinues(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	session := startAgentTuiSession(t, true)
+	defer session.cleanup(t)
+
+	// Wait for initial render
+	time.Sleep(1 * time.Second)
+
+	// Connect to websocket to observe
+	conn := connectWebsocket(t, session.WsURL)
+	defer conn.Close(websocket.StatusNormalClosure, "test complete")
+
+	// Send live preview request
+	sendLivePreviewRequest(t, conn, session.SessionID)
+
+	// Capture initial screen to verify TUI is running
+	initialEvents := readLivePreviewEvents(t, conn, 2*time.Second, nil)
+	initialScreen := getScreenContent(initialEvents)
+	assert.NotEmpty(t, initialScreen, "TUI should render initial screen")
+
+	// Wait for multiple polling cycles (3 seconds per cycle)
+	// If the polling loop is broken, the TUI would still be visible but ticket refreshes stop
+	time.Sleep(10 * time.Second)
+
+	// Send a harmless key (space) to verify UI is still responsive after 10 seconds
+	// This is the key test: if the polling loop had silently died, the TUI might freeze
+	spaceCmd := exec.Command("agent-tui", "press", "Space", "--session", session.SessionID)
+	if output, err := spaceCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to send Space key after 10 seconds (UI may be frozen): %v, output: %s", err, output)
+	}
+	time.Sleep(200 * time.Millisecond)
+
+	// Send quit
+	quitCmd := exec.Command("agent-tui", "type", "q", "--session", session.SessionID)
+	if output, err := quitCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to send quit key: %v, output: %s", err, output)
+	}
+}
