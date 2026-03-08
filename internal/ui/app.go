@@ -18,25 +18,45 @@ import (
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
-// fcListCmd is the command executor for fc-list, allowing test injection.
-var fcListCmd = osexec.Command
+// fontDetector abstracts the command execution for detecting nerd fonts.
+// This interface exists for testability and allows mocking the fc-list command.
+type fontDetector interface {
+	CombinedOutput() ([]byte, error)
+}
+
+// fcListDetector implements fontDetector by running fc-list command.
+type fcListDetector struct{}
+
+// CombinedOutput runs fc-list and returns its combined stdout and stderr.
+func (d fcListDetector) CombinedOutput() ([]byte, error) {
+	return osexec.Command("fc-list", ":family").CombinedOutput()
+}
 
 type FontConfig struct {
 	HasNerdFont bool
 }
 
+// DetectNerdFont checks if a nerd font is available on the system.
+// It uses fontconfig's fc-list tool to scan installed fonts and looks
+// for the case-insensitive substring "nerd" in font family names.
+// Returns false if fc-list is not found or fails to execute.
 func DetectNerdFont() bool {
+	return detectNerdFontWithDetector(fcListDetector{})
+}
+
+// detectNerdFontWithDetector performs the actual font detection using the provided detector.
+// This is the testable core logic separated from the production implementation.
+func detectNerdFontWithDetector(detector fontDetector) bool {
 	if _, err := osexec.LookPath("fc-list"); err != nil {
 		return false
 	}
 
-	out, err := fcListCmd("fc-list", ":family").CombinedOutput()
+	out, err := detector.CombinedOutput()
 	if err != nil {
 		return false
 	}
 
-	lower := strings.ToLower(string(out))
-	return strings.Contains(lower, "nerd")
+	return strings.Contains(strings.ToLower(string(out)), "nerd")
 }
 
 // App encapsulates the Bubble Tea program's dependencies.

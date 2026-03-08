@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	osexec "os/exec"
 	"testing"
 
@@ -12,57 +13,78 @@ import (
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
+// mockFontDetector implements fontDetector for testing.
+type mockFontDetector struct {
+	output []byte
+	err    error
+}
+
+func (m mockFontDetector) CombinedOutput() ([]byte, error) {
+	return m.output, m.err
+}
+
 func TestDetectNerdFont(t *testing.T) {
-	// Save original fcListCmd to restore after tests
-	originalCmd := fcListCmd
-	defer func() {
-		fcListCmd = originalCmd
-	}()
+	t.Run("command execution fails", func(t *testing.T) {
+		detector := mockFontDetector{err: errors.New("command failed")}
+		result := detectNerdFontWithDetector(detector)
 
-	t.Run("fc-list command execution fails", func(t *testing.T) {
-		// Mock fcListCmd to return an error
-		fcListCmd = func(name string, args ...string) *osexec.Cmd {
-			cmd := osexec.Command("sh", "-c", "exit 1")
-			return cmd
-		}
-
-		require.False(t, DetectNerdFont(), "Should return false when fc-list fails")
+		require.False(t, result, "Should return false when command fails")
 	})
 
-	t.Run("fc-list returns empty output", func(t *testing.T) {
-		// Mock fcListCmd to return empty output
-		fcListCmd = func(name string, args ...string) *osexec.Cmd {
-			return &osexec.Cmd{}
-		}
+	t.Run("empty output", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("")}
+		result := detectNerdFontWithDetector(detector)
 
-		require.False(t, DetectNerdFont(), "Should return false when fc-list returns empty output")
+		require.False(t, result, "Should return false when output is empty")
 	})
 
-	t.Run("fc-list contains nerd font (lowercase)", func(t *testing.T) {
-		// Mock fcListCmd to return output with "nerd"
-		fcListCmd = func(name string, args ...string) *osexec.Cmd {
-			cmd := &osexec.Cmd{}
-			// We can't easily mock CombinedOutput, so this test is limited
-			// The actual behavior is verified by integration tests
-			return cmd
-		}
+	t.Run("contains nerd font (lowercase)", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("Hasklig Nerd Font Mono\nJetBrains Mono")}
+		result := detectNerdFontWithDetector(detector)
 
-		result := DetectNerdFont()
-		assert.True(t, result == true || result == false, "Should return a valid boolean")
+		assert.True(t, result, "Should detect 'nerd' in lowercase output")
 	})
 
-	t.Run("fc-list contains nerd font (uppercase)", func(t *testing.T) {
-		// Case-insensitive matching is verified by integration tests
-		// This placeholder documents the expected behavior
-		result := DetectNerdFont()
-		assert.True(t, result == true || result == false, "Should return a valid boolean")
+	t.Run("contains nerd font (uppercase)", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("HASKLIG NERD FONT MONO\nJetBrains Mono")}
+		result := detectNerdFontWithDetector(detector)
+
+		assert.True(t, result, "Should detect 'NERD' in uppercase output (case-insensitive)")
 	})
 
-	t.Run("fc-list contains nerd font (mixed case)", func(t *testing.T) {
-		// Case-insensitive matching is verified by integration tests
-		// This placeholder documents the expected behavior
-		result := DetectNerdFont()
-		assert.True(t, result == true || result == false, "Should return a valid boolean")
+	t.Run("contains nerd font (mixed case)", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("HasKlIg NeRd FoNt\nJetBrains Mono")}
+		result := detectNerdFontWithDetector(detector)
+
+		assert.True(t, result, "Should detect 'NeRd' in mixed case output")
+	})
+
+	t.Run("no nerd font present", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("Arial\nHelvetica\nRoboto\nJetBrains Mono")}
+		result := detectNerdFontWithDetector(detector)
+
+		assert.False(t, result, "Should return false when nerd fonts are not present")
+	})
+
+	t.Run("partial string matching", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("CascadiaMono Nerd Font Display")}
+		result := detectNerdFontWithDetector(detector)
+
+		assert.True(t, result, "Should match 'nerd' as a partial substring")
+	})
+
+	t.Run("whitespace handling", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("  Nerd  Font  \n  Arial  ")}
+		result := detectNerdFontWithDetector(detector)
+
+		assert.True(t, result, "Should handle whitespace correctly")
+	})
+
+	t.Run("unicode and special characters", func(t *testing.T) {
+		detector := mockFontDetector{output: []byte("FiraCode Nerd Font Mono:style=Bold\nLiberation Sans")}
+		result := detectNerdFontWithDetector(detector)
+
+		assert.True(t, result, "Should handle unicode and special characters")
 	})
 }
 
@@ -71,15 +93,7 @@ func TestDetectNerdFont_Integration(t *testing.T) {
 		t.Skip("fc-list not available, skipping integration tests")
 	}
 
-	// Use original fcListCmd for integration tests
-	originalCmd := fcListCmd
-	defer func() {
-		fcListCmd = originalCmd
-	}()
-	fcListCmd = osexec.Command
-
 	t.Run("idempotent detection", func(t *testing.T) {
-		// Running detection multiple times should yield the same result
 		result1 := DetectNerdFont()
 		result2 := DetectNerdFont()
 
@@ -88,7 +102,6 @@ func TestDetectNerdFont_Integration(t *testing.T) {
 	})
 
 	t.Run("no errors during normal operation", func(t *testing.T) {
-		// Should not panic or return errors during normal operation
 		result := DetectNerdFont()
 
 		assert.True(t, result == true || result == false,
