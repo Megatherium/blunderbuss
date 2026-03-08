@@ -27,9 +27,9 @@ func TestFilePicker_AddProjectFlow(t *testing.T) {
 
 	// Create UIModel
 	m := UIModel{
-		app:            app,
-		showSidebar:    true,
-		showFilePicker: true,
+		app:         app,
+		state:       ViewStateFilePicker,
+		showSidebar: true,
 	}
 
 	// Test that file picker can be closed with esc
@@ -116,8 +116,7 @@ func TestHandleAddProjectConfirmed(t *testing.T) {
 			projects: []domain.Project{},
 			stores:   make(map[string]data.TicketStore),
 		},
-		showAddProjectModal: true,
-		showFilePicker:      false,
+		state: ViewStateAddProjectModal,
 	}
 
 	msg := addProjectConfirmedMsg{path: tempDir}
@@ -148,8 +147,7 @@ func TestOpenFilePickerCmd(t *testing.T) {
 func TestUpdate_OpenFilePickerMsg(t *testing.T) {
 	// Setup
 	m := NewUIModel(&App{}, []domain.Harness{})
-	m.showFilePicker = false
-	m.showAddProjectModal = true
+	m.state = ViewStateAddProjectModal
 	m.pendingProjectPath = "/some/path"
 
 	// Action: Send OpenFilePickerMsg
@@ -158,11 +156,8 @@ func TestUpdate_OpenFilePickerMsg(t *testing.T) {
 
 	// Assert: Check that file picker is shown
 	uiModel := model.(UIModel)
-	if !uiModel.showFilePicker {
-		t.Error("Expected showFilePicker to be true after OpenFilePickerMsg")
-	}
-	if uiModel.showAddProjectModal {
-		t.Error("Expected showAddProjectModal to be false after OpenFilePickerMsg")
+	if uiModel.state != ViewStateFilePicker {
+		t.Errorf("Expected state to be ViewStateFilePicker after OpenFilePickerMsg, got %d", uiModel.state)
 	}
 	if uiModel.pendingProjectPath != "" {
 		t.Errorf("Expected pendingProjectPath to be empty, got %s", uiModel.pendingProjectPath)
@@ -177,8 +172,7 @@ func TestUpdate_OpenFilePickerMsg(t *testing.T) {
 func TestUpdate_ShowAddProjectModalMsg(t *testing.T) {
 	// Setup
 	m := NewUIModel(&App{}, []domain.Harness{})
-	m.showFilePicker = true
-	m.showAddProjectModal = false
+	m.state = ViewStateFilePicker
 
 	// Action: Send ShowAddProjectModalMsg
 	testPath := "/test/project/path"
@@ -187,11 +181,8 @@ func TestUpdate_ShowAddProjectModalMsg(t *testing.T) {
 
 	// Assert: Check that modal is shown with correct path
 	uiModel := model.(UIModel)
-	if uiModel.showFilePicker {
-		t.Error("Expected showFilePicker to be false after ShowAddProjectModalMsg")
-	}
-	if !uiModel.showAddProjectModal {
-		t.Error("Expected showAddProjectModal to be true after ShowAddProjectModalMsg")
+	if uiModel.state != ViewStateAddProjectModal {
+		t.Errorf("Expected state to be ViewStateAddProjectModal after ShowAddProjectModalMsg, got %d", uiModel.state)
 	}
 	if uiModel.pendingProjectPath != testPath {
 		t.Errorf("Expected pendingProjectPath to be %s, got %s", testPath, uiModel.pendingProjectPath)
@@ -206,8 +197,7 @@ func TestUpdate_ShowAddProjectModalMsg(t *testing.T) {
 func TestUpdate_AddProjectCancelledMsg(t *testing.T) {
 	// Setup
 	m := NewUIModel(&App{}, []domain.Harness{})
-	m.showFilePicker = false
-	m.showAddProjectModal = true
+	m.state = ViewStateAddProjectModal
 	m.pendingProjectPath = "/some/path"
 
 	// Action: Send addProjectCancelledMsg
@@ -216,11 +206,8 @@ func TestUpdate_AddProjectCancelledMsg(t *testing.T) {
 
 	// Assert: Check that we're back to file picker
 	uiModel := model.(UIModel)
-	if !uiModel.showFilePicker {
-		t.Error("Expected showFilePicker to be true after addProjectCancelledMsg")
-	}
-	if uiModel.showAddProjectModal {
-		t.Error("Expected showAddProjectModal to be false after addProjectCancelledMsg")
+	if uiModel.state != ViewStateFilePicker {
+		t.Errorf("Expected state to be ViewStateFilePicker after addProjectCancelledMsg, got %d", uiModel.state)
 	}
 	if uiModel.pendingProjectPath != "" {
 		t.Errorf("Expected pendingProjectPath to be empty, got %s", uiModel.pendingProjectPath)

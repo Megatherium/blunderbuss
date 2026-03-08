@@ -150,7 +150,6 @@ func TestErrorRecovery_StateTransitionAfterRetry(t *testing.T) {
 	m.state = ViewStateError
 	m.err = errors.New("connection refused")
 	m.retryStore = mockStore
-	m.loading = false
 
 	// Simulate pressing 'r'
 	newModel, cmd, handled := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
@@ -158,10 +157,9 @@ func TestErrorRecovery_StateTransitionAfterRetry(t *testing.T) {
 	// Should handle the key
 	require.True(t, handled, "Should handle 'r' key in error state")
 
-	// Should set loading to true and change state back to matrix
+	// Should set state to loading
 	updatedModel := newModel.(UIModel)
-	assert.True(t, updatedModel.loading, "Should set loading to true")
-	assert.Equal(t, ViewStateMatrix, updatedModel.state, "Should return to matrix state")
+	assert.Equal(t, ViewStateLoading, updatedModel.state, "Should set state to loading")
 	assert.NotNil(t, cmd, "Should return a command to load tickets")
 }
 
@@ -217,7 +215,6 @@ func TestErrorRecovery_StartServerKeyWithoutDoltStore(t *testing.T) {
 	m.err = errors.New("connection refused")
 	m.retryStore = &mockFailingStore{}
 	originalState := m.state
-	originalLoading := m.loading
 
 	// Simulate pressing 's'
 	newModel, cmd, handled := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
@@ -228,7 +225,6 @@ func TestErrorRecovery_StartServerKeyWithoutDoltStore(t *testing.T) {
 	// Should stay in error state because store is not *dolt.Store
 	updatedModel := newModel.(UIModel)
 	assert.Equal(t, originalState, updatedModel.state, "Should stay in error state with non-dolt store")
-	assert.Equal(t, originalLoading, updatedModel.loading, "Should not change loading state")
 	assert.Nil(t, cmd, "Should not return a command when store is not dolt.Store")
 }
 

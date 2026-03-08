@@ -53,19 +53,25 @@ type ViewState int
 
 const (
 	ViewStateMatrix ViewState = iota
+	ViewStateLoading
+	ViewStateFilePicker
+	ViewStateAddProjectModal
+	ViewStateAgentOutput
 	ViewStateConfirm
 	ViewStateError
 )
 
 // UIModel represents the complete state of the TUI application.
 //
-// View State Machine (renderMainContent precedence):
+// View State Machine (ViewState enum):
 //
-// 1. loading: Loading animation (initial startup)
-// 2. showFilePicker: File picker overlay for adding projects
-// 3. showAddProjectModal: "Add project?" confirmation modal
-// 4. viewingAgentID: Agent output view (non-empty string)
-// 5. Default: Matrix view (ticket/harness/model/agent columns)
+//   - ViewStateLoading: Loading animation (initial startup)
+//   - ViewStateFilePicker: File picker overlay for adding projects
+//   - ViewStateAddProjectModal: "Add project?" confirmation modal
+//   - ViewStateAgentOutput: Agent output view (viewingAgentID identifies which)
+//   - ViewStateMatrix: Main matrix view (ticket/harness/model/agent columns)
+//   - ViewStateConfirm: Launch confirmation
+//   - ViewStateError: Error display with retry options
 //
 // Note: showModal is a separate overlay system used for error/info messages
 // and is composited on top of the main content.
@@ -73,18 +79,18 @@ const (
 // Valid State Transitions (Add Project flow):
 //
 //	Sidebar (focus=FocusSidebar) + 'a' key → OpenFilePickerMsg
-//	→ showFilePicker = true
+//	→ state = ViewStateFilePicker
 //	→ File picker active, 'a' to select dir, 'esc' to cancel
 //	→ Select dir with .beads → ShowAddProjectModalMsg
-//	→ showFilePicker = false, showAddProjectModal = true
+//	→ state = ViewStateAddProjectModal
 //	→ 'y' or Enter → addProjectConfirmedMsg → project added
 //	→ 'n' or Esc → addProjectCancelledMsg → back to file picker
 //
 // Valid State Transitions (Agent view):
 //
-//	Matrix view + select agent in sidebar → viewingAgentID = agentID
+//	Matrix view + select agent in sidebar → state = ViewStateAgentOutput
 //	→ Agent output view
-//	→ Enter or Back → viewingAgentID = "" → back to matrix
+//	→ Enter or Back → state = ViewStateMatrix → back to matrix
 //
 // Column Disable Logic:
 //
@@ -117,7 +123,6 @@ type UIModel struct {
 	err          error
 	warnings     []string
 	launchResult *domain.LaunchResult
-	loading      bool
 
 	showModal    bool
 	modalContent string
@@ -160,10 +165,8 @@ type UIModel struct {
 	retryStore data.TicketStore // Store preserved for retry/start operations after errors
 
 	// File picker for adding projects
-	filepicker          filepicker.Model
-	showFilePicker      bool
-	showAddProjectModal bool
-	pendingProjectPath  string
+	filepicker         filepicker.Model
+	pendingProjectPath string
 }
 
 // RunningAgent tracks a launched agent session

@@ -8,10 +8,9 @@ import (
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
-func TestRenderMainContent_MatrixState(t *testing.T) {
+func TestRenderMainContent_LoadingState(t *testing.T) {
 	cfg := MainContentConfig{
-		State:        ViewStateMatrix,
-		Loading:      true,
+		State:        ViewStateLoading,
 		AnimState:    AnimationState{},
 		CurrentTheme: MatrixTheme,
 	}
@@ -47,9 +46,8 @@ func TestRenderMainContent_ErrorState(t *testing.T) {
 
 func TestRenderMainContent_FilePicker(t *testing.T) {
 	cfg := MainContentConfig{
-		State:          ViewStateMatrix,
-		ShowFilePicker: true,
-		CurrentTheme:   MatrixTheme,
+		State:        ViewStateFilePicker,
+		CurrentTheme: MatrixTheme,
 	}
 
 	s := RenderMainContent(cfg)
@@ -59,10 +57,9 @@ func TestRenderMainContent_FilePicker(t *testing.T) {
 
 func TestRenderMainContent_AddProjectModal(t *testing.T) {
 	cfg := MainContentConfig{
-		State:               ViewStateMatrix,
-		ShowAddProjectModal: true,
-		PendingProjectPath:  "/path/to/project",
-		CurrentTheme:        MatrixTheme,
+		State:              ViewStateAddProjectModal,
+		PendingProjectPath: "/path/to/project",
+		CurrentTheme:       MatrixTheme,
 	}
 
 	s := RenderMainContent(cfg)
@@ -72,7 +69,7 @@ func TestRenderMainContent_AddProjectModal(t *testing.T) {
 
 func TestRenderMainContent_AgentOutput(t *testing.T) {
 	cfg := MainContentConfig{
-		State:          ViewStateMatrix,
+		State:          ViewStateAgentOutput,
 		ViewingAgentID: "agent-1",
 		Agent: &RunningAgent{
 			Info: &domain.AgentInfo{

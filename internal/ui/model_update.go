@@ -30,8 +30,9 @@ func (m UIModel) handleModalKeyMsg() (tea.Model, tea.Cmd, bool) {
 }
 
 func (m UIModel) handleQuitKeyMsg() (tea.Model, tea.Cmd, bool) {
-	if m.viewingAgentID != "" {
+	if m.state == ViewStateAgentOutput {
 		m.viewingAgentID = ""
+		m.state = ViewStateMatrix
 		return m, nil, true
 	}
 	return m, tea.Quit, true
@@ -39,7 +40,7 @@ func (m UIModel) handleQuitKeyMsg() (tea.Model, tea.Cmd, bool) {
 
 func (m UIModel) handleRefreshKeyMsg() (tea.Model, tea.Cmd, bool) {
 	if m.state == ViewStateMatrix && m.focus == FocusTickets {
-		m.loading = true
+		m.state = ViewStateLoading
 		return m, tea.Batch(loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app)), true
 	}
 	return m, nil, false
@@ -50,8 +51,9 @@ func (m UIModel) handleBackKeyMsg() (tea.Model, tea.Cmd, bool) {
 		m.state = ViewStateMatrix
 		return m, nil, true
 	}
-	if m.viewingAgentID != "" {
+	if m.state == ViewStateAgentOutput {
 		m.viewingAgentID = ""
+		m.state = ViewStateMatrix
 		return m, nil, true
 	}
 	if m.state == ViewStateMatrix && m.focus > FocusTickets {
@@ -156,7 +158,9 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		if m.app.Project() == nil || m.app.Project().Store() == nil {
 			m.ticketList = createErrorList("Couldn't load ticket list:\nStore initialization failed", m.currentTheme)
 			m.sidebar.SetStoreError(true)
-			m.loading = false
+			if m.state == ViewStateLoading {
+				m.state = ViewStateMatrix
+			}
 			return m, nil
 		}
 		m.ticketList = newEmptyTicketList(m.currentTheme)
@@ -166,7 +170,9 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		m.sidebar.SetStoreError(false)
 	}
 	initList(&m.ticketList, 0, 0, "Select a Ticket")
-	m.loading = false
+	if m.state == ViewStateLoading {
+		m.state = ViewStateMatrix
+	}
 	m.updateSizes()
 	m.lastTicketUpdate = time.Now()
 
@@ -198,7 +204,6 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 
 func (m UIModel) handleErrMsg(msg errMsg) (tea.Model, tea.Cmd) {
 	m.err = msg.err
-	m.loading = false
 	m.state = ViewStateError
 	// Preserve the store for retry/start operations in error recovery UI
 	if project := m.app.Project(); project != nil {
@@ -306,7 +311,7 @@ func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (UIModel, tea.Cmd) {
 }
 
 func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
-	if !m.showFilePicker {
+	if m.state != ViewStateFilePicker {
 		return m, nil, false
 	}
 	switch msg.String() {
@@ -317,7 +322,7 @@ func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 		}
 		return m, nil, true
 	case "esc":
-		m.showFilePicker = false
+		m.state = ViewStateMatrix
 		return m, nil, true
 	}
 
@@ -328,7 +333,7 @@ func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 }
 
 func (m UIModel) handleAddProjectModalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
-	if !m.showAddProjectModal {
+	if m.state != ViewStateAddProjectModal {
 		return m, nil, false
 	}
 	switch msg.String() {
@@ -353,16 +358,14 @@ func (m UIModel) handleErrorStateKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 		return m, tea.Quit, true
 	case "r", "R":
 		if m.retryStore != nil {
-			m.loading = true
-			m.state = ViewStateMatrix
+			m.state = ViewStateLoading
 			return m, loadTicketsCmd(m.retryStore), true
 		}
 	case "s", "S":
 		if m.retryStore != nil {
 			if doltStore, ok := m.retryStore.(*dolt.Store); ok {
 				if doltStore.CanRetryConnection() {
-					m.loading = true
-					m.state = ViewStateMatrix
+					m.state = ViewStateLoading
 					return m, startServerAndRetryCmd(m.app, doltStore), true
 				}
 			}
@@ -532,8 +535,9 @@ func (m UIModel) handleAgentEnterKey() (tea.Model, tea.Cmd) {
 
 func (m UIModel) handleEnterKey() (tea.Model, tea.Cmd) {
 	// Exit agent output view when Enter is pressed
-	if m.viewingAgentID != "" {
+	if m.state == ViewStateAgentOutput {
 		m.viewingAgentID = ""
+		m.state = ViewStateMatrix
 		return m, nil
 	}
 
@@ -900,6 +904,7 @@ func (m UIModel) handleAgentHoverEnded(msg AgentHoverEndedMsg) (tea.Model, tea.C
 }
 
 func (m UIModel) handleAgentSelected(msg AgentSelectedMsg) (tea.Model, tea.Cmd) {
+	m.state = ViewStateAgentOutput
 	m.viewingAgentID = msg.AgentID
 	m.hoveredAgentID = ""
 
@@ -962,8 +967,9 @@ func (m UIModel) handleAgentCleared(msg AgentClearedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// If we were viewing this agent, stop viewing
-	if m.viewingAgentID == msg.AgentID {
+	if m.state == ViewStateAgentOutput && m.viewingAgentID == msg.AgentID {
 		m.viewingAgentID = ""
+		m.state = ViewStateMatrix
 	}
 
 	// Remove agent node from sidebar
@@ -975,8 +981,9 @@ func (m UIModel) handleAllStoppedAgentsCleared(msg AllStoppedAgentsClearedMsg) (
 	// Remove from agents map and clear view if needed
 	for _, id := range msg.ClearedIDs {
 		delete(m.agents, id)
-		if m.viewingAgentID == id {
+		if m.state == ViewStateAgentOutput && m.viewingAgentID == id {
 			m.viewingAgentID = ""
+			m.state = ViewStateMatrix
 		}
 		if m.hoveredAgentID == id {
 			m.hoveredAgentID = ""
@@ -1288,8 +1295,7 @@ func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Mode
 	for _, project := range m.app.GetProjects() {
 		if filepath.Clean(project.Dir) == filepath.Clean(projectDir) {
 			m.warnings = append(m.warnings, fmt.Sprintf("Project already exists: %s", projectDir))
-			m.showAddProjectModal = false
-			m.showFilePicker = true
+			m.state = ViewStateFilePicker
 			return m, nil
 		}
 	}
@@ -1305,8 +1311,7 @@ func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Mode
 	store, err := m.app.CreateStore(ctx, beadsDir)
 	if err != nil {
 		m.warnings = append(m.warnings, fmt.Sprintf("Failed to create store for %s: %v", projectDir, err))
-		m.showAddProjectModal = false
-		m.showFilePicker = true
+		m.state = ViewStateFilePicker
 		return m, nil
 	}
 	m.app.AddStore(projectDir, store)
@@ -1315,8 +1320,7 @@ func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Mode
 		m.warnings = append(m.warnings, fmt.Sprintf("Failed to save config: %v", err))
 	}
 
-	m.showAddProjectModal = false
-	m.showFilePicker = false
+	m.state = ViewStateMatrix
 	m.pendingProjectPath = ""
 
 	return m, tea.Batch(
@@ -1365,7 +1369,7 @@ func updateListCaches(oldM, newM UIModel, msg tea.Msg) UIModel {
 }
 
 func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.showFilePicker {
+	if m.state == ViewStateFilePicker {
 		switch msg.(type) {
 		case tea.KeyMsg, tea.WindowSizeMsg:
 			// Let normal flow handle it so we process app-level keys and resize

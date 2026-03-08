@@ -33,7 +33,7 @@ func TestUIModel_StateTransitions(t *testing.T) {
 	app := newTestApp()
 	m := NewUIModel(app, nil)
 
-	assert.Equal(t, ViewStateMatrix, m.state)
+	assert.Equal(t, ViewStateLoading, m.state)
 
 	m.state = ViewStateConfirm
 

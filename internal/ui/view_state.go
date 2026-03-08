@@ -12,25 +12,22 @@ import (
 
 // MainContentConfig holds configuration for rendering the main content
 type MainContentConfig struct {
-	State               ViewState
-	Focus               FocusColumn
-	Loading             bool
-	ShowFilePicker      bool
-	ShowAddProjectModal bool
-	ViewingAgentID      string
-	Selection           domain.Selection
-	Renderer            *config.Renderer
-	DryRun              bool
-	SelectedWorktree    string
-	CurrentTheme        ThemePalette
-	ShowModal           bool
-	ModalContent        string
-	PendingProjectPath  string
-	Warnings            []string
-	Width               int
-	Height              int
-	Err                 error
-	RetryStore          data.TicketStore
+	State              ViewState
+	Focus              FocusColumn
+	ViewingAgentID     string
+	Selection          domain.Selection
+	Renderer           *config.Renderer
+	DryRun             bool
+	SelectedWorktree   string
+	CurrentTheme       ThemePalette
+	ShowModal          bool
+	ModalContent       string
+	PendingProjectPath string
+	Warnings           []string
+	Width              int
+	Height             int
+	Err                error
+	RetryStore         data.TicketStore
 
 	// View dependencies
 	MatrixConfig MatrixConfig
@@ -44,8 +41,30 @@ func RenderMainContent(cfg MainContentConfig) string {
 	var s string
 
 	switch cfg.State {
+	case ViewStateLoading:
+		s = RenderLoading(LoadingConfig{
+			StartTime: cfg.AnimState.StartTime,
+			Theme:     cfg.CurrentTheme,
+		})
+	case ViewStateFilePicker:
+		s = RenderFilePicker(FilePickerConfig{
+			Filepicker: cfg.Filepicker,
+			Theme:      cfg.CurrentTheme,
+		})
+	case ViewStateAddProjectModal:
+		s = RenderAddProjectModal(AddProjectConfig{
+			PendingProjectPath: cfg.PendingProjectPath,
+			Theme:              cfg.CurrentTheme,
+		})
+	case ViewStateAgentOutput:
+		s = RenderAgentOutput(AgentConfig{
+			Agent:  cfg.Agent,
+			Width:  cfg.Width,
+			Height: cfg.Height,
+			Theme:  cfg.CurrentTheme,
+		})
 	case ViewStateMatrix:
-		s = renderMatrixState(cfg)
+		s = RenderMatrix(cfg.MatrixConfig)
 	case ViewStateConfirm:
 		s = confirmView(cfg.Selection, cfg.Renderer, cfg.DryRun, cfg.SelectedWorktree, cfg.CurrentTheme)
 	case ViewStateError:
@@ -57,40 +76,6 @@ func RenderMainContent(cfg MainContentConfig) string {
 	s = renderWarnings(s, cfg.Warnings)
 
 	return s
-}
-
-func renderMatrixState(cfg MainContentConfig) string {
-	if cfg.Loading {
-		return RenderLoading(LoadingConfig{
-			StartTime: cfg.AnimState.StartTime,
-			Theme:     cfg.CurrentTheme,
-		})
-	}
-
-	if cfg.ShowFilePicker {
-		return RenderFilePicker(FilePickerConfig{
-			Filepicker: cfg.Filepicker,
-			Theme:      cfg.CurrentTheme,
-		})
-	}
-
-	if cfg.ShowAddProjectModal {
-		return RenderAddProjectModal(AddProjectConfig{
-			PendingProjectPath: cfg.PendingProjectPath,
-			Theme:              cfg.CurrentTheme,
-		})
-	}
-
-	if cfg.ViewingAgentID != "" {
-		return RenderAgentOutput(AgentConfig{
-			Agent:  cfg.Agent,
-			Width:  cfg.Width,
-			Height: cfg.Height,
-			Theme:  cfg.CurrentTheme,
-		})
-	}
-
-	return RenderMatrix(cfg.MatrixConfig)
 }
 
 func renderErrorState(cfg MainContentConfig) string {

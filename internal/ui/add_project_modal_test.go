@@ -73,7 +73,7 @@ func TestAddProjectModal_KeyHandlers(t *testing.T) {
 	m := NewUIModel(app, nil)
 
 	// Enable modal
-	m.showAddProjectModal = true
+	m.state = ViewStateAddProjectModal
 	m.pendingProjectPath = "/test/project"
 
 	// Test 'y' key accepts
@@ -89,7 +89,7 @@ func TestAddProjectModal_KeyHandlers(t *testing.T) {
 	assert.True(t, resultMsg.success, "y should indicate success")
 
 	// Reset and test 'n' key declines
-	m.showAddProjectModal = true
+	m.state = ViewStateAddProjectModal
 	nMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
 	_, cmd, handled = m.handleKeyMsg(nMsg)
 	require.True(t, handled, "n key should be handled")
@@ -107,7 +107,7 @@ func TestAddProjectModal_BlocksOtherKeys(t *testing.T) {
 	m := NewUIModel(app, nil)
 
 	// Enable modal
-	m.showAddProjectModal = true
+	m.state = ViewStateAddProjectModal
 	m.pendingProjectPath = "/test/project"
 
 	// Test that Enter key is blocked

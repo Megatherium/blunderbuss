@@ -66,21 +66,20 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 	}
 
 	return UIModel{
-		app:          app,
-		state:        ViewStateMatrix,
-		focus:        FocusSidebar,
-		harnesses:    harnesses,
-		ticketList:   tl,
-		harnessList:  hl,
-		modelList:    ml,
-		agentList:    al,
-		filepicker:   fp,
-		sidebar:      NewSidebarModel(),
-		help:         h,
-		keys:         keys,
-		loading:      true,
-		showModal:    false,
-		showSidebar:  true,
+		app:         app,
+		state:       ViewStateLoading,
+		focus:       FocusSidebar,
+		harnesses:   harnesses,
+		ticketList:  tl,
+		harnessList: hl,
+		modelList:   ml,
+		agentList:   al,
+		filepicker:  fp,
+		sidebar:     NewSidebarModel(),
+		help:        h,
+		keys:        keys,
+		showModal:   false,
+		showSidebar: true,
 		agents:       make(map[string]*RunningAgent),
 		currentTheme: currentTheme, // Default to TokyoNight theme
 
@@ -197,16 +196,18 @@ func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case addProjectPromptMsg:
-		m.showAddProjectModal = true
+		m.state = ViewStateAddProjectModal
 		m.pendingProjectPath = msg.projectPath
 		return m, nil, true
 	case addProjectResultMsg:
-		m.showAddProjectModal = false
 		if msg.err != nil {
 			m.err = msg.err
 			m.state = ViewStateError
 		} else if msg.success {
+			m.state = ViewStateMatrix
 			return m, m.activateProjectAndInit(m.pendingProjectPath), true
+		} else {
+			m.state = ViewStateMatrix
 		}
 		return m, m.continueNormalInit(), true
 	case worktreesDiscoveredMsg:
@@ -225,18 +226,15 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 		return m, loadTicketsCmd(msg.store), true
 	case OpenFilePickerMsg:
-		m.showFilePicker = true
-		m.showAddProjectModal = false
+		m.state = ViewStateFilePicker
 		m.pendingProjectPath = ""
 		return m, nil, true
 	case ShowAddProjectModalMsg:
-		m.showFilePicker = false
-		m.showAddProjectModal = true
+		m.state = ViewStateAddProjectModal
 		m.pendingProjectPath = msg.path
 		return m, nil, true
 	case addProjectCancelledMsg:
-		m.showFilePicker = true
-		m.showAddProjectModal = false
+		m.state = ViewStateFilePicker
 		m.pendingProjectPath = ""
 		return m, nil, true
 	case filepicker.RecentsChangedMsg:
