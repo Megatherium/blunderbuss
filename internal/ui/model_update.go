@@ -1340,7 +1340,6 @@ func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Mode
 	return m, tea.Batch(
 		m.loadRegistryCmd(),
 		m.continueInitAfterRegistry(),
-		discoverWorktreesCmd(m.app),
 		func() tea.Msg {
 			return warningMsg{fmt.Errorf("added project: %s", projectDir)}
 		},
