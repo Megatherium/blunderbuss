@@ -5,3 +5,5 @@
 {"actor":"mayor","comment":"Removed label: status:docked","created_at":"2026-03-10T10:08:46Z","event_type":"label_removed","id":5,"issue_id":"bb-rig-blunderbust","new_value":null,"old_value":null}
 {"actor":"mayor","comment":"Added label: status:docked","created_at":"2026-03-10T10:08:46Z","event_type":"label_added","id":6,"issue_id":"bb-rig-blunderbust","new_value":null,"old_value":null}
 {"actor":"mayor","comment":"Removed label: status:docked","created_at":"2026-03-10T10:09:13Z","event_type":"label_removed","id":7,"issue_id":"bb-rig-blunderbust","new_value":null,"old_value":null}
+{"actor":"mayor","comment":null,"created_at":"2026-03-10T11:50:37Z","event_type":"created","id":8,"issue_id":"bl-rig-blunderbust","new_value":"","old_value":""}
+{"actor":"mayor","comment":"Added label: gt:rig","created_at":"2026-03-10T11:50:37Z","event_type":"label_added","id":9,"issue_id":"bl-rig-blunderbust","new_value":null,"old_value":null}
