@@ -1,4 +1,4 @@
-package ui
+package app
 
 import (
 	"context"
@@ -113,29 +113,29 @@ func TestDetectNerdFont_Integration(t *testing.T) {
 
 func TestApp_SetActiveProject_CreationFailure(t *testing.T) {
 	// Initialize a stripped down App instance with a simulated active project
-	app := &App{
-		stores:        make(map[string]data.TicketStore),
-		activeProject: "/existing/project",
+	myApp := &App{
+		Stores:        make(map[string]data.TicketStore),
+		ActiveProject: "/existing/project",
 		projects:      []domain.Project{{Dir: "/existing/project", Name: "existing"}},
 	}
 
 	// Pre-populate the existing active project store with an empty mock
-	app.stores["/existing/project"] = &mockStore{}
+	myApp.Stores["/existing/project"] = &mockStore{}
 
-	// Swap out the App createStore logic by mocking the error behavior locally via an inline App mock structure,
-	// or we can test SetActiveProject by forcing createStore to fail. Wait, createStore on App uses a.opts.Demo...
-	// We can set an invalid BeadsDir or trigger an actual error path if we pass a bad path?
-	// Actually, `App.createStore` uses `dolt.NewStore`. It expects `.beads/metadata.json`. If we pass an empty dir, it will fail.
-
-	err := app.SetActiveProject(context.Background(), "/nonexistent/test/failure")
+	err := myApp.SetActiveProject(context.Background(), "/nonexistent/test/failure")
 
 	// Verify that the function returned an error.
 	assert.Error(t, err)
 
 	// verify that createStore's failure prevented a structural assignment overwrite of the activeProject.
-	assert.Equal(t, "/existing/project", app.activeProject)
+	assert.Equal(t, "/existing/project", myApp.ActiveProject)
 
 	// verify the store was never saved to the map
-	_, exists := app.stores["/nonexistent/test/failure"]
+	_, exists := myApp.Stores["/nonexistent/test/failure"]
 	assert.False(t, exists)
+}
+
+// mockStore is a minimal implementation of data.TicketStore for testing.
+type mockStore struct {
+	data.TicketStore
 }

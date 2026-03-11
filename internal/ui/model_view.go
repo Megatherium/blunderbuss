@@ -40,7 +40,7 @@ func (m UIModel) renderMainContent() string {
 		ViewingAgentID:     m.viewingAgentID,
 		Selection:          m.selection,
 		Renderer:           m.app.Renderer,
-		DryRun:             m.app.opts.DryRun,
+		DryRun:             m.app.Opts.DryRun,
 		SelectedWorktree:   m.selectedWorktree,
 		CurrentTheme:       m.getThemeValue(),
 		ShowModal:          m.showModal,

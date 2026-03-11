@@ -14,7 +14,7 @@ import (
 // TestAddProjectModal_NotInWorkspace tests that modal shows when project not in workspace
 func TestAddProjectModal_NotInWorkspace(t *testing.T) {
 	app := newTestApp()
-	app.opts.TargetProject = "/some/new/project"
+	app.Opts.TargetProject = "/some/new/project"
 	app.projects = []domain.Project{} // Empty workspace
 
 	_ = NewUIModel(app, nil)
@@ -27,7 +27,7 @@ func TestAddProjectModal_NotInWorkspace(t *testing.T) {
 // TestAddProjectModal_AlreadyInWorkspace tests that modal is NOT shown when project already exists
 func TestAddProjectModal_AlreadyInWorkspace(t *testing.T) {
 	app := newTestApp()
-	app.opts.TargetProject = "/existing/project"
+	app.Opts.TargetProject = "/existing/project"
 	app.projects = []domain.Project{
 		{Dir: "/existing/project", Name: "existing"},
 	}

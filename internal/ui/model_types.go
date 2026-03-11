@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
@@ -98,7 +99,7 @@ const (
 //	agentColumnDisabled = true when harness has no agents
 //	These are set by handleModelSkip() and handleAgentSkip()
 type UIModel struct {
-	app       *App
+	app       *app.App
 	state     ViewState
 	focus     FocusColumn
 	selection domain.Selection

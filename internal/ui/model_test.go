@@ -7,10 +7,15 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/megatherium/blunderbust/internal/data"
-	"github.com/megatherium/blunderbust/internal/discovery"
-	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/charmbracelet/x/term"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/megatherium/blunderbust/internal/config"
+	"github.com/megatherium/blunderbust/internal/data"
+	"github.com/megatherium/blunderbust/internal/app"
+	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/megatherium/blunderbust/internal/launcher"
 )
 
 type mockConfigLoader struct{}
@@ -23,10 +28,15 @@ func (m mockConfigLoader) Save(path string, cfg *domain.Config) error {
 	return nil
 }
 
-func newTestApp() *App {
-	return &App{
-		loader: mockConfigLoader{},
+// Helper to create a test app
+func newTestApp() *app.App {
+	cfgLoader := &config.MemoryLoader{}
+	opts := domain.AppOptions{
+		Demo:   true,
+		DryRun: true,
 	}
+	application, _ := app.NewApp(cfgLoader, &launcher.NoopLauncher{}, nil, nil, nil, opts)
+	return application
 }
 
 func TestUIModel_StateTransitions(t *testing.T) {
@@ -699,9 +709,9 @@ func TestHandleTicketUpdateCheck(t *testing.T) {
 
 func TestHandleTicketUpdateCheck_WithNilStore(t *testing.T) {
 	app := newTestApp()
+	app.ActiveProject = ".beads"
+	app.Stores = map[string]data.TicketStore{".beads": &mockStore{}}
 	m := NewUIModel(app, nil)
-	app.activeProject = ".beads"
-	app.stores = map[string]data.TicketStore{".beads": &mockStore{}}
 
 	newM, cmd := m.handleTicketUpdateCheck()
 	updatedM := newM.(UIModel)
@@ -712,9 +722,9 @@ func TestHandleTicketUpdateCheck_WithNilStore(t *testing.T) {
 
 func TestHandleTicketsAutoRefreshed(t *testing.T) {
 	app := newTestApp()
+	app.ActiveProject = "test-project"
+	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
 	m := NewUIModel(app, nil)
-	app.activeProject = ".beads"
-	app.stores = map[string]data.TicketStore{".beads": &mockStore{}}
 
 	dbUpdatedAt := time.Now().UTC()
 	newM, cmd := m.handleTicketsAutoRefreshed(ticketsAutoRefreshedMsg{dbUpdatedAt: dbUpdatedAt})
@@ -728,6 +738,8 @@ func TestHandleTicketsAutoRefreshed(t *testing.T) {
 
 func TestHandleClearRefreshIndicator(t *testing.T) {
 	app := newTestApp()
+	app.ActiveProject = "test-project"
+	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
 	m := NewUIModel(app, nil)
 	m.refreshedRecently = true
 
@@ -740,6 +752,8 @@ func TestHandleClearRefreshIndicator(t *testing.T) {
 
 func TestHandleRefreshAnimationTick(t *testing.T) {
 	app := newTestApp()
+	app.ActiveProject = "test-project"
+	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
 	m := NewUIModel(app, nil)
 	m.refreshAnimationFrame = 2
 
@@ -752,6 +766,8 @@ func TestHandleRefreshAnimationTick(t *testing.T) {
 
 func TestRefreshAnimationCycle(t *testing.T) {
 	app := newTestApp()
+	app.ActiveProject = "test-project"
+	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
 	m := NewUIModel(app, nil)
 
 	m.refreshAnimationFrame = 3
@@ -763,6 +779,8 @@ func TestRefreshAnimationCycle(t *testing.T) {
 
 func TestHandleTicketUpdateCheckNeeded(t *testing.T) {
 	app := newTestApp()
+	app.ActiveProject = "test-project"
+	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
 	m := NewUIModel(app, nil)
 
 	newM, cmd := m.handleTicketUpdateCheckNeeded()
@@ -773,10 +791,12 @@ func TestHandleTicketUpdateCheckNeeded(t *testing.T) {
 }
 
 func TestCheckTicketUpdatesCmd_DemoMode(t *testing.T) {
-	store := &mockStore{}
-	lastUpdate := time.Now()
+	app := newTestApp()
+	app.ActiveProject = "test-project"
+	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
+	m := NewUIModel(app, nil)
 
-	cmd := checkTicketUpdatesCmd(store, lastUpdate)
+	cmd := checkTicketUpdatesCmd(app.Stores["test-project"], m.lastTicketUpdate)
 	assert.NotNil(t, cmd)
 
 	msg := cmd()
@@ -794,19 +814,10 @@ func (m *mockStore) Close() error {
 }
 
 func TestContinueNormalInit_LoadsRegistry(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{ConfigPath: "", BeadsDir: "./.beads"},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
-	app.stores = make(map[string]data.TicketStore)
-	app.stores["."] = &mockStore{}
-	app.activeProject = "."
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	cmd := m.continueNormalInit()
@@ -819,19 +830,10 @@ func TestContinueNormalInit_LoadsRegistry(t *testing.T) {
 }
 
 func TestContinueInitAfterRegistry_LoadsTickets(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{ConfigPath: "", BeadsDir: "./.beads"},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
-	app.stores = make(map[string]data.TicketStore)
-	app.stores["."] = &mockStore{}
-	app.activeProject = "."
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	cmd := m.continueInitAfterRegistry()
@@ -840,19 +842,13 @@ func TestContinueInitAfterRegistry_LoadsTickets(t *testing.T) {
 }
 
 func TestRegistryLoadedMsg_HandlesTwoPhaseInit(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	harnesses := []domain.Harness{
-		{Name: "test", SupportedModels: []string{"provider:openai"}, SupportedAgents: []string{"agent"}},
+		{Name: "test", Capabilities: []string{"test"}},
 	}
 	m := NewUIModel(app, harnesses)
 
@@ -870,16 +866,10 @@ func TestRegistryLoadedMsg_HandlesTwoPhaseInit(t *testing.T) {
 }
 
 func TestHandleModelSkip_ReturnsWarningForUnknownProvider(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
@@ -902,16 +892,10 @@ func TestHandleModelSkip_ReturnsWarningForUnknownProvider(t *testing.T) {
 }
 
 func TestHandleModelSkip_AppendsWarningsToModel(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
@@ -931,27 +915,10 @@ func TestHandleModelSkip_AppendsWarningsToModel(t *testing.T) {
 }
 
 func TestHandleModelSkip_MixedDiscoveryKeywords(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	registry.SetProviders(map[string]discovery.Provider{
-		"openai": {
-			ID:   "openai",
-			Name: "OpenAI",
-			Env:  []string{},
-			Models: map[string]discovery.Model{
-				"gpt-4": {ID: "gpt-4", Name: "GPT-4"},
-			},
-		},
-	})
-
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
@@ -973,16 +940,10 @@ func TestHandleModelSkip_MixedDiscoveryKeywords(t *testing.T) {
 }
 
 func TestHandleModelSkip_AllDiscoveryKeywordsFail(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
@@ -1004,18 +965,10 @@ func TestHandleModelSkip_AllDiscoveryKeywordsFail(t *testing.T) {
 }
 
 func TestHandleModelSkip_InitializationWithEmptyRegistry(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	// Don't set any providers - registry is empty
-
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
@@ -1032,11 +985,10 @@ func TestHandleModelSkip_InitializationWithEmptyRegistry(t *testing.T) {
 }
 
 func TestIntegration_RegistryLoadsBeforeHarnessSelection(t *testing.T) {
-	// This test simulates the actual flow:
-	// 1. Init() loads registry (continueNormalInit)
-	// 2. registryLoadedMsg arrives and triggers continueInitAfterRegistry()
-	// 3. User selects a harness
-	// 4. handleModelSkip() is called to expand provider: keywords
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	registry, _ := discovery.NewRegistry("")
 	registry.SetProviders(map[string]discovery.Provider{
@@ -1051,16 +1003,7 @@ func TestIntegration_RegistryLoadsBeforeHarnessSelection(t *testing.T) {
 		},
 	})
 
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
-
+	app.Registry = registry
 	harnesses := []domain.Harness{
 		{
 			Name:            "test-harness",
@@ -1089,6 +1032,11 @@ func TestIntegration_RegistryLoadsBeforeHarnessSelection(t *testing.T) {
 }
 
 func TestHandleModelSkip_WithDiscoveryKeywords(t *testing.T) {
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
+
 	registry, _ := discovery.NewRegistry("")
 	registry.SetProviders(map[string]discovery.Provider{
 		"openai": {
@@ -1102,16 +1050,7 @@ func TestHandleModelSkip_WithDiscoveryKeywords(t *testing.T) {
 		},
 	})
 
-	app := &App{
-		loader:        mockConfigLoader{},
-		Registry:      registry,
-		opts:          domain.AppOptions{},
-		launcher:      nil,
-		statusChecker: nil,
-		runner:        nil,
-		Renderer:      nil,
-	}
-
+	app.Registry = registry
 	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
 		Name:            "test-harness",
@@ -1128,8 +1067,11 @@ func TestHandleModelSkip_WithDiscoveryKeywords(t *testing.T) {
 
 func TestHandleModelSkip_WithHardcodedModels(t *testing.T) {
 	app := newTestApp()
-	m := NewUIModel(app, nil)
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
+	m := NewUIModel(app, nil)
 	m.selection.Harness = domain.Harness{
 		Name:            "test-harness",
 		SupportedModels: []string{"openai/gpt-4", "anthropic/claude-3-opus"},
@@ -1144,13 +1086,10 @@ func TestHandleModelSkip_WithHardcodedModels(t *testing.T) {
 }
 
 func TestHandleModelSkip_PreservesSelection(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial model selection
 	m.selection.Harness = domain.Harness{
@@ -1171,13 +1110,10 @@ func TestHandleModelSkip_PreservesSelection(t *testing.T) {
 }
 
 func TestHandleModelSkip_UpdatesRemovedSelection(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial model selection to a model that will be removed
 	m.selection.Harness = domain.Harness{
@@ -1197,13 +1133,10 @@ func TestHandleModelSkip_UpdatesRemovedSelection(t *testing.T) {
 }
 
 func TestHandleAgentSkip_PreservesSelection(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial agent selection
 	m.selection.Harness = domain.Harness{
@@ -1224,13 +1157,10 @@ func TestHandleAgentSkip_PreservesSelection(t *testing.T) {
 }
 
 func TestHandleAgentSkip_UpdatesRemovedSelection(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial agent selection to an agent that will be removed
 	m.selection.Harness = domain.Harness{
@@ -1250,13 +1180,10 @@ func TestHandleAgentSkip_UpdatesRemovedSelection(t *testing.T) {
 }
 
 func TestHandleTicketsLoaded_PreservesSelection(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial ticket selection
 	tickets := []domain.Ticket{
@@ -1284,14 +1211,12 @@ func TestHandleTicketsLoaded_PreservesSelection(t *testing.T) {
 }
 
 func TestHandleTicketsLoaded_PreservesSelectionAfterReorder(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
+	// Set initial ticket selection
 	oldTickets := []domain.Ticket{
 		{ID: "bb-1", Title: "Ticket 1", Status: "open", Priority: 1},
 		{ID: "bb-2", Title: "Ticket 2", Status: "open", Priority: 2},
@@ -1318,13 +1243,10 @@ func TestHandleTicketsLoaded_PreservesSelectionAfterReorder(t *testing.T) {
 }
 
 func TestHandleTicketsLoaded_UpdatesRemovedSelection(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial ticket selection
 	oldTickets := []domain.Ticket{
@@ -1350,13 +1272,10 @@ func TestHandleTicketsLoaded_UpdatesRemovedSelection(t *testing.T) {
 }
 
 func TestHandleTicketsLoaded_EmptyList(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Set initial ticket selection
 	oldTickets := []domain.Ticket{
@@ -1381,13 +1300,10 @@ func TestHandleTicketsLoaded_EmptyList(t *testing.T) {
 }
 
 func TestHandleTicketsLoaded_StoreError(t *testing.T) {
-	registry, _ := discovery.NewRegistry("")
-	app := &App{
-		loader:   mockConfigLoader{},
-		Registry: registry,
-		opts:     domain.AppOptions{},
-	}
-	m := NewUIModel(app, nil)
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	// Simulate store initialization failure (nil project and store)
 	app.activeProject = ""
@@ -1409,7 +1325,9 @@ func TestHandleTicketsLoaded_StoreError(t *testing.T) {
 
 func TestBuildMatrixConfig_UsesMaterializedLaunchContextForAgentNode(t *testing.T) {
 	app := newTestApp()
-	m := NewUIModel(app, nil)
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	m.hoveredAgentID = "bb-123"
 	m.agents["bb-123"] = &RunningAgent{
@@ -1434,7 +1352,10 @@ func TestBuildMatrixConfig_UsesMaterializedLaunchContextForAgentNode(t *testing.
 
 func TestBuildMatrixConfig_KeepsLiveListsWhenCursorNotOnAgent(t *testing.T) {
 	app := newTestApp()
-	m := NewUIModel(app, nil)
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
+
 	m.hoveredAgentID = ""
 
 	expectedTicketView := m.ticketList.View()
@@ -1451,7 +1372,9 @@ func TestBuildMatrixConfig_KeepsLiveListsWhenCursorNotOnAgent(t *testing.T) {
 
 func TestBuildMatrixConfig_KeepsLiveListsWhenHoverEnds(t *testing.T) {
 	app := newTestApp()
-	m := NewUIModel(app, nil)
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	hoveredTicket := "bb-hovered"
 	m.hoveredAgentID = "agent-1"
@@ -1474,7 +1397,9 @@ func TestBuildMatrixConfig_KeepsLiveListsWhenHoverEnds(t *testing.T) {
 
 func TestHandleRunningAgentsLoaded_RestoresMaterializedLaunchContext(t *testing.T) {
 	app := newTestApp()
-	m := NewUIModel(app, nil)
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
 
 	msg := runningAgentsLoadedMsg{
 		agents: []domain.PersistedRunningAgent{
@@ -1506,7 +1431,10 @@ func TestHandleRunningAgentsLoaded_RestoresMaterializedLaunchContext(t *testing.
 
 func TestHandleAgentSelected_ClearsHoveredAgentID(t *testing.T) {
 	app := newTestApp()
-	m := NewUIModel(app, nil)
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
+
 	m.hoveredAgentID = "agent-1"
 	m.agents["agent-1"] = &RunningAgent{}
 

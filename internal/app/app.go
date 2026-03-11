@@ -1,4 +1,4 @@
-package ui
+package app
 
 import (
 	"context"
@@ -18,6 +18,18 @@ import (
 	"github.com/megatherium/blunderbust/internal/exec"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
+
+// ExtractRepoRoot extracts the repository root path from a beadsDir path.
+// It handles both "/path/to/.beads" and "/path/to/.beads/" patterns.
+func ExtractRepoRoot(beadsDir string) string {
+	repoRoot := beadsDir
+	if idx := strings.LastIndex(beadsDir, "/.beads"); idx > 0 {
+		repoRoot = beadsDir[:idx]
+	} else if strings.HasSuffix(beadsDir, ".beads") {
+		repoRoot = filepath.Dir(beadsDir)
+	}
+	return repoRoot
+}
 
 // fontDetector abstracts the command execution for detecting nerd fonts.
 // This interface exists for testability and allows mocking the fc-list command.
@@ -63,16 +75,16 @@ func detectNerdFontWithDetector(detector fontDetector) bool {
 // App encapsulates the Bubble Tea program's dependencies.
 type App struct {
 	mu            sync.RWMutex
-	stores        map[string]data.TicketStore
+	Stores        map[string]data.TicketStore
 	projects      []domain.Project
-	activeProject string
-	loader        config.Loader
-	launcher      exec.Launcher
+	ActiveProject string
+	Loader        config.Loader
+	Launcher      exec.Launcher
 	statusChecker *tmux.StatusChecker
 	runner        tmux.CommandRunner
 	Renderer      *config.Renderer
 	Registry      *discovery.Registry
-	opts          domain.AppOptions
+	Opts          domain.AppOptions
 	Fonts         FontConfig
 }
 
@@ -85,13 +97,13 @@ func NewApp(loader config.Loader, launcher exec.Launcher, statusChecker *tmux.St
 	}
 
 	return &App{
-		loader:        loader,
-		launcher:      launcher,
+		Loader:        loader,
+		Launcher:      launcher,
 		statusChecker: statusChecker,
 		runner:        runner,
 		Renderer:      renderer,
 		Registry:      registry,
-		opts:          opts,
+		Opts:          opts,
 		Fonts:         FontConfig{HasNerdFont: DetectNerdFont()},
 	}, nil
 }
@@ -101,15 +113,15 @@ func (a *App) Project() *data.ProjectContext {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	if a.activeProject == "" {
+	if a.ActiveProject == "" {
 		return nil
 	}
 
 	// Fast path check if store exists
-	if store, exists := a.stores[a.activeProject]; exists {
+	if store, exists := a.Stores[a.ActiveProject]; exists {
 		// activeProject is the project root path
-		beadsDir := filepath.Join(a.activeProject, ".beads")
-		ctx, _ := data.NewProjectContext(store, beadsDir, a.activeProject)
+		beadsDir := filepath.Join(a.ActiveProject, ".beads")
+		ctx, _ := data.NewProjectContext(store, beadsDir, a.ActiveProject)
 		return ctx
 	}
 
@@ -119,20 +131,20 @@ func (a *App) Project() *data.ProjectContext {
 // CreateProjectContext initializes the ProjectContext based on AppOptions.
 // This should be called from the TUI's async initialization.
 func (a *App) CreateProjectContext(ctx context.Context) (*data.ProjectContext, error) {
-	cfg, err := a.loader.Load(a.opts.ConfigPath)
+	cfg, err := a.Loader.Load(a.Opts.ConfigPath)
 	if err != nil {
 		// Try fallback if no config
-		return a.loadSingleProject(ctx, a.opts.BeadsDir)
+		return a.loadSingleProject(ctx, a.Opts.BeadsDir)
 	}
 
 	a.mu.Lock()
 	a.projects = cfg.Workspace.Projects
 	if len(a.projects) == 0 {
 		a.mu.Unlock()
-		return a.loadSingleProject(ctx, a.opts.BeadsDir)
+		return a.loadSingleProject(ctx, a.Opts.BeadsDir)
 	}
 
-	a.stores = make(map[string]data.TicketStore)
+	a.Stores = make(map[string]data.TicketStore)
 
 	// Create store for the first project in workspaces config
 	firstProjectDir := a.projects[0].Dir
@@ -145,8 +157,8 @@ func (a *App) CreateProjectContext(ctx context.Context) (*data.ProjectContext, e
 	}
 
 	a.mu.Lock()
-	a.stores[firstProjectDir] = store
-	a.activeProject = firstProjectDir
+	a.Stores[firstProjectDir] = store
+	a.ActiveProject = firstProjectDir
 	a.mu.Unlock()
 
 	return a.Project(), nil
@@ -162,10 +174,10 @@ func (a *App) loadSingleProject(ctx context.Context, beadsDir string) (*data.Pro
 	}
 
 	a.mu.Lock()
-	a.stores = make(map[string]data.TicketStore)
-	rootPath := extractRepoRoot(beadsDir)
-	a.stores[rootPath] = store
-	a.activeProject = rootPath
+	a.Stores = make(map[string]data.TicketStore)
+	rootPath := ExtractRepoRoot(beadsDir)
+	a.Stores[rootPath] = store
+	a.ActiveProject = rootPath
 
 	name := data.GetProjectName(rootPath)
 	a.projects = []domain.Project{{Dir: rootPath, Name: name}}
@@ -176,23 +188,23 @@ func (a *App) loadSingleProject(ctx context.Context, beadsDir string) (*data.Pro
 
 // createStore creates a TicketStore based on AppOptions.
 func (a *App) createStore(ctx context.Context, beadsDir string) (data.TicketStore, error) {
-	if a.opts.Demo {
-		if a.opts.Debug {
+	if a.Opts.Demo {
+		if a.Opts.Debug {
 			fmt.Println("Using fake ticket store (demo mode)")
 		}
 		return fake.NewWithSampleData(), nil
 	}
 
 	// We create a local modified AppOptions to override BeadsDir per project context
-	opts := a.opts
+	opts := a.Opts
 	opts.BeadsDir = beadsDir
 
-	store, err := dolt.NewStore(ctx, opts, a.opts.AutostartDolt)
+	store, err := dolt.NewStore(ctx, opts, a.Opts.AutostartDolt)
 	if err != nil {
 		return nil, err
 	}
 
-	if a.opts.Debug {
+	if a.Opts.Debug {
 		fmt.Printf("Connected to beads database at %s\n", beadsDir)
 	}
 
@@ -216,7 +228,7 @@ func (a *App) Runner() tmux.CommandRunner {
 
 // Close cleans up resources, particularly the project context.
 func (a *App) Close() error {
-	for _, store := range a.stores {
+	for _, store := range a.Stores {
 		if closer, ok := store.(interface{ Close() error }); ok {
 			closer.Close()
 		}
@@ -237,8 +249,8 @@ func (a *App) SetActiveProject(ctx context.Context, projectDir string) error {
 	defer a.mu.Unlock()
 
 	// Check if store already exists
-	if _, exists := a.stores[projectDir]; exists {
-		a.activeProject = projectDir
+	if _, exists := a.Stores[projectDir]; exists {
+		a.ActiveProject = projectDir
 		return nil
 	}
 
@@ -247,15 +259,15 @@ func (a *App) SetActiveProject(ctx context.Context, projectDir string) error {
 	if err != nil {
 		return err
 	}
-	a.stores[projectDir] = store
-	a.activeProject = projectDir
+	a.Stores[projectDir] = store
+	a.ActiveProject = projectDir
 	return nil
 }
 
 // StoreForProject returns a store for projectDir, creating it lazily if needed.
 func (a *App) StoreForProject(ctx context.Context, projectDir string) (data.TicketStore, error) {
 	a.mu.RLock()
-	if store, exists := a.stores[projectDir]; exists {
+	if store, exists := a.Stores[projectDir]; exists {
 		a.mu.RUnlock()
 		return store, nil
 	}
@@ -268,7 +280,7 @@ func (a *App) StoreForProject(ctx context.Context, projectDir string) (data.Tick
 	}
 
 	a.mu.Lock()
-	a.stores[projectDir] = store
+	a.Stores[projectDir] = store
 	a.mu.Unlock()
 
 	return store, nil
@@ -276,7 +288,7 @@ func (a *App) StoreForProject(ctx context.Context, projectDir string) (data.Tick
 
 // GetTargetProject returns the target project path from CLI args, if any.
 func (a *App) GetTargetProject() string {
-	return a.opts.TargetProject
+	return a.Opts.TargetProject
 }
 
 // IsProjectInWorkspace checks if a project directory is already in the workspace.
@@ -345,17 +357,17 @@ func (a *App) AddStore(projectDir string, store data.TicketStore) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.stores == nil {
-		a.stores = make(map[string]data.TicketStore)
+	if a.Stores == nil {
+		a.Stores = make(map[string]data.TicketStore)
 	}
-	a.stores[projectDir] = store
+	a.Stores[projectDir] = store
 }
 
 // SaveConfig saves the current configuration to the config file.
 // It reloads the config first to ensure fresh data (in case user or another
 // process modified it).
 func (a *App) SaveConfig() error {
-	cfg, err := a.loader.Load(a.opts.ConfigPath)
+	cfg, err := a.Loader.Load(a.Opts.ConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to reload config: %w", err)
 	}
@@ -364,7 +376,7 @@ func (a *App) SaveConfig() error {
 	cfg.Workspace.Projects = a.projects
 	a.mu.RUnlock()
 
-	if err := a.loader.Save(a.opts.ConfigPath, cfg); err != nil {
+	if err := a.Loader.Save(a.Opts.ConfigPath, cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 

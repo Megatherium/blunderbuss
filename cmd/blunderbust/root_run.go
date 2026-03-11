@@ -7,8 +7,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/megatherium/blunderbust/internal/config"
+	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
+	"github.com/megatherium/blunderbust/internal/launcher"
+	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -38,11 +41,11 @@ func runRoot(_ *cobra.Command, args []string) error {
 	debugLogf("Launcher target: %s", target)
 
 	runner := tmux.NewRealRunner()
-	launcher := tmux.NewTmuxLauncher(runner, dryRun, false, target)
+	l := tmux.NewTmuxLauncher(runner, dryRun, false, target)
 	statusChecker := tmux.NewStatusChecker(runner)
 	renderer := config.NewRenderer()
 
-	app, err := ui.NewApp(cfgLoader, launcher, statusChecker, runner, renderer, domain.AppOptions{
+	appOpts := domain.AppOptions{
 		ConfigPath:    cfgPath,
 		BeadsDir:      beadsPath,
 		DSN:           dsn,
@@ -51,15 +54,18 @@ func runRoot(_ *cobra.Command, args []string) error {
 		Demo:          demo,
 		AutostartDolt: cfg.General != nil && cfg.General.AutostartDolt,
 		TargetProject: targetProject,
-	})
+	}
+
+	application, err := app.NewApp(cfgLoader, l, statusChecker, runner, renderer, appOpts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Printf("Failed to initialize app: %v\n", err)
 		os.Exit(1)
 	}
-	defer app.Close()
+	defer application.Close()
 
-	model := ui.NewUIModel(app, cfg.Harnesses)
-	program := tea.NewProgram(model, tea.WithAltScreen())
+	m := ui.NewUIModel(application, cfg.Harnesses)
+
+	program := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("running TUI: %w", err)
 	}

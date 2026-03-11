@@ -27,24 +27,31 @@ func initList(l *list.Model, width, height int, title string) {
 	}
 }
 
-func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
-	currentTheme := &TokyoNightTheme
+func NewUIModel(app *app.App, harnesses []domain.Harness) UIModel {
+	// Initialize default keys
+	keys := DefaultKeyMap()
+
+	themeName := "default"
+	if app != nil && app.Opts.Theme != "" {
+		themeName = app.Opts.Theme
+	}
+	theme := GetTheme(themeName)
 
 	var registry *discovery.Registry
 	if app != nil {
 		registry = app.Registry
 	}
 
-	hl := newHarnessList(harnesses, registry, currentTheme)
+	hl := newHarnessList(harnesses, registry, theme)
 	initList(&hl, 0, 0, "Select a Harness")
 
-	tl := newTicketList(nil, currentTheme)
+	tl := newTicketList(nil, theme)
 	initList(&tl, 0, 0, "Select a Ticket")
 
-	ml := newModelList(nil, currentTheme)
+	ml := newModelList(nil, theme)
 	initList(&ml, 0, 0, "Select a Model")
 
-	al := newAgentList(nil, currentTheme)
+	al := newAgentList(nil, theme)
 	initList(&al, 0, 0, "Select an Agent")
 
 	h := help.New()
@@ -57,14 +64,19 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 
 	var recents []string
 	var maxRecents int
-	if app != nil && app.loader != nil {
-		if cfg, err := app.loader.Load(app.opts.ConfigPath); err == nil && cfg != nil {
+	if app != nil && app.Loader != nil {
+		if cfg, err := app.Loader.Load(app.Opts.ConfigPath); err == nil && cfg != nil {
 			recents = cfg.FilePickerRecents
 			maxRecents = cfg.FilePickerMaxRecents
 		}
 	}
 
-	fp := filepicker.New()
+	fpConfigPath := ""
+	if app != nil {
+		fpConfigPath = app.Opts.ConfigPath
+	}
+	fp := filepicker.NewUIModel(fpConfigPath)
+
 	fp.ShowRecents = true
 	fp.Recents = recents
 	if maxRecents > 0 {
@@ -90,7 +102,7 @@ func NewUIModel(app *App, harnesses []domain.Harness) UIModel {
 		showModal:    false,
 		showSidebar:  true,
 		agents:       make(map[string]*RunningAgent),
-		currentTheme: currentTheme, // Default to TokyoNight theme
+		currentTheme: theme, // Default to TokyoNight theme
 
 		dirtyTicket:  true, // Initial build needed
 		dirtyHarness: true,
@@ -123,6 +135,15 @@ func (m UIModel) checkAndPromptAddProject(dirPath string) tea.Cmd {
 }
 
 func (m UIModel) Init() tea.Cmd {
+	var cmds []tea.Cmd
+
+	if m.app != nil && m.app.Loader != nil {
+		if cfg, err := m.app.Loader.Load(m.app.Opts.ConfigPath); err == nil && cfg != nil {
+			m.filepicker.Recents = cfg.FilePickerRecents
+			m.filepicker.MaxRecents = cfg.FilePickerMaxRecents
+		}
+	}
+
 	targetProject := m.app.GetTargetProject()
 	if targetProject != "" {
 		// Check if project is already in workspace
@@ -236,11 +257,12 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case filepicker.RecentsChangedMsg:
 		// Save recents to config when they change
-		if m.app != nil && m.app.loader != nil {
-			cfg, err := m.app.loader.Load(m.app.opts.ConfigPath)
+		if m.app != nil && m.app.Loader != nil {
+			cfg, err := m.app.Loader.Load(m.app.Opts.ConfigPath)
 			if err == nil && cfg != nil {
 				cfg.FilePickerRecents = msg.Recents
-				if err := m.app.loader.Save(m.app.opts.ConfigPath, cfg); err != nil {
+				cfg.FilePickerMaxRecents = msg.MaxRecents
+				if err := m.app.Loader.Save(m.app.Opts.ConfigPath, cfg); err != nil {
 					// Log error to stderr
 					fmt.Fprintf(os.Stderr, "Failed to save recents: %v\n", err)
 				}
