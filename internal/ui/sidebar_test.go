@@ -288,7 +288,7 @@ func TestSidebarModel_handleSelect_HarnessNode(t *testing.T) {
 					Name:        "harness-1",
 					Path:        "/tmp/test",
 					Type:        domain.NodeTypeHarness,
-					HarnessInfo: &domain.HarnessInfo{WindowName: "harness-1"},
+					HarnessInfo: &domain.HarnessInfo{LauncherID: "harness-1"},
 				},
 			},
 		},

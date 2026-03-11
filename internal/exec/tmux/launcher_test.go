@@ -138,7 +138,7 @@ func TestLauncher_Launch_DryRun(t *testing.T) {
 		},
 		RenderedCommand: "opencode --model claude-sonnet",
 		RenderedPrompt:  "Work on ticket",
-		WindowName:      "bb-3zg",
+		LauncherID:      "bb-3zg",
 	}
 
 	ctx := context.Background()
@@ -148,12 +148,12 @@ func TestLauncher_Launch_DryRun(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if result.WindowName != "bb-3zg" {
-		t.Errorf("Expected window name bb-3zg, got %q", result.WindowName)
+	if result.LauncherID != "bb-3zg" {
+		t.Errorf("Expected launcher ID bb-3zg, got %q", result.LauncherID)
 	}
 
-	if result.WindowID != "dry-run-id" {
-		t.Errorf("Expected dry-run-id, got %q", result.WindowID)
+	if result.LauncherType != domain.LauncherTypeTmux {
+		t.Errorf("Expected launcher type tmux, got %v", result.LauncherType)
 	}
 
 	if len(fake.Commands) != 0 {
@@ -181,7 +181,7 @@ func TestLauncher_Launch_Success(t *testing.T) {
 		},
 		RenderedCommand: "opencode --model claude-sonnet",
 		RenderedPrompt:  "Work on ticket",
-		WindowName:      "bb-3zg",
+		LauncherID:      "bb-3zg",
 	}
 
 	ctx := context.Background()
@@ -191,18 +191,16 @@ func TestLauncher_Launch_Success(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if result.WindowName != "bb-3zg" {
-		t.Errorf("Expected window name bb-3zg, got %q", result.WindowName)
+	if result.LauncherID != "bb-3zg" {
+		t.Errorf("Expected launcher ID bb-3zg, got %q", result.LauncherID)
 	}
 
-	if result.WindowID != "@1" {
-		t.Errorf("Expected @1, got %q", result.WindowID)
-	}
 	if result.PID != 4321 {
 		t.Errorf("Expected PID 4321, got %d", result.PID)
 	}
-	if result.TmuxSession != "session-a" {
-		t.Errorf("Expected session name 'session-a', got %q", result.TmuxSession)
+
+	if result.LauncherType != domain.LauncherTypeTmux {
+		t.Errorf("Expected launcher type tmux, got %v", result.LauncherType)
 	}
 
 	if result.Error != nil {
@@ -238,7 +236,7 @@ func TestLauncher_Launch_CommandError(t *testing.T) {
 		},
 		RenderedCommand: "opencode",
 		RenderedPrompt:  "Work on ticket",
-		WindowName:      "bb-3zg",
+		LauncherID:      "bb-3zg",
 	}
 
 	ctx := context.Background()
@@ -252,8 +250,8 @@ func TestLauncher_Launch_CommandError(t *testing.T) {
 		t.Error("Expected result.Error to be set")
 	}
 
-	if result.WindowName != "bb-3zg" {
-		t.Errorf("Expected window name bb-3zg, got %q", result.WindowName)
+	if result.LauncherID != "bb-3zg" {
+		t.Errorf("Expected window name bb-3zg, got %q", result.LauncherID)
 	}
 }
 
@@ -275,7 +273,7 @@ func TestLauncher_Launch_NotInTmux(t *testing.T) {
 		},
 		RenderedCommand: "opencode",
 		RenderedPrompt:  "Work on ticket",
-		WindowName:      "bb-3zg",
+		LauncherID:      "bb-3zg",
 	}
 
 	ctx := context.Background()
@@ -318,7 +316,7 @@ func TestLauncher_buildCommand(t *testing.T) {
 		},
 		RenderedCommand: "opencode --model claude-sonnet-4-20250514 --agent coder",
 		RenderedPrompt:  "Work on ticket bb-3zg: Test ticket",
-		WindowName:      "bb-3zg",
+		LauncherID:      "bb-3zg",
 	}
 
 	cmd := launcher.buildCommand(spec)
@@ -392,7 +390,7 @@ func TestLauncher_buildCommand_BackgroundMode(t *testing.T) {
 		},
 		RenderedCommand: "opencode --model claude-sonnet-4-20250514 --agent coder",
 		RenderedPrompt:  "Work on ticket bb-3zg: Test ticket",
-		WindowName:      "bb-3zg",
+		LauncherID:      "bb-3zg",
 	}
 
 	cmd := launcher.buildCommand(spec)
@@ -423,7 +421,7 @@ func TestLauncher_buildCommand_BackgroundMode(t *testing.T) {
 	}
 }
 
-func TestLauncher_parseWindowID(t *testing.T) {
+func TestLauncher_parseLauncherID(t *testing.T) {
 	tests := []struct {
 		name     string
 		output   string
@@ -474,15 +472,15 @@ func TestLauncher_parseWindowID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := &Launcher{}
-			result := launcher.parseWindowID(tt.output)
+			result := launcher.parseLauncherID(tt.output)
 			if result != tt.expected {
-				t.Errorf("parseWindowID() = %q, want %q", result, tt.expected)
+				t.Errorf("parseLauncherID() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestLauncher_parseWindowID_ComplexOutput(t *testing.T) {
+func TestLauncher_parseLauncherID_ComplexOutput(t *testing.T) {
 	launcher := &Launcher{}
 
 	output := `some header
@@ -490,7 +488,7 @@ tmux: window created
 @1
 some footer`
 
-	result := launcher.parseWindowID(output)
+	result := launcher.parseLauncherID(output)
 	if result != "@1" {
 		t.Errorf("Expected @1, got %q", result)
 	}
@@ -502,7 +500,7 @@ func TestLauncher_buildCommand_Escaping(t *testing.T) {
 
 	spec := domain.LaunchSpec{
 		RenderedCommand: "echo 'hello world' && ls -la",
-		WindowName:      "test-window",
+		LauncherID:      "test-window",
 	}
 
 	cmd := launcher.buildCommand(spec)

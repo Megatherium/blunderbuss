@@ -6,14 +6,13 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
+
+	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/config"
-	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
-	"github.com/megatherium/blunderbust/internal/launcher"
-	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 // runRoot executes the main bdb workflow.

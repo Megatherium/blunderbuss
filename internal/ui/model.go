@@ -14,6 +14,7 @@ import (
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
 
@@ -71,11 +72,7 @@ func NewUIModel(app *app.App, harnesses []domain.Harness) UIModel {
 		}
 	}
 
-	fpConfigPath := ""
-	if app != nil {
-		fpConfigPath = app.Opts.ConfigPath
-	}
-	fp := filepicker.NewUIModel(fpConfigPath)
+	fp := filepicker.New()
 
 	fp.ShowRecents = true
 	fp.Recents = recents
@@ -135,8 +132,6 @@ func (m UIModel) checkAndPromptAddProject(dirPath string) tea.Cmd {
 }
 
 func (m UIModel) Init() tea.Cmd {
-	var cmds []tea.Cmd
-
 	if m.app != nil && m.app.Loader != nil {
 		if cfg, err := m.app.Loader.Load(m.app.Opts.ConfigPath); err == nil && cfg != nil {
 			m.filepicker.Recents = cfg.FilePickerRecents
@@ -235,9 +230,9 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		newM, cmd := m.handleWorktreeSelected(msg)
 		return newM, cmd, true
 	case serverStartedMsg:
-		activeProject := m.app.activeProject
+		activeProject := m.app.ActiveProject
 		if activeProject != "" {
-			m.app.stores[activeProject] = msg.store
+			m.app.Stores[activeProject] = msg.store
 		}
 		return m, loadTicketsCmd(msg.store), true
 	case OpenFilePickerMsg:
@@ -261,7 +256,6 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			cfg, err := m.app.Loader.Load(m.app.Opts.ConfigPath)
 			if err == nil && cfg != nil {
 				cfg.FilePickerRecents = msg.Recents
-				cfg.FilePickerMaxRecents = msg.MaxRecents
 				if err := m.app.Loader.Save(m.app.Opts.ConfigPath, cfg); err != nil {
 					// Log error to stderr
 					fmt.Fprintf(os.Stderr, "Failed to save recents: %v\n", err)
@@ -345,7 +339,7 @@ func (m UIModel) handleSidebarFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 				newProjectDir = node.Path
 			}
 
-			if newProjectDir != "" && newProjectDir != m.app.activeProject {
+			if newProjectDir != "" && newProjectDir != m.app.ActiveProject {
 				err := m.app.SetActiveProject(context.Background(), newProjectDir)
 				if err == nil {
 					m.selection.Ticket = domain.Ticket{}

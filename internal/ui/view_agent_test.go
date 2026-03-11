@@ -25,7 +25,7 @@ func TestRenderAgentOutput_AgentRunning(t *testing.T) {
 		Info: &domain.AgentInfo{
 			Name:       "test-agent",
 			Status:     domain.AgentRunning,
-			WindowName: "test-window",
+			LauncherID: "test-window",
 		},
 		LastOutput: "Running output...",
 	}
@@ -49,7 +49,7 @@ func TestRenderAgentOutput_AgentCompleted(t *testing.T) {
 		Info: &domain.AgentInfo{
 			Name:       "test-agent",
 			Status:     domain.AgentCompleted,
-			WindowName: "test-window",
+			LauncherID: "test-window",
 		},
 		LastOutput: "",
 	}
@@ -72,7 +72,7 @@ func TestRenderAgentOutput_AgentFailed(t *testing.T) {
 		Info: &domain.AgentInfo{
 			Name:       "test-agent",
 			Status:     domain.AgentFailed,
-			WindowName: "test-window",
+			LauncherID: "test-window",
 		},
 		LastOutput: "Error occurred",
 	}
@@ -95,7 +95,7 @@ func TestRenderAgentOutput_NoOutput(t *testing.T) {
 		Info: &domain.AgentInfo{
 			Name:       "test-agent",
 			Status:     domain.AgentCompleted,
-			WindowName: "test-window",
+			LauncherID: "test-window",
 		},
 		LastOutput: "",
 	}
@@ -116,7 +116,7 @@ func TestRenderAgentOutput_ReturnToMatrixHint(t *testing.T) {
 		Info: &domain.AgentInfo{
 			Name:       "test-agent",
 			Status:     domain.AgentRunning,
-			WindowName: "test-window",
+			LauncherID: "test-window",
 		},
 		LastOutput: "",
 	}

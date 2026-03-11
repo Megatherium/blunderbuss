@@ -95,7 +95,7 @@ func (r *Renderer) RenderSelection(selection domain.Selection, workDir string) (
 		Selection:       selection,
 		RenderedCommand: renderedCmd,
 		RenderedPrompt:  renderedPrompt,
-		WindowName:      selection.Ticket.ID,
+		LauncherID:      selection.Ticket.ID,
 		WorkDir:         workDir,
 	}, nil
 }

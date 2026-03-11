@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS running_agents (
     project_dir VARCHAR(255) NOT NULL,
     worktree_path VARCHAR(255) NOT NULL,
     pid INT NOT NULL,
-    tmux_session VARCHAR(100) NOT NULL,
-    window_name VARCHAR(100),
+    launcher_type INT NOT NULL,
+    launcher_id VARCHAR(100),
     ticket VARCHAR(100),
     ticket_title TEXT,
     harness_name VARCHAR(50) NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS running_agents (
     UNIQUE KEY uniq_running_agent (project_dir, worktree_path, pid),
     INDEX idx_running_agents_project_dir (project_dir),
     INDEX idx_running_agents_last_seen (last_seen)
-)`
+) `
 	_, err := s.db.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to ensure running_agents table: %w", err)
@@ -81,17 +81,17 @@ func (s *Store) UpsertRunningAgent(ctx context.Context, a domain.PersistedRunnin
 	if a.ProjectDir == "" || a.WorktreePath == "" || a.PID <= 0 || a.HarnessName == "" {
 		return fmt.Errorf("invalid running agent data")
 	}
-	if a.TmuxSession == "" {
-		a.TmuxSession = "unknown"
+	if a.LauncherID == "" {
+		a.LauncherID = "unknown"
 	}
 	const query = `
 INSERT INTO running_agents (
-	project_dir, worktree_path, pid, tmux_session, window_name, ticket, ticket_title,
+	project_dir, worktree_path, pid, launcher_type, launcher_id, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON DUPLICATE KEY UPDATE
-	tmux_session = VALUES(tmux_session),
-	window_name = VALUES(window_name),
+	launcher_type = VALUES(launcher_type),
+	launcher_id = VALUES(launcher_id),
 	ticket = VALUES(ticket),
 	ticket_title = VALUES(ticket_title),
 	harness_name = VALUES(harness_name),
@@ -103,8 +103,8 @@ ON DUPLICATE KEY UPDATE
 		a.ProjectDir,
 		a.WorktreePath,
 		a.PID,
-		a.TmuxSession,
-		a.WindowName,
+		a.LauncherType,
+		a.LauncherID,
 		a.Ticket,
 		a.TicketTitle,
 		a.HarnessName,
@@ -137,7 +137,7 @@ func (s *Store) ListRunningAgentsByProjects(ctx context.Context, projectDirs []s
 
 	query := fmt.Sprintf(`
 SELECT
-	id, project_dir, worktree_path, pid, tmux_session, window_name, ticket, ticket_title,
+	id, project_dir, worktree_path, pid, launcher_type, launcher_id, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
 FROM running_agents
 WHERE project_dir IN (%s)
@@ -157,8 +157,8 @@ ORDER BY started_at DESC`, strings.Join(placeholders, ", "))
 			&a.ProjectDir,
 			&a.WorktreePath,
 			&a.PID,
-			&a.TmuxSession,
-			&a.WindowName,
+			(*int)(&a.LauncherType),
+			&a.LauncherID,
 			&a.Ticket,
 			&a.TicketTitle,
 			&a.HarnessName,

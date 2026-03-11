@@ -67,3 +67,10 @@ func NewRegistry(cacheDir string) (*Registry, error) {
 func (r *Registry) GetCachePath() string {
 	return r.cachePath
 }
+
+// SetProvider allows manually setting a provider in the registry, useful for testing or overrides.
+func (r *Registry) SetProvider(p Provider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.providers[p.ID] = p
+}

@@ -82,8 +82,8 @@ func TestStore_UpsertRunningAgent(t *testing.T) {
 		ProjectDir:    "/repo",
 		WorktreePath:  "/repo",
 		PID:           1234,
-		TmuxSession:   "s0",
-		WindowName:    "bb-1",
+		LauncherType:  domain.LauncherTypeTmux,
+		LauncherID:    "bb-1",
 		Ticket:        "bb-1",
 		TicketTitle:   "Test ticket",
 		HarnessName:   "kilocode",
@@ -93,7 +93,7 @@ func TestStore_UpsertRunningAgent(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO running_agents").
-		WithArgs("/repo", "/repo", 1234, "s0", "bb-1", "bb-1", "Test ticket", "kilocode", "kilo", "m", "a").
+		WithArgs("/repo", "/repo", 1234, domain.LauncherTypeTmux, "bb-1", "bb-1", "Test ticket", "kilocode", "kilo", "m", "a").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	if err := store.UpsertRunningAgent(context.Background(), agent); err != nil {
@@ -114,13 +114,13 @@ func TestStore_ListRunningAgentsByProjects(t *testing.T) {
 	store := &Store{db: db}
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{
-		"id", "project_dir", "worktree_path", "pid", "tmux_session", "window_name", "ticket", "ticket_title",
+		"id", "project_dir", "worktree_path", "pid", "launcher_type", "launcher_id", "ticket", "ticket_title",
 		"harness_name", "harness_binary", "model", "agent", "started_at", "last_seen",
-	}).AddRow(1, "/repo", "/repo", 555, "s0", "bb-1", "bb-1", "Title 1", "kilocode", "kilo", "m", "a", now, now)
+	}).AddRow(1, "/repo", "/repo", 555, int(domain.LauncherTypeTmux), "bb-1", "bb-1", "Title 1", "kilocode", "kilo", "m", "a", now, now)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT
-	id, project_dir, worktree_path, pid, tmux_session, window_name, ticket, ticket_title,
+	id, project_dir, worktree_path, pid, launcher_type, launcher_id, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
 FROM running_agents
 WHERE project_dir IN (?)
@@ -153,12 +153,12 @@ func TestStore_ValidateAndPruneRunningAgents(t *testing.T) {
 	store := &Store{db: db}
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{
-		"id", "project_dir", "worktree_path", "pid", "tmux_session", "window_name", "ticket", "ticket_title",
+		"id", "project_dir", "worktree_path", "pid", "launcher_type", "launcher_id", "ticket", "ticket_title",
 		"harness_name", "harness_binary", "model", "agent", "started_at", "last_seen",
 	}).
-		AddRow(1, "/repo", "/repo", 101, "s0", "bb-1", "bb-1", "Title 1", "kilocode", "kilo", "m", "a", now, now).
-		AddRow(2, "/repo", "/repo", 202, "s0", "bb-2", "bb-2", "Title 2", "codex", "codex", "m", "a", now, now).
-		AddRow(3, "/repo", "/repo", 303, "s0", "bb-3", "bb-3", "Title 3", "codex", "codex", "m", "a", now, now)
+		AddRow(1, "/repo", "/repo", 101, int(domain.LauncherTypeTmux), "bb-1", "bb-1", "Title 1", "kilocode", "kilo", "m", "a", now, now).
+		AddRow(2, "/repo", "/repo", 202, int(domain.LauncherTypeTmux), "bb-2", "bb-2", "Title 2", "codex", "codex", "m", "a", now, now).
+		AddRow(3, "/repo", "/repo", 303, int(domain.LauncherTypeTmux), "bb-3", "bb-3", "Title 3", "codex", "codex", "m", "a", now, now)
 
 	mock.ExpectQuery("FROM running_agents").
 		WithArgs("/repo").

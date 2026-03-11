@@ -87,8 +87,7 @@ type WorktreeInfo struct {
 
 // HarnessInfo contains metadata about a running harness session.
 type HarnessInfo struct {
-	WindowName string
-	WindowID   string
+	LauncherID string
 	TicketID   string
 	StartedAt  time.Time
 	Status     string
@@ -98,8 +97,7 @@ type HarnessInfo struct {
 type AgentInfo struct {
 	ID           string
 	Name         string
-	WindowName   string
-	WindowID     string
+	LauncherID   string
 	WorktreePath string
 	Status       AgentStatus
 	StartedAt    time.Time

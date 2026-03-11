@@ -29,7 +29,7 @@ func RenderAgentOutput(cfg AgentConfig) string {
 
 	header := headerStyle.Render(fmt.Sprintf("Agent: %s", cfg.Agent.Info.Name))
 	statusLine := fmt.Sprintf("Status: %s", statusStyle.Render(statusStr))
-	windowLine := fmt.Sprintf("Window: %s", cfg.Agent.Info.WindowName)
+	launcherLine := fmt.Sprintf("Launcher: %s", cfg.Agent.Info.LauncherID)
 
 	outputContent := getAgentOutputContent(cfg.Agent)
 
@@ -43,7 +43,7 @@ func RenderAgentOutput(cfg AgentConfig) string {
 	content := lipgloss.JoinVertical(lipgloss.Top,
 		header,
 		statusLine,
-		windowLine,
+		launcherLine,
 		"",
 		"Output:",
 		outputStyle.Render(outputContent),

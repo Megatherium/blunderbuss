@@ -66,3 +66,8 @@ var keys = KeyMap{
 		key.WithHelp("q", "quit"),
 	),
 }
+
+// DefaultKeyMap returns the default keybindings for the UI.
+func DefaultKeyMap() KeyMap {
+	return keys
+}

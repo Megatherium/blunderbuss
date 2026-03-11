@@ -231,19 +231,18 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if msg.res != nil && msg.res.WindowName != "" {
+	if msg.res != nil && msg.res.LauncherID != "" {
 		selection := m.selection
 		if msg.spec != nil {
 			selection = msg.spec.Selection
 		}
 
 		// Create agent info
-		agentID := msg.res.WindowName
+		agentID := msg.res.LauncherID
 		agentInfo := &domain.AgentInfo{
 			ID:           agentID,
 			Name:         selection.Ticket.ID,
-			WindowName:   msg.res.WindowName,
-			WindowID:     msg.res.WindowID,
+			LauncherID:   msg.res.LauncherID,
 			WorktreePath: m.selectedWorktree,
 			Status:       domain.AgentRunning,
 			StartedAt:    time.Now(),
@@ -256,13 +255,9 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 
 		// Start output capture
 		var capture *tmux.OutputCapture
-		windowID := msg.res.WindowID
-		if windowID == "" {
-			// Fallback to window name if ID is empty
-			windowID = msg.res.WindowName
-		}
-		if windowID != "" && m.app.Runner() != nil {
-			capture = tmux.NewOutputCapture(m.app.Runner(), windowID)
+		launcherID := msg.res.LauncherID
+		if launcherID != "" && m.app.Runner() != nil && msg.res.LauncherType == domain.LauncherTypeTmux {
+			capture = tmux.NewOutputCapture(m.app.Runner(), launcherID)
 			path, captureErr := capture.Start(context.Background())
 			if captureErr != nil {
 				// Log error but don't fail - agent still launched
@@ -286,7 +281,7 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 
 		// Start monitoring the agent
 		return m, tea.Batch(
-			pollAgentStatusCmd(m.app, agentID, msg.res.WindowName),
+			pollAgentStatusCmd(m.app, agentID, msg.res.LauncherID),
 			startAgentMonitoringCmd(agentID),
 			saveRunningAgentCmd(m.app, msg.spec, msg.res, m.selectedWorktree),
 		)
@@ -788,7 +783,7 @@ func (m UIModel) handleRunningAgentsLoaded(msg runningAgentsLoadedMsg) (tea.Mode
 		info := &domain.AgentInfo{
 			ID:           agentID,
 			Name:         persisted.Ticket,
-			WindowName:   persisted.WindowName,
+			LauncherID:   persisted.LauncherID,
 			WorktreePath: persisted.WorktreePath,
 			Status:       domain.AgentRunning,
 			StartedAt:    persisted.StartedAt,
@@ -801,9 +796,9 @@ func (m UIModel) handleRunningAgentsLoaded(msg runningAgentsLoadedMsg) (tea.Mode
 		m.agents[agentID] = &RunningAgent{Info: info}
 		addAgentNodeToSidebar(&m, info)
 
-		if persisted.WindowName != "" {
+		if persisted.LauncherID != "" {
 			cmds = append(cmds,
-				pollAgentStatusCmd(m.app, agentID, persisted.WindowName),
+				pollAgentStatusCmd(m.app, agentID, persisted.LauncherID),
 				startAgentMonitoringCmd(agentID),
 			)
 		}
@@ -868,11 +863,11 @@ func addAgentToProject(projectNode *domain.SidebarNode, agentInfo *domain.AgentI
 }
 
 func persistedAgentID(a domain.PersistedRunningAgent) string {
-	if a.WindowName != "" && a.PID > 0 {
-		return fmt.Sprintf("%s:%d", a.WindowName, a.PID)
+	if a.LauncherID != "" && a.PID > 0 {
+		return fmt.Sprintf("%s:%d", a.LauncherID, a.PID)
 	}
-	if a.WindowName != "" {
-		return a.WindowName
+	if a.LauncherID != "" {
+		return a.LauncherID
 	}
 	if a.PID > 0 {
 		return fmt.Sprintf("pid:%d", a.PID)
@@ -939,7 +934,7 @@ func (m UIModel) handleAgentTick(msg agentTickMsg) (tea.Model, tea.Cmd) {
 	// Continue monitoring if still running
 	if agent.Info.Status == domain.AgentRunning {
 		return m, tea.Batch(
-			pollAgentStatusCmd(m.app, agentID, agent.Info.WindowName),
+			pollAgentStatusCmd(m.app, agentID, agent.Info.LauncherID),
 			startAgentMonitoringCmd(agentID),
 			readOutputCmd,
 		)

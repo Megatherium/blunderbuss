@@ -223,8 +223,8 @@ func TestRenderer_RenderSelection_Complete(t *testing.T) {
 	}
 
 	// Verify window name is ticket ID
-	if spec.WindowName != "bb-test" {
-		t.Errorf("Expected window name 'bb-test', got %q", spec.WindowName)
+	if spec.LauncherID != "bb-test" {
+		t.Errorf("Expected window name 'bb-test', got %q", spec.LauncherID)
 	}
 
 	// Verify selection is preserved

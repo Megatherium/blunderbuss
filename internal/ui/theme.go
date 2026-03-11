@@ -315,3 +315,13 @@ func getGlowColor(phase float64, theme *ThemePalette) lipgloss.Color {
 		mix(bgB, b, blend),
 	))
 }
+
+// GetTheme returns a theme palette by name.
+func GetTheme(name string) *ThemePalette {
+	for _, t := range AvailableThemes {
+		if t.Name == name {
+			return t
+		}
+	}
+	return &MatrixTheme
+}

@@ -15,12 +15,13 @@ import (
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
+	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
-func startServerAndRetryCmd(app *App, store *dolt.Store) tea.Cmd {
+func startServerAndRetryCmd(myApp *app.App, store *dolt.Store) tea.Cmd {
 	return func() tea.Msg {
-		if app == nil || store == nil {
+		if myApp == nil || store == nil {
 			return errMsg{err: fmt.Errorf("invalid app or store for retry")}
 		}
 
@@ -127,7 +128,7 @@ func (m UIModel) launchCmd() tea.Cmd {
 			}
 		}
 
-		spec.WindowName = m.selection.Ticket.ID
+		spec.LauncherID = m.selection.Ticket.ID
 
 		res, err := m.app.Launcher.Launch(context.Background(), *spec)
 		return launchResultMsg{res: res, spec: spec, err: err}
@@ -243,8 +244,8 @@ func saveRunningAgentCmd(myApp *app.App, spec *domain.LaunchSpec, result *domain
 			fmt.Fprintf(os.Stderr, "[DEBUG]   projectDir=%s\n", projectDir)
 			fmt.Fprintf(os.Stderr, "[DEBUG]   worktreePath=%s\n", worktreePath)
 			fmt.Fprintf(os.Stderr, "[DEBUG]   PID=%d\n", result.PID)
-			fmt.Fprintf(os.Stderr, "[DEBUG]   tmuxSession=%s\n", result.TmuxSession)
-			fmt.Fprintf(os.Stderr, "[DEBUG]   windowName=%s\n", result.WindowName)
+			fmt.Fprintf(os.Stderr, "[DEBUG]   launcherID=%s\n", result.LauncherID)
+			fmt.Fprintf(os.Stderr, "[DEBUG]   launcherType=%d\n", result.LauncherType)
 			fmt.Fprintf(os.Stderr, "[DEBUG]   ticket=%s\n", spec.Selection.Ticket.ID)
 			fmt.Fprintf(os.Stderr, "[DEBUG]   harness=%s\n", spec.Selection.Harness.Name)
 			fmt.Fprintf(os.Stderr, "[DEBUG]   harnessBinary=%s\n", harnessBinary)
@@ -255,8 +256,8 @@ func saveRunningAgentCmd(myApp *app.App, spec *domain.LaunchSpec, result *domain
 			ProjectDir:    projectDir,
 			WorktreePath:  worktreePath,
 			PID:           result.PID,
-			TmuxSession:   result.TmuxSession,
-			WindowName:    result.WindowName,
+			LauncherType:  result.LauncherType,
+			LauncherID:    result.LauncherID,
 			Ticket:        spec.Selection.Ticket.ID,
 			TicketTitle:   spec.Selection.Ticket.Title,
 			HarnessName:   spec.Selection.Harness.Name,
@@ -281,13 +282,13 @@ func saveRunningAgentCmd(myApp *app.App, spec *domain.LaunchSpec, result *domain
 
 // Agent monitoring commands
 
-func pollAgentStatusCmd(app *App, agentID, windowName string) tea.Cmd {
+func pollAgentStatusCmd(myApp *app.App, agentID, launcherID string) tea.Cmd {
 	return func() tea.Msg {
-		if app.StatusChecker() == nil {
+		if myApp.StatusChecker() == nil {
 			return AgentStatusMsg{AgentID: agentID, Status: domain.AgentRunning}
 		}
 
-		status := app.StatusChecker().CheckStatus(context.Background(), windowName)
+		status := myApp.StatusChecker().CheckStatus(context.Background(), launcherID)
 		var agentStatus domain.AgentStatus
 		switch status {
 		case tmux.Running:

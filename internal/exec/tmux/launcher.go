@@ -65,21 +65,19 @@ func (l *Launcher) Launch(
 	output, err := l.runner.Run(ctx, command[0], command[1:]...)
 	if err != nil {
 		return &domain.LaunchResult{
-			WindowName: spec.WindowName,
+			LauncherID: spec.LauncherID,
 			Error:      fmt.Errorf("failed to launch tmux window: %w", err),
 		}, err
 	}
 
-	windowID := l.parseWindowID(string(output))
-	paneID, pid, session := l.fetchPaneMetadata(ctx, windowID, spec.WindowName)
+	windowID := l.parseLauncherID(string(output))
+	_, pid, _ := l.fetchPaneMetadata(ctx, windowID, spec.LauncherID)
 
 	return &domain.LaunchResult{
-		WindowName:  spec.WindowName,
-		WindowID:    windowID,
-		PaneID:      paneID,
-		PID:         pid,
-		TmuxSession: session,
-		Error:       nil,
+		LauncherID:   spec.LauncherID, // Use window name as stable identifier
+		LauncherType: domain.LauncherTypeTmux,
+		PID:          pid,
+		Error:        nil,
 	}, nil
 }
 
@@ -122,7 +120,7 @@ func (l *Launcher) buildCommand(spec domain.LaunchSpec) []string {
 	if command != "" {
 		command = "exec " + command
 	}
-	args = append(args, "-n", spec.WindowName, command)
+	args = append(args, "-n", spec.LauncherID, command)
 	return args
 }
 
@@ -134,21 +132,19 @@ func (l *Launcher) dryRunLaunch(
 	fmt.Printf("[DRY RUN] Would execute: %s\n", strings.Join(command, " "))
 
 	return &domain.LaunchResult{
-		WindowName:  spec.WindowName,
-		WindowID:    "dry-run-id",
-		PaneID:      "dry-run-pane",
-		PID:         0,
-		TmuxSession: "dry-run-session",
-		Error:       nil,
+		LauncherID:   spec.LauncherID,
+		LauncherType: domain.LauncherTypeTmux,
+		PID:          0,
+		Error:        nil,
 	}, nil
 }
 
 // fetchPaneMetadata resolves pane id, pane pid and tmux session.
 // Best-effort only: errors return empty metadata.
-func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, windowName string) (string, int, string) {
+func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, launcherID string) (string, int, string) {
 	target := windowID
 	if target == "" {
-		target = windowName
+		target = launcherID
 	}
 	if target == "" {
 		return "", 0, ""
@@ -175,10 +171,10 @@ func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, windowName s
 	return fields[0], pid, fields[2]
 }
 
-// parseWindowID extracts the window ID from tmux new-window output.
+// parseLauncherID extracts the window ID from tmux new-window output.
 // The output format is typically empty or contains window info.
 // For MVP, we'll attempt to parse if present but gracefully handle missing data.
-func (l *Launcher) parseWindowID(output string) string {
+func (l *Launcher) parseLauncherID(output string) string {
 	output = strings.TrimSpace(output)
 	if output == "" {
 		return ""

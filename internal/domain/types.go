@@ -47,18 +47,16 @@ type LaunchSpec struct {
 	Selection       Selection
 	RenderedCommand string
 	RenderedPrompt  string
-	WindowName      string
+	LauncherID      string
 	WorkDir         string
 }
 
 // LaunchResult captures the outcome of a launch attempt.
 type LaunchResult struct {
-	WindowName  string
-	WindowID    string
-	PaneID      string
-	PID         int
-	TmuxSession string
-	Error       error
+	LauncherID   string
+	LauncherType LauncherType
+	PID          int
+	Error        error
 }
 
 // LauncherConfig controls how new tmux windows are created.
@@ -111,4 +109,5 @@ type AppOptions struct {
 	Demo          bool
 	AutostartDolt bool
 	TargetProject string // Optional: project path from CLI positional arg
+	Theme         string // UI Theme preference
 }

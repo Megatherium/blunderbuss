@@ -7,26 +7,18 @@
 package ui
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
+	"io"
 
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/megatherium/blunderbust/internal/config"
-	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/launcher"
 )
 
 // newTestHarnesses returns sample harnesses for testing
@@ -48,12 +40,12 @@ func newTestHarnesses() []domain.Harness {
 } // This was the missing brace
 // newTestAppWithHarnesses creates a test app with sample harnesses using demo mode
 func newTestAppWithHarnesses(t *testing.T) *app.App {
-	cfgLoader := &config.MemoryLoader{}
+	cfgLoader := &mockConfigLoader{}
 	opts := domain.AppOptions{
 		Demo:   true,
 		DryRun: true,
 	}
-	application, err := app.NewApp(cfgLoader, &launcher.NoopLauncher{}, nil, nil, nil, opts)
+	application, err := app.NewApp(cfgLoader, &mockLauncher{}, nil, nil, nil, opts)
 	require.NoError(t, err)
 	return application
 }

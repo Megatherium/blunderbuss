@@ -75,7 +75,7 @@ func TestRenderMainContent_AgentOutput(t *testing.T) {
 			Info: &domain.AgentInfo{
 				Name:       "Test Agent",
 				Status:     domain.AgentRunning,
-				WindowName: "test-window",
+				LauncherID: "test-window",
 			},
 		},
 		CurrentTheme: MatrixTheme,
