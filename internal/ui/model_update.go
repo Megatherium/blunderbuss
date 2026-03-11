@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
@@ -100,7 +99,7 @@ func (m UIModel) handleNavigationKeysMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bo
 	}
 
 	// Don't process navigation keys when a list is in filtering mode
-	if m.isFocusedListFiltering() {
+	if isFocusedListFiltering(m) {
 		return m, nil, false
 	}
 
@@ -1211,23 +1210,6 @@ func (m UIModel) handleAnimationTick(msg animationTickMsg) (tea.Model, tea.Cmd) 
 	return m, animationTickCmd()
 }
 
-func createErrorList(message string, theme ...*ThemePalette) list.Model {
-	items := []list.Item{errorItem{message: message}}
-	l := list.New(items, newGradientDelegate(theme...), 0, 0)
-	l.Title = "Select a Ticket"
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	return l
-}
-
-type errorItem struct {
-	message string
-}
-
-func (i errorItem) Title() string       { return "⚠ " + i.message }
-func (i errorItem) Description() string { return "" }
-func (i errorItem) FilterValue() string { return "" }
-
 func (m UIModel) handleTicketUpdateCheck() (tea.Model, tea.Cmd) {
 	if m.app.Project() == nil {
 		return m, tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
@@ -1362,24 +1344,6 @@ func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Mode
 			return warningMsg{fmt.Errorf("added project: %s", projectDir)}
 		},
 	)
-}
-
-func (m UIModel) isFocusedListFiltering() bool {
-	if m.state != ViewStateMatrix {
-		return false
-	}
-
-	switch m.focus {
-	case FocusTickets:
-		return m.ticketList.FilterState() == list.Filtering
-	case FocusHarness:
-		return m.harnessList.FilterState() == list.Filtering
-	case FocusModel:
-		return m.modelList.FilterState() == list.Filtering
-	case FocusAgent:
-		return m.agentList.FilterState() == list.Filtering
-	}
-	return false
 }
 
 func updateListCaches(m *UIModel) UIModel {
