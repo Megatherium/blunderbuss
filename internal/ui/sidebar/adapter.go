@@ -44,7 +44,7 @@ func NewTreeBuilder(discoverer worktreeDiscoverer) *TreeBuilder {
 // NewTreeBuilderDefault creates a TreeBuilder with the default WorktreeDiscoverer.
 // Use this in production code where you don't need to mock the discoverer.
 func NewTreeBuilderDefault() *TreeBuilder {
-	return NewTreeBuilder(data.NewWorktreeDiscoverer())
+	return NewTreeBuilder(data.NewWorktreeDiscoverer(nil))
 }
 
 // BuildFromProjects builds sidebar nodes for multiple projects.

@@ -7,44 +7,54 @@
 package data
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
-type WorktreeDiscoverer struct{}
-
-func NewWorktreeDiscoverer() *WorktreeDiscoverer {
-	return &WorktreeDiscoverer{}
+// WorktreeDiscoverer discovers worktrees in a git repository using a GitClient.
+type WorktreeDiscoverer struct {
+	gitClient GitClient
 }
 
+// NewWorktreeDiscoverer creates a new WorktreeDiscoverer with the given GitClient.
+// If gitClient is nil, a default gitClient is used.
+func NewWorktreeDiscoverer(gitClient GitClient) *WorktreeDiscoverer {
+	if gitClient == nil {
+		gitClient = NewGitClient()
+	}
+	return &WorktreeDiscoverer{
+		gitClient: gitClient,
+	}
+}
+
+// Discover discovers all worktrees in the given git repository.
+// It returns a slice of WorktreeInfo with metadata for each worktree.
 func (d *WorktreeDiscoverer) Discover(ctx context.Context, repoRoot string) ([]domain.WorktreeInfo, error) {
-	worktrees, err := d.listWorktrees(ctx, repoRoot)
+	entries, err := d.gitClient.ListWorktrees(ctx, repoRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	mainBranch, _ := d.detectMainBranch(ctx, repoRoot)
+	mainBranch, _ := d.gitClient.DetectMainBranch(ctx, repoRoot)
 
-	results := make([]domain.WorktreeInfo, 0, len(worktrees))
-	for _, wt := range worktrees {
-		isMain := wt.branch == mainBranch || wt.branch == "master" || wt.branch == "main"
+	results := make([]domain.WorktreeInfo, 0, len(entries))
+	for _, wt := range entries {
+		// Fallback for legacy repos where DetectMainBranch fails to detect the main branch.
+		// This ensures backward compatibility with repos using "main" or "master" conventions.
+		isMain := wt.Branch == mainBranch || wt.Branch == "master" || wt.Branch == "main"
 		info := domain.WorktreeInfo{
-			Path:       wt.path,
-			Branch:     wt.branch,
-			CommitHash: wt.commit,
+			Path:       wt.Path,
+			Branch:     wt.Branch,
+			CommitHash: wt.Commit,
 			IsMain:     isMain,
 		}
 
-		info.IsDirty = d.checkDirty(ctx, wt.path)
-		info.Name = d.extractName(wt.path, isMain)
+		info.IsDirty = d.gitClient.CheckDirty(ctx, wt.Path)
+		info.Name = d.extractName(wt.Path, isMain)
 
 		results = append(results, info)
 	}
@@ -59,90 +69,7 @@ func (d *WorktreeDiscoverer) extractName(path string, isMain bool) string {
 	return filepath.Base(path)
 }
 
-type worktreeEntry struct {
-	path   string
-	commit string
-	branch string
-}
-
-func (d *WorktreeDiscoverer) listWorktrees(ctx context.Context, repoRoot string) ([]worktreeEntry, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoRoot, "worktree", "list", "--porcelain")
-	output, err := cmd.Output()
-	if err != nil {
-		if isNotGitRepo(err) {
-			return nil, fmt.Errorf("not a git repository: %s", repoRoot)
-		}
-		return nil, fmt.Errorf("failed to list worktrees: %w", err)
-	}
-
-	return d.parseWorktreePorcelain(output), nil
-}
-
-func (d *WorktreeDiscoverer) parseWorktreePorcelain(output []byte) []worktreeEntry {
-	var worktrees []worktreeEntry
-	var current *worktreeEntry
-
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if strings.HasPrefix(line, "worktree ") {
-			if current != nil {
-				worktrees = append(worktrees, *current)
-			}
-			current = &worktreeEntry{
-				path: strings.TrimPrefix(line, "worktree "),
-			}
-		} else if current != nil {
-			if strings.HasPrefix(line, "HEAD ") {
-				current.commit = strings.TrimPrefix(line, "HEAD ")
-			} else if strings.HasPrefix(line, "branch ") {
-				branchRef := strings.TrimPrefix(line, "branch ")
-				current.branch = extractBranchName(branchRef)
-			}
-		}
-	}
-
-	if current != nil {
-		worktrees = append(worktrees, *current)
-	}
-
-	return worktrees
-}
-
-func extractBranchName(ref string) string {
-	if strings.HasPrefix(ref, "refs/heads/") {
-		return strings.TrimPrefix(ref, "refs/heads/")
-	}
-	return ref
-}
-
-func (d *WorktreeDiscoverer) detectMainBranch(ctx context.Context, repoRoot string) (string, error) {
-	for _, candidate := range []string{"main", "master", "develop"} {
-		cmd := exec.CommandContext(ctx, "git", "-C", repoRoot, "rev-parse", "--verify", "refs/heads/"+candidate)
-		if err := cmd.Run(); err == nil {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("no main branch detected")
-}
-
-func (d *WorktreeDiscoverer) checkDirty(ctx context.Context, path string) bool {
-	cmd := exec.CommandContext(ctx, "git", "-C", path, "status", "--porcelain")
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return len(bytes.TrimSpace(output)) > 0
-}
-
-func isNotGitRepo(err error) bool {
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		return exitErr.ExitCode() == 128
-	}
-	return false
-}
-
+// FindRepoRoot finds the root of the git repository containing the given path.
 func FindRepoRoot(startPath string) (string, error) {
 	path, err := filepath.Abs(startPath)
 	if err != nil {
@@ -163,6 +90,7 @@ func FindRepoRoot(startPath string) (string, error) {
 	}
 }
 
+// GetProjectName returns the base name of the repository root directory.
 func GetProjectName(repoRoot string) string {
 	return filepath.Base(repoRoot)
 }

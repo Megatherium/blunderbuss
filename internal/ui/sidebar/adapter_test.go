@@ -33,7 +33,7 @@ func (m *mockDiscoverer) Discover(ctx context.Context, repoRoot string) ([]domai
 }
 
 func TestNewTreeBuilder(t *testing.T) {
-	discoverer := data.NewWorktreeDiscoverer()
+	discoverer := data.NewWorktreeDiscoverer(nil)
 	builder := NewTreeBuilder(discoverer)
 
 	if builder == nil {
