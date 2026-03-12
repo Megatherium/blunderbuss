@@ -210,7 +210,7 @@ func (s *Store) LatestUpdate(ctx context.Context) (time.Time, error) {
 
 	if err != nil {
 		if s.mode == ServerMode && IsConnectionError(err) {
-			// Return a more descriptive error that wraps connection connection failure
+			// Return a more descriptive error that wraps connection failure
 			if s.autostart {
 				return time.Time{}, &ErrServerNotRunning{
 					Message: "Dolt server connection failed. Would you like to restart it?",
