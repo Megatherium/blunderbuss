@@ -45,6 +45,18 @@ func (s *TicketStore) ListTickets(_ context.Context, filter data.TicketFilter) (
 	return results, nil
 }
 
+// LatestUpdate returns the maximum updated_at timestamp from the ticket collection.
+// Returns a zero time.Time if no tickets exist.
+func (s *TicketStore) LatestUpdate(_ context.Context) (time.Time, error) {
+	var latest time.Time
+	for _, t := range s.Tickets {
+		if t.UpdatedAt.After(latest) {
+			latest = t.UpdatedAt
+		}
+	}
+	return latest, nil
+}
+
 // NewWithSampleData returns a FakeTicketStore pre-loaded with sample tickets.
 func NewWithSampleData() *TicketStore {
 	now := time.Now()

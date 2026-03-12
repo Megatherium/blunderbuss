@@ -42,6 +42,16 @@ func (m *mockFailingStore) ListTickets(ctx context.Context, filter data.TicketFi
 	}, nil
 }
 
+func (m *mockFailingStore) LatestUpdate(ctx context.Context) (time.Time, error) {
+	if !m.connectionOK {
+		m.failCount++
+		if m.failCount <= m.maxFailures {
+			return time.Time{}, errors.New("connection refused")
+		}
+	}
+	return time.Time{}, nil
+}
+
 func (m *mockFailingStore) Close() error {
 	return nil
 }

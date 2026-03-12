@@ -8,6 +8,7 @@ package data
 
 import (
 	"context"
+	"time"
 
 	"github.com/megatherium/blunderbust/internal/domain"
 )
@@ -15,6 +16,7 @@ import (
 // TicketStore abstracts ticket retrieval from the underlying data source.
 type TicketStore interface {
 	ListTickets(ctx context.Context, filter TicketFilter) ([]domain.Ticket, error)
+	LatestUpdate(ctx context.Context) (time.Time, error)
 }
 
 // TicketFilter controls which tickets are returned by ListTickets.

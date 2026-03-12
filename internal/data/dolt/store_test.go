@@ -9,6 +9,7 @@ package dolt
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -311,6 +312,112 @@ func TestStore_ListTickets_StoreClosed(t *testing.T) {
 
 	if err.Error() != "store is closed" {
 		t.Errorf("expected 'store is closed' error, got: %v", err)
+	}
+}
+
+func TestStore_LatestUpdate_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock: %v", err)
+	}
+	defer db.Close()
+
+	store := &Store{db: db, mode: EmbeddedMode}
+
+	now := time.Now()
+	mock.ExpectQuery(`SELECT MAX\(updated_at\) FROM ready_issues`).
+		WillReturnRows(sqlmock.NewRows([]string{"MAX(updated_at)"}).
+			AddRow(now))
+
+	latest, err := store.LatestUpdate(context.Background())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !latest.Equal(now) {
+		t.Errorf("expected %v, got %v", now, latest)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unfulfilled expectations: %v", err)
+	}
+}
+
+func TestStore_LatestUpdate_EmptyTable(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock: %v", err)
+	}
+	defer db.Close()
+
+	store := &Store{db: db, mode: EmbeddedMode}
+
+	mock.ExpectQuery(`SELECT MAX\(updated_at\) FROM ready_issues`).
+		WillReturnRows(sqlmock.NewRows([]string{"MAX(updated_at)"}).
+			AddRow(nil))
+
+	latest, err := store.LatestUpdate(context.Background())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !latest.IsZero() {
+		t.Errorf("expected zero time, got %v", latest)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unfulfilled expectations: %v", err)
+	}
+}
+
+func TestStore_LatestUpdate_StoreClosed(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock: %v", err)
+	}
+	defer db.Close()
+
+	store := &Store{db: db, mode: EmbeddedMode, closed: true}
+
+	_, err = store.LatestUpdate(context.Background())
+
+	if err == nil {
+		t.Fatal("expected error for closed store")
+	}
+
+	if err.Error() != "store is closed" {
+		t.Errorf("expected 'store is closed' error, got: %v", err)
+	}
+}
+
+func TestStore_LatestUpdate_ConnectionError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock: %v", err)
+	}
+	defer db.Close()
+
+	store := &Store{db: db, mode: ServerMode, autostart: true}
+
+	mock.ExpectQuery(`SELECT MAX\(updated_at\) FROM ready_issues`).
+		WillReturnError(&ErrServerNotRunning{
+			Message: "Dolt server connection failed",
+		})
+
+	_, err = store.LatestUpdate(context.Background())
+
+	if err == nil {
+		t.Fatal("expected error for connection failure")
+	}
+
+	if !strings.Contains(err.Error(), "connection failed") {
+		t.Errorf("error should mention connection failure, got: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unfulfilled expectations: %v", err)
 	}
 }
 

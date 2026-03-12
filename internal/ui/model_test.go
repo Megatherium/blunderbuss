@@ -851,6 +851,10 @@ func (m *mockStore) ListTickets(ctx context.Context, filter data.TicketFilter) (
 	return []domain.Ticket{}, nil
 }
 
+func (m *mockStore) LatestUpdate(ctx context.Context) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 func (m *mockStore) Close() error {
 	return nil
 }

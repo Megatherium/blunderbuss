@@ -363,20 +363,15 @@ func clearAllStoppedAgentsCmd(agents []agentToClear) tea.Cmd {
 
 func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time) tea.Cmd {
 	return func() tea.Msg {
-		doltStore, ok := store.(*dolt.Store)
-		if !ok {
-			return ticketUpdateCheckNeededMsg{}
-		}
-
-		var dbUpdate time.Time
-		err := doltStore.DB().QueryRow("SELECT MAX(updated_at) FROM ready_issues").Scan(&dbUpdate)
+		dbUpdate, err := store.LatestUpdate(context.Background())
 		if err != nil {
-			// Check if this is a connection error
-			if doltStore.CanRetryConnection() && dolt.IsConnectionError(err) {
-				// Return error message to trigger recovery UI
+			// Check if this is a connection error for server-mode stores
+			if doltStore, ok := store.(*dolt.Store); ok &&
+				doltStore.CanRetryConnection() &&
+				dolt.IsConnectionError(err) {
 				return errMsg{err: err}
 			}
-			// If not retryable, continue polling silently
+			// If not retryable or non-server-mode, continue polling silently
 			return ticketUpdateCheckNeededMsg{}
 		}
 

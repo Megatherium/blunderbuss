@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
@@ -194,6 +195,39 @@ func (s *Store) ListTickets(ctx context.Context, filter data.TicketFilter) ([]do
 	defer rows.Close()
 
 	return scanTickets(rows)
+}
+
+// LatestUpdate returns the maximum updated_at timestamp from the ready_issues view.
+// Returns a zero time.Time if no tickets exist.
+func (s *Store) LatestUpdate(ctx context.Context) (time.Time, error) {
+	if s.closed {
+		return time.Time{}, fmt.Errorf("store is closed")
+	}
+
+	var latest sql.NullTime
+	query := "SELECT MAX(updated_at) FROM ready_issues"
+	err := s.db.QueryRowContext(ctx, query).Scan(&latest)
+
+	if err != nil {
+		if s.mode == ServerMode && IsConnectionError(err) {
+			// Return a more descriptive error that wraps connection connection failure
+			if s.autostart {
+				return time.Time{}, &ErrServerNotRunning{
+					Message: "Dolt server connection failed. Would you like to restart it?",
+				}
+			}
+			return time.Time{}, &ErrServerNotRunning{
+				Message: "Dolt server connection failed. Please check that it's running.",
+			}
+		}
+		return time.Time{}, fmt.Errorf("failed to query latest update: %w", err)
+	}
+
+	if !latest.Valid {
+		return time.Time{}, nil
+	}
+
+	return latest.Time, nil
 }
 
 // buildListTicketsQuery constructs the SQL query with optional filters.
