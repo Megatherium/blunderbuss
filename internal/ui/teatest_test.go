@@ -7,10 +7,10 @@
 package ui
 
 import (
+	"io"
 	"strings"
 	"testing"
 	"time"
-	"io"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"

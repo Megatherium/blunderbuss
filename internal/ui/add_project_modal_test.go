@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,7 +18,7 @@ func TestAddProjectModal_NotInWorkspace(t *testing.T) {
 	app := newTestApp()
 	app.Opts.TargetProject = "/some/new/project"
 	// newTestApp already initializes an empty workspace
-		
+
 	_ = NewUIModel(app, nil)
 
 	// Verify target project is detected
@@ -138,10 +138,10 @@ func TestAddProjectModal_BlocksOtherKeys(t *testing.T) {
 func TestApp_DeduplicateProjectName(t *testing.T) {
 	app := newTestApp()
 	app.AddProject(domain.Project{Dir: "/path1/foo", Name: "foo"})
-	
+
 	// Add another with same name to test rename
 	app.AddProject(domain.Project{Dir: "/path2/foo", Name: "foo"})
-	
+
 	projects := app.GetProjects()
 	assert.Len(t, projects, 2)
 	names := make(map[string]bool)

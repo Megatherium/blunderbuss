@@ -11,11 +11,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
