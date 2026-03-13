@@ -14,6 +14,17 @@ import (
 
 // Agent management sidebar helpers
 
+// forEachWorktree iterates over all worktree nodes in a project and applies fn to each.
+// This is a shared helper for tree traversal operations.
+func forEachWorktree(projectNode *domain.SidebarNode, fn func(worktree *domain.SidebarNode)) {
+	for i := range projectNode.Children {
+		worktreeNode := &projectNode.Children[i]
+		if worktreeNode.Type == domain.NodeTypeWorktree {
+			fn(worktreeNode)
+		}
+	}
+}
+
 // AddAgentNodeToSidebar adds an agent node to the appropriate project in the sidebar
 func AddAgentNodeToSidebar(m *UIModel, agentInfo *domain.AgentInfo) {
 	state := m.sidebar.State()
@@ -31,29 +42,28 @@ func AddAgentNodeToSidebar(m *UIModel, agentInfo *domain.AgentInfo) {
 
 // AddAgentToProject adds an agent node to a specific project/worktree
 func AddAgentToProject(projectNode *domain.SidebarNode, agentInfo *domain.AgentInfo) {
-	for i := range projectNode.Children {
-		worktreeNode := &projectNode.Children[i]
-		if worktreeNode.Type == domain.NodeTypeWorktree && worktreeNode.Path == agentInfo.WorktreePath {
-			for _, child := range worktreeNode.Children {
-				if child.Type == domain.NodeTypeAgent && child.AgentInfo != nil && child.AgentInfo.ID == agentInfo.ID {
-					return
-				}
-			}
-			agentNode := domain.SidebarNode{
-				ID:         "agent-" + agentInfo.ID,
-				Name:       agentInfo.Name,
-				Path:       "agent:" + agentInfo.ID,
-				Type:       domain.NodeTypeAgent,
-				IsExpanded: false,
-				IsRunning:  true,
-				AgentInfo:  agentInfo,
-				Children:   make([]domain.SidebarNode, 0),
-			}
-			worktreeNode.Children = append(worktreeNode.Children, agentNode)
-			worktreeNode.IsExpanded = true
+	forEachWorktree(projectNode, func(worktreeNode *domain.SidebarNode) {
+		if worktreeNode.Path != agentInfo.WorktreePath {
 			return
 		}
-	}
+		for _, child := range worktreeNode.Children {
+			if child.Type == domain.NodeTypeAgent && child.AgentInfo != nil && child.AgentInfo.ID == agentInfo.ID {
+				return
+			}
+		}
+		agentNode := domain.SidebarNode{
+			ID:         "agent-" + agentInfo.ID,
+			Name:       agentInfo.Name,
+			Path:       "agent:" + agentInfo.ID,
+			Type:       domain.NodeTypeAgent,
+			IsExpanded: false,
+			IsRunning:  true,
+			AgentInfo:  agentInfo,
+			Children:   make([]domain.SidebarNode, 0),
+		}
+		worktreeNode.Children = append(worktreeNode.Children, agentNode)
+		worktreeNode.IsExpanded = true
+	})
 }
 
 // PersistedAgentID returns a unique identifier for a persisted agent
@@ -100,18 +110,15 @@ func RemoveAgentNodeFromSidebar(m *UIModel, agentID string) {
 
 // RemoveAgentFromProject removes an agent node from a specific project
 func RemoveAgentFromProject(projectNode *domain.SidebarNode, agentID string) {
-	for i := range projectNode.Children {
-		worktreeNode := &projectNode.Children[i]
-		if worktreeNode.Type == domain.NodeTypeWorktree {
-			newChildren := make([]domain.SidebarNode, 0, len(worktreeNode.Children))
-			for _, child := range worktreeNode.Children {
-				if child.Type != domain.NodeTypeAgent || child.AgentInfo == nil || child.AgentInfo.ID != agentID {
-					newChildren = append(newChildren, child)
-				}
+	forEachWorktree(projectNode, func(worktreeNode *domain.SidebarNode) {
+		newChildren := make([]domain.SidebarNode, 0, len(worktreeNode.Children))
+		for _, child := range worktreeNode.Children {
+			if child.Type != domain.NodeTypeAgent || child.AgentInfo == nil || child.AgentInfo.ID != agentID {
+				newChildren = append(newChildren, child)
 			}
-			worktreeNode.Children = newChildren
 		}
-	}
+		worktreeNode.Children = newChildren
+	})
 }
 
 // RebuildAgentNodesInSidebar rebuilds the agent nodes in the sidebar based on current agents map
@@ -148,22 +155,19 @@ func RestoreSidebarCursorByPath(state *SidebarState, path string) {
 
 // RebuildAgentsInProject rebuilds the agent nodes in a specific project
 func RebuildAgentsInProject(projectNode *domain.SidebarNode, agents map[string]*RunningAgent) {
-	for i := range projectNode.Children {
-		worktreeNode := &projectNode.Children[i]
-		if worktreeNode.Type == domain.NodeTypeWorktree {
-			newChildren := make([]domain.SidebarNode, 0, len(worktreeNode.Children))
-			for _, child := range worktreeNode.Children {
-				if child.Type != domain.NodeTypeAgent {
+	forEachWorktree(projectNode, func(worktreeNode *domain.SidebarNode) {
+		newChildren := make([]domain.SidebarNode, 0, len(worktreeNode.Children))
+		for _, child := range worktreeNode.Children {
+			if child.Type != domain.NodeTypeAgent {
+				newChildren = append(newChildren, child)
+			} else if child.AgentInfo != nil {
+				if _, ok := agents[child.AgentInfo.ID]; ok {
 					newChildren = append(newChildren, child)
-				} else if child.AgentInfo != nil {
-					if _, ok := agents[child.AgentInfo.ID]; ok {
-						newChildren = append(newChildren, child)
-					}
 				}
 			}
-			worktreeNode.Children = newChildren
 		}
-	}
+		worktreeNode.Children = newChildren
+	})
 }
 
 // Agent message handlers
