@@ -55,12 +55,8 @@ func (m UIModel) handleAnimationTick(msg animationTickMsg) (tea.Model, tea.Cmd) 
 		}
 	}
 
-	if !m.animState.LockInActive {
-		// Stop the animation loop to conserve CPU when idle
-		return m, nil
-	}
-
-	// Continue animation loop
+	// Always continue the animation loop to keep the breathing animation running
+	// The lock-in flash is a brief overlay effect that happens on top of the continuous pulse
 	return m, animationTickCmd()
 }
 

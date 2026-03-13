@@ -110,7 +110,7 @@ func TestHandleAnimationTick_LockInFlashDecay(t *testing.T) {
 	}
 }
 
-func TestHandleAnimationTick_StopWhenIdle(t *testing.T) {
+func TestHandleAnimationTick_ContinuousAnimation(t *testing.T) {
 	model := NewTestModel()
 	model.animState.StartTime = time.Now()
 	model.animState.LockInActive = false
@@ -118,11 +118,17 @@ func TestHandleAnimationTick_StopWhenIdle(t *testing.T) {
 	msg := animationTickMsg{Time: model.animState.StartTime}
 	newModel, cmd := model.handleAnimationTick(msg)
 
-	if cmd != nil {
-		t.Error("Expected command to be nil when LockInActive is false")
+	// Animation should ALWAYS continue to keep the breathing animation running
+	// The lock-in flash is a brief overlay effect on top of the continuous pulse
+	if cmd == nil {
+		t.Error("Expected command to continue animation even when LockInActive is false")
 	}
 	if newModel.(UIModel).animState.LockInActive != false {
 		t.Error("Expected LockInActive to remain false")
+	}
+	// PulsePhase should still be updated for the breathing animation
+	if newModel.(UIModel).animState.PulsePhase == 0 {
+		t.Error("Expected PulsePhase to be updated for continuous breathing animation")
 	}
 }
 
