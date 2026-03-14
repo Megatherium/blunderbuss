@@ -8,8 +8,8 @@ import (
 
 func TestKeyMapShortHelp(t *testing.T) {
 	help := keys.ShortHelp()
-	if len(help) != 8 {
-		t.Errorf("ShortHelp() returned %d bindings, want 8", len(help))
+	if len(help) != 9 {
+		t.Errorf("ShortHelp() returned %d bindings, want 9", len(help))
 	}
 }
 
@@ -18,8 +18,8 @@ func TestKeyMapFullHelp(t *testing.T) {
 	if len(help) != 2 {
 		t.Errorf("FullHelp() returned %d rows, want 2", len(help))
 	}
-	if len(help[0]) != 6 || len(help[1]) != 3 {
-		t.Errorf("FullHelp() rows have wrong length: got %d, %d, want 6, 3", len(help[0]), len(help[1]))
+	if len(help[0]) != 7 || len(help[1]) != 3 {
+		t.Errorf("FullHelp() rows have wrong length: got %d, %d, want 7, 3", len(help[0]), len(help[1]))
 	}
 }
 
@@ -30,6 +30,7 @@ func TestKeyMapBindingsExist(t *testing.T) {
 		keys.Enter,
 		keys.Info,
 		keys.ToggleSidebar,
+		keys.Zoom,
 		keys.Back,
 		keys.Refresh,
 		keys.Quit,

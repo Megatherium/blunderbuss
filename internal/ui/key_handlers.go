@@ -69,13 +69,7 @@ func (m UIModel) handleToggleSidebarKeyMsg() (tea.Model, tea.Cmd, bool) {
 func (m UIModel) handleToggleThemeKeyMsg() (tea.Model, tea.Cmd, bool) {
 	m.animState.nextTheme()
 	m.currentTheme = m.animState.getCurrentTheme()
-	// Ticket list uses the dynamic ticketDelegate; update its theme in-place
-	// so width state is preserved.
-	if m.ticketDel != nil {
-		m.ticketDel.applyTheme(m.currentTheme)
-	} else {
-		m.ticketList.SetDelegate(newGradientDelegate(m.currentTheme))
-	}
+	m.ticketList.SetDelegate(newGradientDelegate(m.currentTheme))
 	m.harnessList.SetDelegate(newGradientDelegate(m.currentTheme))
 	m.modelList.SetDelegate(newGradientDelegate(m.currentTheme))
 	m.agentList.SetDelegate(newGradientDelegate(m.currentTheme))
@@ -83,6 +77,32 @@ func (m UIModel) handleToggleThemeKeyMsg() (tea.Model, tea.Cmd, bool) {
 	m.dirtyHarness = true
 	m.dirtyModel = true
 	m.dirtyAgent = true
+	return m, nil, true
+}
+
+func (m UIModel) handleZoomKeyMsg() (tea.Model, tea.Cmd, bool) {
+	// Toggle zoom mode
+	m.ticketZoomEnabled = !m.ticketZoomEnabled
+
+	// Update ticket delegate description lines
+	if m.ticketDel != nil {
+		if m.ticketZoomEnabled {
+			m.ticketDel.SetDescLines(3) // 1 line for status/priority + 2 lines of description
+		} else {
+			m.ticketDel.SetDescLines(1) // Just status/priority
+		}
+	}
+
+	// Recalculate layout with new zoom state
+	m.layout = Compute(m.layout.TermWidth, m.layout.TermHeight, m.showSidebar, m.ticketZoomEnabled)
+	m.updateSizes()
+
+	// Mark all columns dirty since widths changed
+	m.dirtyTicket = true
+	m.dirtyHarness = true
+	m.dirtyModel = true
+	m.dirtyAgent = true
+
 	return m, nil, true
 }
 
@@ -179,6 +199,13 @@ func (m UIModel) handleGlobalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 
 	if key.Matches(msg, m.keys.ToggleTheme) {
 		return m.handleToggleThemeKeyMsg()
+	}
+
+	if key.Matches(msg, m.keys.Zoom) {
+		// Only enable zoom when ticket column is focused
+		if m.focus == FocusTickets {
+			return m.handleZoomKeyMsg()
+		}
 	}
 
 	return m, nil, false

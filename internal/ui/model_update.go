@@ -139,16 +139,19 @@ func (m *UIModel) updateKeyBindings() {
 			m.keys.Back.SetEnabled(false)
 			m.keys.Refresh.SetEnabled(false)
 			m.keys.Info.SetEnabled(false)
+			m.keys.Zoom.SetEnabled(false)
 			m.keys.Enter.SetEnabled(true)
 		case FocusTickets:
 			m.keys.Back.SetEnabled(false)
 			m.keys.Refresh.SetEnabled(true)
 			m.keys.Info.SetEnabled(true)
+			m.keys.Zoom.SetEnabled(true)
 			m.keys.Enter.SetEnabled(true)
 		default:
 			m.keys.Back.SetEnabled(true)
 			m.keys.Refresh.SetEnabled(false)
 			m.keys.Info.SetEnabled(false)
+			m.keys.Zoom.SetEnabled(false)
 			m.keys.Enter.SetEnabled(true)
 		}
 		m.keys.ToggleSidebar.SetEnabled(true)
@@ -158,6 +161,7 @@ func (m *UIModel) updateKeyBindings() {
 		m.keys.Refresh.SetEnabled(false)
 		m.keys.Enter.SetEnabled(false)
 		m.keys.Info.SetEnabled(false)
+		m.keys.Zoom.SetEnabled(false)
 		m.keys.ToggleSidebar.SetEnabled(false)
 		m.keys.ToggleTheme.SetEnabled(false)
 	default:
@@ -165,6 +169,7 @@ func (m *UIModel) updateKeyBindings() {
 		m.keys.Refresh.SetEnabled(false)
 		m.keys.Enter.SetEnabled(true)
 		m.keys.Info.SetEnabled(false)
+		m.keys.Zoom.SetEnabled(false)
 		m.keys.ToggleSidebar.SetEnabled(false)
 		m.keys.ToggleTheme.SetEnabled(true)
 	}

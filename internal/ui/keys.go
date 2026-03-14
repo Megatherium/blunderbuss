@@ -10,6 +10,7 @@ type KeyMap struct {
 	Info          key.Binding
 	ToggleSidebar key.Binding
 	ToggleTheme   key.Binding
+	Zoom          key.Binding
 	Back          key.Binding
 	Refresh       key.Binding
 	Quit          key.Binding
@@ -17,13 +18,13 @@ type KeyMap struct {
 
 // ShortHelp returns keybindings to be shown in the mini help view.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.Info, k.ToggleSidebar, k.Back, k.Refresh, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Enter, k.Info, k.ToggleSidebar, k.Zoom, k.Back, k.Refresh, k.Quit}
 }
 
 // FullHelp returns keybindings for the expanded help view.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Enter, k.Info, k.ToggleSidebar, k.ToggleTheme},
+		{k.Up, k.Down, k.Enter, k.Info, k.ToggleSidebar, k.ToggleTheme, k.Zoom},
 		{k.Back, k.Refresh, k.Quit},
 	}
 }
@@ -52,6 +53,10 @@ var keys = KeyMap{
 	ToggleTheme: key.NewBinding(
 		key.WithKeys("t"),
 		key.WithHelp("t", "toggle theme"),
+	),
+	Zoom: key.NewBinding(
+		key.WithKeys("z"),
+		key.WithHelp("z", "zoom tickets"),
 	),
 	Back: key.NewBinding(
 		key.WithKeys("esc"),

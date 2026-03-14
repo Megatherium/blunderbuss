@@ -12,10 +12,11 @@ func (m *UIModel) updateSizes() {
 	}
 
 	safeW := func(w int) int {
-		if w-borderWidth < 1 {
+		const totalDeduction = 4 // borderWidth (2) + padding (2)
+		if w <= totalDeduction {
 			return 1
 		}
-		return w - borderWidth
+		return w - totalDeduction
 	}
 
 	ticketContentW := safeW(m.layout.TWidth)

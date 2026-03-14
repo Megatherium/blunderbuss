@@ -160,7 +160,8 @@ func TestHeightConstants_Documentation(t *testing.T) {
 // a conservative default (2 title + 1 desc = 3).
 func TestTicketDelegate_DefaultHeight(t *testing.T) {
 	d := newTicketDelegate()
-	assert.Equal(t, 3, d.Height(),
+	d.descLines = 2
+	assert.Equal(t, 4, d.Height(),
 		"zero-width delegate should return conservative 3-line height")
 }
 
@@ -168,8 +169,9 @@ func TestTicketDelegate_DefaultHeight(t *testing.T) {
 // worst-case title (120 cells) fits on one line collapses to 2 (1+1).
 func TestTicketDelegate_VeryWideColumn(t *testing.T) {
 	d := newTicketDelegate()
+	d.descLines = 2
 	d.SetWidth(124) // content = 122, ceil(120/122) = 1 → height 2
-	assert.Equal(t, 2, d.Height(),
+	assert.Equal(t, 3, d.Height(),
 		"very wide column should give 2-line height (worst-case title fits on one line)")
 }
 
@@ -177,16 +179,18 @@ func TestTicketDelegate_VeryWideColumn(t *testing.T) {
 // for wrapping the worst-case 120-cell title.
 func TestTicketDelegate_WideColumn(t *testing.T) {
 	d := newTicketDelegate()
+	d.descLines = 2
 	d.SetWidth(80) // content = 78, ceil(120/78) = 2 → height 3
-	assert.Equal(t, 3, d.Height(),
-		"80-col column: worst-case title wraps to 2 lines → height 3")
+	assert.Equal(t, 4, d.Height(),
+		"80-col column: worst-case title wraps to 2 lines → height 4")
 }
 
 // TestTicketDelegate_NarrowColumn verifies narrow columns get enough height.
 func TestTicketDelegate_NarrowColumn(t *testing.T) {
 	d := newTicketDelegate()
+	d.descLines = 2
 	d.SetWidth(40) // content = 38, ceil(120/38) = 4 → height 5
-	assert.Equal(t, 5, d.Height(),
+	assert.Equal(t, 6, d.Height(),
 		"narrow column should account for multiple title wrap lines")
 }
 
@@ -195,6 +199,7 @@ func TestTicketDelegate_HeightPositive(t *testing.T) {
 	widths := []int{0, 1, 5, 10, 20, 40, 80, 160, 320}
 	for _, w := range widths {
 		d := newTicketDelegate()
+		d.descLines = 2
 		d.SetWidth(w)
 		assert.GreaterOrEqual(t, d.Height(), 2,
 			"Height() must be ≥ 2 for width %d", w)
@@ -205,6 +210,7 @@ func TestTicketDelegate_HeightPositive(t *testing.T) {
 // construction changes the Height() return value correctly.
 func TestTicketDelegate_SetWidthUpdatesHeight(t *testing.T) {
 	d := newTicketDelegate()
+	d.descLines = 2
 
 	d.SetWidth(40)
 	narrowH := d.Height()
@@ -356,6 +362,7 @@ func TestTicketDelegate_HeightCoversRealTitles(t *testing.T) {
 
 	for _, width := range widths {
 		d := newTicketDelegate()
+		d.descLines = 2
 		d.SetWidth(width)
 		h := d.Height()
 

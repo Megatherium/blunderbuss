@@ -37,6 +37,9 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 			return m, nil
 		}
 		items := []list.Item{emptyTicketItem{}}
+		if m.ticketDel != nil {
+			m.ticketDel.UpdateMaxTitleWidth(items)
+		}
 		m.ticketList = list.New(items, m.ticketDel, 0, 0)
 		m.ticketList.SetShowStatusBar(false)
 		m.sidebar.SetStoreError(false)
@@ -44,6 +47,9 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		items := make([]list.Item, 0, len(msg))
 		for i := range msg {
 			items = append(items, ticketItem{ticket: msg[i]})
+		}
+		if m.ticketDel != nil {
+			m.ticketDel.UpdateMaxTitleWidth(items)
 		}
 		m.ticketList = list.New(items, m.ticketDel, 0, 0)
 		m.sidebar.SetStoreError(false)
@@ -161,7 +167,7 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (UIModel, tea.Cmd) {
-	m.layout = Compute(msg.Width, msg.Height, m.showSidebar)
+	m.layout = Compute(msg.Width, msg.Height, m.showSidebar, m.ticketZoomEnabled)
 	m.updateSizes()
 	m.dirtyTicket = true
 	m.dirtyHarness = true

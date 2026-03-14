@@ -136,6 +136,11 @@ type UIModel struct {
 	modelColumnDisabled bool // true when harness has no models
 	agentColumnDisabled bool // true when harness has no agents
 
+	// ticketZoomEnabled controls the zoom mode for the ticket column.
+	// When enabled, H/M/A columns shrink to minimum width and ticket column
+	// expands to show more content including additional description lines.
+	ticketZoomEnabled bool
+
 	// Caches for list views to avoid re-rendering on every tick
 	dirtyTicket  bool // ticket column cache needs rebuilding
 	dirtyHarness bool // harness column cache needs rebuilding

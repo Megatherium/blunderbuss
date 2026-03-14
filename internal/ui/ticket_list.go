@@ -31,18 +31,39 @@ func (i ticketItem) FilterValue() string { return i.ticket.Title }
 // guarantees that the bubbles list paginator (which uses a single uniform
 // Height() for all items) never miscounts.
 type ticketDelegate struct {
-	base      list.DefaultDelegate
-	width     int // current rendered column width (set via SetWidth)
-	descLines int // number of description lines to render (default 1; increase for zoom mode)
+	base          list.DefaultDelegate
+	width         int // current rendered column width (set via SetWidth)
+	descLines     int // number of description lines to render (default 1; increase for zoom mode)
+	maxTitleWidth int // longest title width in cells for height calculation
 }
 
 // newTicketDelegate creates a ticket delegate styled with the given theme.
 func newTicketDelegate(theme ...*ThemePalette) *ticketDelegate {
 	base := newGradientDelegate(theme...)
 	base.ShowDescription = true
-	d := &ticketDelegate{base: base, width: 0, descLines: 1}
+	d := &ticketDelegate{base: base, width: 0, descLines: 1, maxTitleWidth: 120}
 	d.syncBaseHeight()
 	return d
+}
+
+// UpdateMaxTitleWidth scans items to find the longest title and updates the
+// delegate's height budget to minimize gaps.
+func (d *ticketDelegate) UpdateMaxTitleWidth(items []list.Item) {
+	max := 0
+	for _, item := range items {
+		if ti, ok := item.(ticketItem); ok {
+			w := ansi.StringWidth(ti.Title())
+			if w > max {
+				max = w
+			}
+		}
+	}
+	if max > 0 {
+		d.maxTitleWidth = max
+	} else {
+		d.maxTitleWidth = 120 // Fallback
+	}
+	d.syncBaseHeight()
 }
 
 // SetWidth updates the delegate's notion of available column width so that
@@ -64,21 +85,22 @@ func (d *ticketDelegate) syncBaseHeight() {
 //
 // The bubbles list component calls Height() once (not per-item) to compute a
 // uniform items-per-page count, so we must return a value large enough for the
-// longest title we expect. Render() enforces this budget exactly — padding
-// short items and truncating long ones — so pagination is always correct.
-//
-// maxTitleDisplayWidth (120) covers "[bb-xxxx] " prefix (~10 chars) plus a
-// generous 110-char title. Titles longer than this are truncated in Render().
+// longest title in the current list. Render() enforces this budget exactly —
+// padding short items and truncating long ones — so pagination is always correct.
 func (d *ticketDelegate) Height() int {
-	// maxTitleDisplayWidth is the longest title (including "[bb-xxxx] " prefix)
-	// we budget for without truncation.  Derived from:
-	//   ~10 char ID prefix + ~110 char title ≈ 120 display cells.
-	// Titles exceeding this are safely truncated in Render().
-	const maxTitleDisplayWidth = 120
-
 	descLines := d.descLines
 	if descLines < 1 {
 		descLines = 1
+	}
+
+	// Unzoomed mode: strictly 1 line for title and 1 for desc
+	if descLines == 1 {
+		return 2
+	}
+
+	maxTitleWidth := d.maxTitleWidth
+	if maxTitleWidth <= 0 {
+		maxTitleWidth = 120
 	}
 
 	if d.width <= 0 {
@@ -91,8 +113,8 @@ func (d *ticketDelegate) Height() int {
 		return 2 + descLines
 	}
 
-	// Ceiling division: how many lines does the worst-case title need?
-	titleLines := (maxTitleDisplayWidth + contentWidth - 1) / contentWidth
+	// Ceiling division: how many lines does the budgeted max title need?
+	titleLines := (maxTitleWidth + contentWidth - 1) / contentWidth
 	if titleLines < 1 {
 		titleLines = 1
 	}
@@ -139,7 +161,14 @@ func (d *ticketDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	}
 
 	// Description: wrap to descLines lines; truncate any excess.
-	desc := ti.Description()
+	// In zoom mode (descLines > 1), show the ticket's actual description.
+	// In normal mode, show status and priority.
+	var desc string
+	if descLines > 1 {
+		desc = ti.ticket.Description
+	} else {
+		desc = ti.Description()
+	}
 	descWrapped := wrapString(desc, contentWidth)
 	if len(descWrapped) > descLines {
 		// Truncate the last visible description line with ellipsis.
@@ -289,6 +318,16 @@ func (d *ticketDelegate) applyTheme(theme ...*ThemePalette) {
 	d.syncBaseHeight()
 }
 
+// SetDescLines updates the number of description lines to render and
+// recalculates the delegate height. Used to toggle zoom mode.
+func (d *ticketDelegate) SetDescLines(n int) {
+	if n < 1 {
+		n = 1
+	}
+	d.descLines = n
+	d.syncBaseHeight()
+}
+
 // wrapString splits s into lines of at most maxWidth display cells, breaking
 // at word boundaries (spaces) when possible.  Words longer than maxWidth are
 // hard-broken to guarantee no line exceeds the budget.
@@ -367,6 +406,7 @@ func newTicketList(tickets []domain.Ticket, theme ...*ThemePalette) list.Model {
 		items = append(items, ticketItem{ticket: tickets[i]})
 	}
 	d := newTicketDelegate(theme...)
+	d.UpdateMaxTitleWidth(items)
 	l := list.New(items, d, 0, 0)
 	l.Title = "Select a Ticket"
 	l.SetShowTitle(false)

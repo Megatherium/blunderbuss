@@ -23,11 +23,14 @@ const (
 	columnCount          = 4
 	harnessWidthFactor   = 2
 	minAgentWidth        = 10
+	minZoomedColumnWidth = 12 // Minimum width for H/M/A columns in zoom mode (for labels)
 	borderWidth          = 2
 )
 
-// Compute calculates all layout dimensions based on terminal size and sidebar visibility.
-func Compute(termW, termH int, showSidebar bool) LayoutDimensions {
+// Compute calculates all layout dimensions based on terminal size, sidebar visibility,
+// and zoom mode. When zoom is enabled, the ticket column expands by shrinking H/M/A
+// columns to minimum width.
+func Compute(termW, termH int, showSidebar bool, zoom bool) LayoutDimensions {
 	h, v := docStyle.GetFrameSize()
 
 	width := termW - h
@@ -51,24 +54,56 @@ func Compute(termW, termH int, showSidebar bool) LayoutDimensions {
 
 	var sidebarWidth, tWidth, hWidth, mWidth, aWidth int
 	if showSidebar {
-		sidebarWidth = baseX
-		tWidth = baseX
-		hWidth = baseX / harnessWidthFactor
-		mWidth = baseX
-		aWidth = usableWidth - (sidebarWidth + tWidth + hWidth + mWidth)
-		if aWidth < minAgentWidth {
+		sidebarWidth = usableWidth / columnCount
+		if zoom {
+			// Zoom mode: shrink H/M/A to minimum, give rest to ticket column
+			hWidth = minZoomedColumnWidth
+			mWidth = minZoomedColumnWidth
 			aWidth = minAgentWidth
+			tWidth = usableWidth - (sidebarWidth + hWidth + mWidth + aWidth)
+			if tWidth < baseX {
+				// Safety: if ticket column would be too small, fall back to normal
+				tWidth = baseX
+				hWidth = baseX / harnessWidthFactor
+				mWidth = baseX
+				aWidth = usableWidth - (sidebarWidth + tWidth + hWidth + mWidth)
+			}
+		} else {
+			// Normal mode: proportional distribution
+			tWidth = baseX
+			hWidth = baseX / harnessWidthFactor
+			mWidth = baseX
+			aWidth = usableWidth - (sidebarWidth + tWidth + hWidth + mWidth)
+			if aWidth < minAgentWidth {
+				aWidth = minAgentWidth
+			}
 		}
 	} else {
 		sidebarWidth = 0
-		tWidth = baseX
-		hWidth = baseX
-		mWidth = baseX
-		aWidth = usableWidth - (tWidth + hWidth + mWidth)
+		if zoom {
+			// Zoom mode without sidebar
+			hWidth = minZoomedColumnWidth
+			mWidth = minZoomedColumnWidth
+			aWidth = minAgentWidth
+			tWidth = usableWidth - (hWidth + mWidth + aWidth)
+			if tWidth < baseX {
+				// Safety: fall back to normal
+				tWidth = baseX
+				hWidth = baseX
+				mWidth = baseX
+				aWidth = usableWidth - (tWidth + hWidth + mWidth)
+			}
+		} else {
+			// Normal mode without sidebar
+			tWidth = baseX
+			hWidth = baseX
+			mWidth = baseX
+			aWidth = usableWidth - (tWidth + hWidth + mWidth)
+		}
 	}
 
 	listHeight := height - filterHeight
-	innerListHeight := listHeight - borderWidth - 1
+	innerListHeight := listHeight - borderHeight - 1
 	if innerListHeight < 1 {
 		innerListHeight = 1
 	}

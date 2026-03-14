@@ -64,11 +64,11 @@ func RenderMatrix(cfg MatrixConfig) string {
 	activeBorder := createActiveBorder(listHeight, activeColor, glowColor, theme)
 	inactiveBorder := createInactiveBorder(listHeight, theme)
 
-	capView := func(view string, w int) string {
-		return lipgloss.NewStyle().MaxHeight(listHeight - 2).MaxWidth(w - 2).Render(view)
+	capView := func(view string, maxW int) string {
+		return lipgloss.NewStyle().MaxHeight(listHeight - 2).MaxWidth(maxW).Render(view)
 	}
-	faintCapView := func(view string, w int) string {
-		return lipgloss.NewStyle().Faint(true).MaxHeight(listHeight - 2).MaxWidth(w - 2).Render(view)
+	faintCapView := func(view string, maxW int) string {
+		return lipgloss.NewStyle().Faint(true).MaxHeight(listHeight - 2).MaxWidth(maxW).Render(view)
 	}
 
 	// Render columns
@@ -188,11 +188,11 @@ func renderMatrixColumn(
 	if isFocused {
 		indicator := focusedTitleStyle.Render(focusIndicator)
 		titledView := indicator + focusedTitleBadgeStyle.Render(title) + "\n" + view
-		return activeBorder(width).Render(capView(titledView, width))
+		return activeBorder(width).Render(capView(titledView, width-4))
 	}
 
 	titledView := noIndicator + inactiveTitleStyle.Render(title) + "\n" + view
-	return inactiveBorder(width).Render(faintCapView(titledView, width))
+	return inactiveBorder(width).Render(faintCapView(titledView, width-4))
 }
 
 func renderModelColumn(cfg MatrixConfig, theme ThemePalette, listHeight int,

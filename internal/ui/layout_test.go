@@ -8,7 +8,7 @@ import (
 
 func TestLayoutDimensions_Compute_WithSidebar(t *testing.T) {
 	termW, termH := 100, 30
-	layout := Compute(termW, termH, true)
+	layout := Compute(termW, termH, true, false)
 
 	assert.Equal(t, 100, layout.TermWidth)
 	assert.Equal(t, 30, layout.TermHeight)
@@ -18,7 +18,7 @@ func TestLayoutDimensions_Compute_WithSidebar(t *testing.T) {
 
 func TestLayoutDimensions_Compute_WithoutSidebar(t *testing.T) {
 	termW, termH := 100, 30
-	layout := Compute(termW, termH, false)
+	layout := Compute(termW, termH, false, false)
 
 	assert.Equal(t, 100, layout.TermWidth)
 	assert.Equal(t, 30, layout.TermHeight)
@@ -27,26 +27,26 @@ func TestLayoutDimensions_Compute_WithoutSidebar(t *testing.T) {
 }
 
 func TestLayoutDimensions_Compute_MinimumDimensions(t *testing.T) {
-	layout := Compute(10, 5, true)
+	layout := Compute(10, 5, true, false)
 
 	assert.Equal(t, minWindowWidth, layout.Width)
 	assert.Equal(t, minWindowHeight, layout.Height)
 }
 
 func TestLayoutDimensions_Compute_MinAgentWidth(t *testing.T) {
-	layout := Compute(80, 30, true)
+	layout := Compute(80, 30, true, false)
 
 	assert.GreaterOrEqual(t, layout.AWidth, minAgentWidth)
 }
 
 func TestLayoutDimensions_Compute_HarnessColumnIsHalf(t *testing.T) {
-	layout := Compute(100, 30, true)
+	layout := Compute(100, 30, true, false)
 
 	assert.Equal(t, layout.HWidth, layout.TWidth/2)
 }
 
 func TestLayoutDimensions_Compute_InnerListHeight(t *testing.T) {
-	layout := Compute(100, 30, true)
+	layout := Compute(100, 30, true, false)
 
 	expectedHeight := layout.Height - filterHeight - borderWidth - 1
 	if expectedHeight < 1 {
@@ -56,15 +56,15 @@ func TestLayoutDimensions_Compute_InnerListHeight(t *testing.T) {
 }
 
 func TestLayoutDimensions_Compute_PureFunction(t *testing.T) {
-	layout1 := Compute(100, 30, true)
-	layout2 := Compute(100, 30, true)
+	layout1 := Compute(100, 30, true, false)
+	layout2 := Compute(100, 30, true, false)
 
 	assert.Equal(t, layout1, layout2)
 }
 
 func TestLayoutDimensions_Compute_ShowSidebarChangesWidths(t *testing.T) {
-	layoutWithSidebar := Compute(100, 30, true)
-	layoutWithoutSidebar := Compute(100, 30, false)
+	layoutWithSidebar := Compute(100, 30, true, false)
+	layoutWithoutSidebar := Compute(100, 30, false, false)
 
 	assert.NotEqual(t, layoutWithSidebar.SidebarWidth, layoutWithoutSidebar.SidebarWidth)
 	assert.Greater(t, layoutWithSidebar.SidebarWidth, 0)
