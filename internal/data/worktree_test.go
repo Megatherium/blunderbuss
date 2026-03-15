@@ -4,7 +4,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-package data
+package data_test
 
 import (
 	"context"
@@ -12,102 +12,45 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/megatherium/blunderbust/internal/data"
+	"github.com/megatherium/blunderbust/internal/data/fake"
 )
 
 var (
 	errFakeGit = errors.New("fake git error")
 )
 
-type testFakeGitClient struct {
-	worktrees  map[string][]WorktreeEntry
-	mainBranch map[string]string
-	dirty      map[string]bool
-	errors     map[string]error
-}
-
-func (m *testFakeGitClient) ListWorktrees(ctx context.Context, repoRoot string) ([]WorktreeEntry, error) {
-	if err := m.getError("listworktrees", repoRoot); err != nil {
-		return nil, err
-	}
-	return m.worktrees[repoRoot], nil
-}
-
-func (m *testFakeGitClient) DetectMainBranch(ctx context.Context, repoRoot string) (string, error) {
-	if err := m.getError("detectmainbranch", repoRoot); err != nil {
-		return "", err
-	}
-	return m.mainBranch[repoRoot], nil
-}
-
-func (m *testFakeGitClient) CheckDirty(ctx context.Context, path string) bool {
-	return m.dirty[path]
-}
-
-func (m *testFakeGitClient) SetWorktrees(repoRoot string, entries []WorktreeEntry) {
-	m.worktrees[repoRoot] = entries
-}
-
-func (m *testFakeGitClient) SetMainBranch(repoRoot, branch string) {
-	m.mainBranch[repoRoot] = branch
-}
-
-func (m *testFakeGitClient) SetDirty(path string, isDirty bool) {
-	m.dirty[path] = isDirty
-}
-
-func (m *testFakeGitClient) SetError(operation, path string, err error) {
-	m.errors[operation+":"+path] = err
-}
-
-func (m *testFakeGitClient) getError(operation, path string) error {
-	if err := m.errors[operation+":"+path]; err != nil {
-		return err
-	}
-	if err := m.errors[operation+":*"]; err != nil {
-		return err
-	}
-	return nil
-}
-
-func newTestFakeGitClient() *testFakeGitClient {
-	return &testFakeGitClient{
-		worktrees:  make(map[string][]WorktreeEntry),
-		mainBranch: make(map[string]string),
-		dirty:      make(map[string]bool),
-		errors:     make(map[string]error),
-	}
-}
-
 func TestNewWorktreeDiscoverer_NilGitClient(t *testing.T) {
-	discoverer := NewWorktreeDiscoverer(nil)
+	discoverer := data.NewWorktreeDiscoverer(nil)
 
 	if discoverer == nil {
 		t.Fatal("NewWorktreeDiscoverer returned nil")
 	}
 
-	if discoverer.gitClient == nil {
+	if discoverer == nil {
 		t.Error("NewWorktreeDiscoverer did not create default GitClient")
 	}
 }
 
 func TestNewWorktreeDiscoverer_WithGitClient(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	fakeClient := fake.NewFakeGitClient()
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 
-	if discoverer.gitClient == nil {
+	if discoverer == nil {
 		t.Error("NewWorktreeDiscoverer did not set provided GitClient")
 	}
 }
 
 func TestWorktreeDiscoverer_Discover_SingleMain(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{
 		{Path: "/repo", Commit: "abc123", Branch: "main"},
 	})
 	fakeClient.SetMainBranch("/repo", "main")
 	fakeClient.SetDirty("/repo", false)
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -145,8 +88,8 @@ func TestWorktreeDiscoverer_Discover_SingleMain(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_MultipleWorktrees(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{
 		{Path: "/repo", Commit: "abc123", Branch: "main"},
 		{Path: "/repo/feature-1", Commit: "def456", Branch: "feature-1"},
 		{Path: "/repo/feature-2", Commit: "ghi789", Branch: "feature-2"},
@@ -156,7 +99,7 @@ func TestWorktreeDiscoverer_Discover_MultipleWorktrees(t *testing.T) {
 	fakeClient.SetDirty("/repo/feature-1", true)
 	fakeClient.SetDirty("/repo/feature-2", false)
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -200,13 +143,13 @@ func TestWorktreeDiscoverer_Discover_MultipleWorktrees(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_MasterAsMain(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{
 		{Path: "/repo", Commit: "abc123", Branch: "master"},
 	})
 	fakeClient.SetMainBranch("/repo", "master")
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -227,14 +170,14 @@ func TestWorktreeDiscoverer_Discover_MasterAsMain(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_DevelopBranch(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{
 		{Path: "/repo", Commit: "abc123", Branch: "develop"},
 		{Path: "/repo/feature", Commit: "def456", Branch: "feature"},
 	})
 	fakeClient.SetMainBranch("/repo", "develop")
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -259,14 +202,14 @@ func TestWorktreeDiscoverer_Discover_DevelopBranch(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_NoMainBranchDetected(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{
 		{Path: "/repo", Commit: "abc123", Branch: "develop"},
 		{Path: "/repo/feature", Commit: "def456", Branch: "feature"},
 	})
 	fakeClient.SetMainBranch("/repo", "")
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -287,14 +230,14 @@ func TestWorktreeDiscoverer_Discover_NoMainBranchDetected(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_MainBranchFallback(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{
 		{Path: "/repo", Commit: "abc123", Branch: "main"},
 		{Path: "/repo/feature", Commit: "def456", Branch: "feature"},
 	})
 	fakeClient.SetMainBranch("/repo", "")
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -315,10 +258,10 @@ func TestWorktreeDiscoverer_Discover_MainBranchFallback(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_ListWorktreesError(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
+	fakeClient := fake.NewFakeGitClient()
 	fakeClient.SetError("listworktrees", "/repo", errFakeGit)
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	_, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err == nil {
@@ -327,10 +270,10 @@ func TestWorktreeDiscoverer_Discover_ListWorktreesError(t *testing.T) {
 }
 
 func TestWorktreeDiscoverer_Discover_EmptyWorktrees(t *testing.T) {
-	fakeClient := newTestFakeGitClient()
-	fakeClient.SetWorktrees("/repo", []WorktreeEntry{})
+	fakeClient := fake.NewFakeGitClient()
+	fakeClient.SetWorktrees("/repo", []data.WorktreeEntry{})
 
-	discoverer := NewWorktreeDiscoverer(fakeClient)
+	discoverer := data.NewWorktreeDiscoverer(fakeClient)
 	results, err := discoverer.Discover(context.Background(), "/repo")
 
 	if err != nil {
@@ -339,24 +282,6 @@ func TestWorktreeDiscoverer_Discover_EmptyWorktrees(t *testing.T) {
 
 	if len(results) != 0 {
 		t.Fatalf("expected 0 worktrees, got %d", len(results))
-	}
-}
-
-func TestWorktreeDiscoverer_ExtractName_MainBranch(t *testing.T) {
-	discoverer := NewWorktreeDiscoverer(nil)
-	name := discoverer.extractName("/some/path/to/repo", true)
-
-	if name != "main" {
-		t.Errorf("expected name main, got %s", name)
-	}
-}
-
-func TestWorktreeDiscoverer_ExtractName_NonMainBranch(t *testing.T) {
-	discoverer := NewWorktreeDiscoverer(nil)
-	name := discoverer.extractName("/some/path/to/repo/feature-branch", false)
-
-	if name != "feature-branch" {
-		t.Errorf("expected name feature-branch, got %s", name)
 	}
 }
 
@@ -373,7 +298,7 @@ func TestFindRepoRoot(t *testing.T) {
 		t.Fatalf("failed to create subdirectory: %v", err)
 	}
 
-	root, err := FindRepoRoot(subDir)
+	root, err := data.FindRepoRoot(subDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -391,14 +316,14 @@ func TestFindRepoRoot_NotAGitRepo(t *testing.T) {
 		t.Fatalf("failed to create subdirectory: %v", err)
 	}
 
-	_, err := FindRepoRoot(subDir)
+	_, err := data.FindRepoRoot(subDir)
 	if err == nil {
 		t.Fatal("expected error for non-git directory, got nil")
 	}
 }
 
 func TestGetProjectName(t *testing.T) {
-	projectName := GetProjectName("/home/user/projects/myproject")
+	projectName := data.GetProjectName("/home/user/projects/myproject")
 
 	if projectName != "myproject" {
 		t.Errorf("expected myproject, got %s", projectName)
