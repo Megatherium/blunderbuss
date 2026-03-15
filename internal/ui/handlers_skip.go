@@ -9,6 +9,45 @@ import (
 	"github.com/megatherium/blunderbust/internal/discovery"
 )
 
+// rebuildSelectionList is a shared helper for regenerating a selection-based list.
+// It handles the common pattern of setting disabled state, marking it dirty,
+// calling updateSizes, and restoring the previous selection if it still exists.
+// The caller is responsible for creating the new list before calling this helper.
+func (m *UIModel) rebuildSelectionList(
+	items []string,
+	prevSelection string,
+	disabledFlag *bool,
+	selection *string,
+	dirtyFlag *bool,
+) {
+	*disabledFlag = len(items) == 0
+	if *disabledFlag {
+		*selection = ""
+	}
+	m.updateSizes()
+	*dirtyFlag = true
+
+	// Restore selection if it still exists in the new list
+	// Note: We set *selection directly (e.g., m.selection.Model or m.selection.Agent)
+	// instead of calling list.Select(). This is because bubbles/list v0.10.3's Select()
+	// doesn't restore visual cursor position when the same item remains selected - it only
+	// updates internal state. The visual cursor will jump due to library limitations,
+	// but the logical selection state is preserved correctly for downstream use.
+	if prevSelection != "" && !*disabledFlag {
+		found := false
+		for _, itemName := range items {
+			if itemName == prevSelection {
+				*selection = prevSelection
+				found = true
+				break
+			}
+		}
+		if !found {
+			*selection = ""
+		}
+	}
+}
+
 // handleModelSkip regenerates the model list based on harness selection
 // Expands provider: prefixes and handles discover:active keyword
 func (m UIModel) handleModelSkip() (UIModel, tea.Cmd) {
@@ -61,34 +100,15 @@ func (m UIModel) handleModelSkip() (UIModel, tea.Cmd) {
 		prevModel = item.name
 	}
 
-	m.modelColumnDisabled = len(models) == 0
-	if m.modelColumnDisabled {
-		m.selection.Model = ""
-	}
 	m.modelList = newModelList(models, m.currentTheme)
-	m.updateSizes()
-	m.dirtyModel = true
 
-	// Restore model selection if it still exists in the new list
-	// Note: We only set m.selection.Model here, not call m.modelList.Select().
-	// This is because bubbles/list v0.10.3's Select() doesn't restore visual cursor
-	// position when the same item remains selected - it only updates internal state.
-	// The visual cursor will jump due to library limitations, but the logical selection
-	// state is preserved correctly for downstream use.
-	if prevModel != "" && !m.modelColumnDisabled {
-		found := false
-		for _, modelName := range models {
-			if modelName == prevModel {
-				m.selection.Model = prevModel
-				found = true
-				break
-			}
-		}
-		// Clear selection if previously selected model no longer exists
-		if !found {
-			m.selection.Model = ""
-		}
-	}
+	m.rebuildSelectionList(
+		models,
+		prevModel,
+		&m.modelColumnDisabled,
+		&m.selection.Model,
+		&m.dirtyModel,
+	)
 
 	return m, cmd
 }
@@ -98,41 +118,20 @@ func (m UIModel) handleModelSkip() (UIModel, tea.Cmd) {
 func (m UIModel) handleAgentSkip() (UIModel, tea.Cmd) {
 	agents := m.selection.Harness.SupportedAgents
 
-	// Save current agent selection before regenerating list
 	var prevAgent string
 	if item, ok := m.agentList.SelectedItem().(agentItem); ok {
 		prevAgent = item.name
 	}
 
-	m.agentColumnDisabled = len(agents) == 0
-	if m.agentColumnDisabled {
-		m.selection.Agent = ""
-	}
-
 	m.agentList = newAgentList(agents, m.currentTheme)
-	m.updateSizes()
-	m.dirtyAgent = true
 
-	// Restore agent selection if it still exists in the new list
-	// Note: We only set m.selection.Agent here, not call m.agentList.Select().
-	// This is because bubbles/list v0.10.3's Select() doesn't restore visual cursor
-	// position when the same item remains selected - it only updates internal state.
-	// The visual cursor will jump due to library limitations, but the logical selection
-	// state is preserved correctly for downstream use.
-	if prevAgent != "" && !m.agentColumnDisabled {
-		found := false
-		for _, agentName := range agents {
-			if agentName == prevAgent {
-				m.selection.Agent = prevAgent
-				found = true
-				break
-			}
-		}
-		// Clear selection if previously selected agent no longer exists
-		if !found {
-			m.selection.Agent = ""
-		}
-	}
+	m.rebuildSelectionList(
+		agents,
+		prevAgent,
+		&m.agentColumnDisabled,
+		&m.selection.Agent,
+		&m.dirtyAgent,
+	)
 
 	return m, nil
 }
