@@ -58,3 +58,6 @@ bdb-debug
 .logs/
 __pycache__/
 .blackboxcli/
+
+repomix*
+.repomix*
