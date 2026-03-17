@@ -76,22 +76,21 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 
 	// Restore filter state if one was active.
 	// SetFilterText applies the filter and sets state to FilterApplied.
-	// It also moves the cursor to the end, so we restore the original position.
-	// If the user was actively typing (Filtering), restore that state
-	// so the filter input stays focused.
+	// SetFilterState restores Filtering state and focuses the input,
+	// but also moves cursor to end - so we restore position after.
 	if savedFilterValue != "" {
 		m.ticketList.SetFilterText(savedFilterValue)
-		m.ticketList.FilterInput.SetCursor(savedCursorPos)
 		if savedFilterState == list.Filtering {
 			m.ticketList.SetFilterState(list.Filtering)
 		}
+		m.ticketList.FilterInput.SetCursor(savedCursorPos)
 	} else if savedFilterState == list.Filtering {
 		// User activated the filter ("/") but hasn't typed anything yet.
 		// Run filter with empty value so filteredItems contains all items,
 		// then restore Filtering state to keep the input focused.
 		m.ticketList.SetFilterText("")
-		m.ticketList.FilterInput.SetCursor(savedCursorPos)
 		m.ticketList.SetFilterState(list.Filtering)
+		m.ticketList.FilterInput.SetCursor(savedCursorPos)
 	}
 
 	// Only restore selection when no filter is active.
