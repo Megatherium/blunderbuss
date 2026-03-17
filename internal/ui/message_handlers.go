@@ -20,6 +20,18 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		prevTicketID = i.ticket.ID
 	}
 
+	// Preserve filter state before recreating the list.
+	// We save both the value and whether the user was actively typing (Filtering)
+	// vs had finished typing (FilterApplied).
+	var savedFilterValue string
+	var savedFilterState list.FilterState
+	var savedCursorPos int
+	if m.ticketList.FilterState() != list.Unfiltered {
+		savedFilterValue = m.ticketList.FilterValue()
+		savedFilterState = m.ticketList.FilterState()
+		savedCursorPos = m.ticketList.FilterInput.Position()
+	}
+
 	// Ensure we have a live ticketDelegate reference; create one if missing.
 	if m.ticketDel == nil {
 		m.ticketDel = newTicketDelegate(m.currentTheme)
@@ -62,7 +74,30 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 	m.lastTicketUpdate = time.Now()
 	m.dirtyTicket = true
 
-	if prevTicketID != "" {
+	// Restore filter state if one was active.
+	// SetFilterText applies the filter and sets state to FilterApplied.
+	// It also moves the cursor to the end, so we restore the original position.
+	// If the user was actively typing (Filtering), restore that state
+	// so the filter input stays focused.
+	if savedFilterValue != "" {
+		m.ticketList.SetFilterText(savedFilterValue)
+		m.ticketList.FilterInput.SetCursor(savedCursorPos)
+		if savedFilterState == list.Filtering {
+			m.ticketList.SetFilterState(list.Filtering)
+		}
+	} else if savedFilterState == list.Filtering {
+		// User activated the filter ("/") but hasn't typed anything yet.
+		// Run filter with empty value so filteredItems contains all items,
+		// then restore Filtering state to keep the input focused.
+		m.ticketList.SetFilterText("")
+		m.ticketList.FilterInput.SetCursor(savedCursorPos)
+		m.ticketList.SetFilterState(list.Filtering)
+	}
+
+	// Only restore selection when no filter is active.
+	// Select() sets Paginator.Page based on the unfiltered index, which is
+	// wrong when a filter is applied (filtered items are a subset).
+	if prevTicketID != "" && savedFilterValue == "" {
 		foundIndex := -1
 		for idx, ticket := range msg {
 			if ticket.ID == prevTicketID {
@@ -76,6 +111,15 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		}
 		if foundIndex < 0 {
 			m.selection.Ticket = domain.Ticket{}
+		}
+	} else if prevTicketID != "" {
+		// Filter is active: find the selection in the original list for
+		// sidebar display but don't call Select (it would corrupt paginator).
+		for _, ticket := range msg {
+			if ticket.ID == prevTicketID {
+				m.selection.Ticket = ticket
+				break
+			}
 		}
 	}
 
