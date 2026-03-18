@@ -75,9 +75,10 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 	m.dirtyTicket = true
 
 	// Restore filter state if one was active.
-	// SetFilterText applies the filter and sets state to FilterApplied.
-	// SetFilterState restores Filtering state and focuses the input,
-	// but also moves cursor to end - so we restore position after.
+	// SetFilterText applies filter and sets state to FilterApplied.
+	// It also calls GoToStart() which resets selection to index 0.
+	// SetFilterState restores Filtering state and focuses the input.
+	// We restore cursor position and selection after.
 	if savedFilterValue != "" {
 		m.ticketList.SetFilterText(savedFilterValue)
 		if savedFilterState == list.Filtering {
@@ -93,10 +94,11 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		m.ticketList.FilterInput.SetCursor(savedCursorPos)
 	}
 
-	// Only restore selection when no filter is active.
-	// Select() sets Paginator.Page based on the unfiltered index, which is
-	// wrong when a filter is applied (filtered items are a subset).
+	// Restore selection in the filtered list.
+	// When no filter is active, use unfiltered index.
+	// When filter is active, find the ticket in VisibleItems() and select there.
 	if prevTicketID != "" && savedFilterValue == "" {
+		// No filter: use unfiltered index
 		foundIndex := -1
 		for idx, ticket := range msg {
 			if ticket.ID == prevTicketID {
@@ -107,17 +109,29 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		}
 		if foundIndex >= 0 {
 			m.ticketList.Select(foundIndex)
-		}
-		if foundIndex < 0 {
+		} else {
 			m.selection.Ticket = domain.Ticket{}
 		}
 	} else if prevTicketID != "" {
-		// Filter is active: find the selection in the original list for
-		// sidebar display but don't call Select (it would corrupt paginator).
-		for _, ticket := range msg {
-			if ticket.ID == prevTicketID {
-				m.selection.Ticket = ticket
+		// Filter is active: find selection in filtered items
+		// and select by filtered index to keep selection across refreshes
+		visibleItems := m.ticketList.VisibleItems()
+		foundIdx := -1
+		for idx, item := range visibleItems {
+			if ti, ok := item.(ticketItem); ok && ti.ticket.ID == prevTicketID {
+				m.selection.Ticket = ti.ticket
+				foundIdx = idx
 				break
+			}
+		}
+		if foundIdx >= 0 {
+			m.ticketList.Select(foundIdx)
+		} else {
+			// Ticket not in filtered results (e.g., filter excludes it)
+			// Reset selection to first filtered item or clear
+			m.selection.Ticket = domain.Ticket{}
+			if len(visibleItems) > 0 {
+				m.ticketList.Select(0)
 			}
 		}
 	}
