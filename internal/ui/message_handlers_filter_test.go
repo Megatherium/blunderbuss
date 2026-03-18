@@ -194,3 +194,63 @@ func TestHandleTicketsLoaded_PreservesPaginationWithFilter(t *testing.T) {
 	assert.Equal(t, list.FilterApplied, updatedM.ticketList.FilterState())
 	assert.Equal(t, "Ticket", updatedM.ticketList.FilterValue())
 }
+
+func TestHandleTicketsLoaded_FilterByID(t *testing.T) {
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
+
+	m := NewUIModel(app, nil)
+
+	// Set up tickets with different IDs
+	tickets := []domain.Ticket{
+		{ID: "bb-123", Title: "Fix login bug", Status: "open", Priority: 1},
+		{ID: "bb-456", Title: "Add user profile", Status: "open", Priority: 2},
+		{ID: "bb-789", Title: "Implement search", Status: "open", Priority: 3},
+	}
+	m.ticketList = newTicketList(tickets)
+
+	// Apply filter that matches ID "123"
+	m.ticketList.SetFilterText("123")
+	m.ticketList.SetFilterState(list.FilterApplied)
+
+	// Should find only the ticket with ID bb-123
+	visibleItems := m.ticketList.VisibleItems()
+	assert.Equal(t, 1, len(visibleItems))
+	
+	selectedItem, ok := visibleItems[0].(ticketItem)
+	assert.True(t, ok)
+	assert.Equal(t, "bb-123", selectedItem.ticket.ID)
+	assert.Equal(t, "Fix login bug", selectedItem.ticket.Title)
+}
+
+func TestHandleTicketsLoaded_FilterByIDWithHyphen(t *testing.T) {
+	app := newTestApp()
+	app.ActiveProject = "."
+	app.Stores = make(map[string]data.TicketStore)
+	app.Stores["."] = &mockStore{}
+
+	m := NewUIModel(app, nil)
+
+	// Set up tickets with different IDs
+	tickets := []domain.Ticket{
+		{ID: "bb-123", Title: "Fix login bug", Status: "open", Priority: 1},
+		{ID: "bb-456", Title: "Add user profile", Status: "open", Priority: 2},
+		{ID: "bb-789", Title: "Implement search", Status: "open", Priority: 3},
+	}
+	m.ticketList = newTicketList(tickets)
+
+	// Apply filter that matches full ID "bb-123"
+	m.ticketList.SetFilterText("bb-123")
+	m.ticketList.SetFilterState(list.FilterApplied)
+
+	// Should find only the ticket with ID bb-123
+	visibleItems := m.ticketList.VisibleItems()
+	assert.Equal(t, 1, len(visibleItems))
+	
+	selectedItem, ok := visibleItems[0].(ticketItem)
+	assert.True(t, ok)
+	assert.Equal(t, "bb-123", selectedItem.ticket.ID)
+	assert.Equal(t, "Fix login bug", selectedItem.ticket.Title)
+}

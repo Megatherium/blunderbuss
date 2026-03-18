@@ -19,7 +19,7 @@ func (i ticketItem) Title() string { return fmt.Sprintf("[%s] %s", i.ticket.ID, 
 func (i ticketItem) Description() string {
 	return fmt.Sprintf("Status: %s | Priority: %d", i.ticket.Status, i.ticket.Priority)
 }
-func (i ticketItem) FilterValue() string { return i.ticket.Title }
+func (i ticketItem) FilterValue() string { return fmt.Sprintf("%s %s", i.ticket.ID, i.ticket.Title) }
 
 // ticketDelegate is a width-aware list delegate for ticket items.
 // Unlike the fixed-height DefaultDelegate, it computes item height dynamically
