@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestLoadMetadata_EmbeddedMode(t *testing.T) {
+func TestLoadMetadata_DefaultMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	beadsDir := filepath.Join(tmpDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0750); err != nil {
@@ -39,8 +39,8 @@ func TestLoadMetadata_EmbeddedMode(t *testing.T) {
 		t.Errorf("Expected DoltDatabase='beads_bb', got %q", metadata.DoltDatabase)
 	}
 
-	if metadata.ConnectionMode() != EmbeddedMode {
-		t.Errorf("Expected EmbeddedMode, got %v", metadata.ConnectionMode())
+	if metadata.ConnectionMode() != ServerMode {
+		t.Errorf("Expected ServerMode, got %v", metadata.ConnectionMode())
 	}
 }
 
@@ -213,19 +213,19 @@ func TestMetadata_ConnectionMode(t *testing.T) {
 			expected: ServerMode,
 		},
 		{
-			name: "embedded mode by default",
+			name: "server mode by default",
 			metadata: Metadata{
 				DoltDatabase: "test",
 			},
-			expected: EmbeddedMode,
+			expected: ServerMode,
 		},
 		{
-			name: "embedded mode with empty dolt_mode",
+			name: "server mode with empty dolt_mode",
 			metadata: Metadata{
 				DoltMode:     "",
 				DoltDatabase: "test",
 			},
-			expected: EmbeddedMode,
+			expected: ServerMode,
 		},
 	}
 

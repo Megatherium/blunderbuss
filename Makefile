@@ -4,7 +4,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-.PHONY: all build build-full run clean lint test fmt vet install install-full help
+.PHONY: all build run clean lint test fmt vet install help
 
 # Binary name
 BINARY_NAME := bdb
@@ -15,7 +15,6 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-s -w -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 DEBUGLDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
-EMBEDDED_TAGS := -tags=embedded
 
 # Default target
 all: build
@@ -25,20 +24,10 @@ debug:
 	GOFIPS140=off go build $(DEBUGLDFLAGS) -o $(BINARY_NAME)-debug $(BINARY_PATH)
 	@echo "Built: $(BINARY_NAME)-debug"
 
-## debug-full: Build the binary with all symbols and embedded support
-debug-full:
-	GOFIPS140=off go build $(DEBUGLDFLAGS) $(EMBEDDED_TAGS) -o $(BINARY_NAME)-debug $(BINARY_PATH)
-	@echo "Built: $(BINARY_NAME)-debug (with embedded support)"
-
-## build: Build the binary (server-only, ~20-30MB)
+## build: Build the binary
 build:
 	GOFIPS140=off go build $(LDFLAGS) -o $(BINARY_NAME) $(BINARY_PATH)
-	@echo "Built: $(BINARY_NAME) (server-only)"
-
-## build-full: Build the binary with embedded Dolt support (~93MB)
-build-full:
-	GOFIPS140=off go build $(LDFLAGS) $(EMBEDDED_TAGS) -o $(BINARY_NAME) $(BINARY_PATH)
-	@echo "Built: $(BINARY_NAME) (with embedded support)"
+	@echo "Built: $(BINARY_NAME)"
 
 ## run: Build and run the binary
 run: build
@@ -95,13 +84,9 @@ deps:
 	go mod download
 	go mod verify
 
-## install: Install binary to GOPATH/bin (server-only)
+## install: Install binary to GOPATH/bin
 install: build
 	GOFIPS140=off go install $(LDFLAGS) $(BINARY_PATH)
-
-## install-full: Install binary with embedded support to GOPATH/bin
-install-full: build-full
-	GOFIPS140=off go install $(LDFLAGS) $(EMBEDDED_TAGS) $(BINARY_PATH)
 
 ## help: Show this help message
 help:

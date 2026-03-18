@@ -24,7 +24,7 @@ func TestStore_ListTickets_NoFilter(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 ORDER BY priority ASC, updated_at DESC`).
 		WillReturnRows(sqlmock.NewRows([]string{
@@ -60,7 +60,7 @@ func TestStore_ListTickets_WithStatusFilter(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 AND status = \? ORDER BY priority ASC, updated_at DESC`).
 		WithArgs("closed").
@@ -96,7 +96,7 @@ func TestStore_ListTickets_WithIssueTypeFilter(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 AND issue_type = \? ORDER BY priority ASC, updated_at DESC`).
 		WithArgs("feature").
@@ -132,7 +132,7 @@ func TestStore_ListTickets_WithSearchFilter(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 AND title LIKE \? ORDER BY priority ASC, updated_at DESC`).
 		WithArgs("%test%").
@@ -165,7 +165,7 @@ func TestStore_ListTickets_WithLimit(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 ORDER BY priority ASC, updated_at DESC LIMIT \?`).
 		WithArgs(5).
@@ -198,7 +198,7 @@ func TestStore_ListTickets_CombinedFilters(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 AND status = \? AND issue_type = \? AND title LIKE \? ORDER BY priority ASC, updated_at DESC LIMIT \?`).
 		WithArgs("open", "bug", "%crash%", 10).
@@ -235,7 +235,7 @@ func TestStore_ListTickets_WithAssignee(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	assignee := "user@example.com"
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 ORDER BY priority ASC, updated_at DESC`).
@@ -271,7 +271,7 @@ func TestStore_ListTickets_EmptyResult(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT id, title, description, status, priority, issue_type, assignee, created_at, updated_at FROM ready_issues WHERE 1=1 ORDER BY priority ASC, updated_at DESC`).
 		WillReturnRows(sqlmock.NewRows([]string{
@@ -301,7 +301,7 @@ func TestStore_ListTickets_StoreClosed(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode, closed: true}
+	store := &Store{db: db, mode: ServerMode, closed: true}
 
 	filter := data.TicketFilter{}
 	_, err = store.ListTickets(context.Background(), filter)
@@ -322,7 +322,7 @@ func TestStore_LatestUpdate_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	now := time.Now()
 	mock.ExpectQuery(`SELECT MAX\(updated_at\) FROM ready_issues`).
@@ -351,7 +351,7 @@ func TestStore_LatestUpdate_EmptyTable(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	mock.ExpectQuery(`SELECT MAX\(updated_at\) FROM ready_issues`).
 		WillReturnRows(sqlmock.NewRows([]string{"MAX(updated_at)"}).
@@ -379,7 +379,7 @@ func TestStore_LatestUpdate_StoreClosed(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode, closed: true}
+	store := &Store{db: db, mode: ServerMode, closed: true}
 
 	_, err = store.LatestUpdate(context.Background())
 
@@ -634,7 +634,7 @@ func TestStore_Close_Idempotent(t *testing.T) {
 	}
 	// Note: we don't defer db.Close() here because we're testing store.Close()
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	// First close should succeed
 	mock.ExpectClose()
@@ -663,7 +663,7 @@ func TestStore_Close_ReturnsError(t *testing.T) {
 		t.Fatalf("failed to create mock: %v", err)
 	}
 
-	store := &Store{db: db, mode: EmbeddedMode}
+	store := &Store{db: db, mode: ServerMode}
 
 	// Simulate error on db.Close()
 	mock.ExpectClose().WillReturnError(fmt.Errorf("connection reset"))

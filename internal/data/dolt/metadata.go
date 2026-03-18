@@ -21,9 +21,6 @@ import (
 type Mode string
 
 const (
-	// EmbeddedMode uses github.com/dolthub/driver (CGO required).
-	// Database is stored locally in .beads/dolt/
-	EmbeddedMode Mode = "embedded"
 	// ServerMode connects to a running dolt sql-server via MySQL protocol.
 	ServerMode Mode = "server"
 )
@@ -34,7 +31,7 @@ type Metadata struct {
 	Backend string `json:"backend"`
 	// DoltDatabase is the database name within Dolt (e.g., "beads_bb")
 	DoltDatabase string `json:"dolt_database"`
-	// DoltMode indicates whether to use embedded or server mode
+	// DoltMode indicates whether to use server mode (always "server")
 	DoltMode string `json:"dolt_mode"`
 	// ServerHost is the hostname for server mode connections
 	ServerHost string `json:"dolt_server_host"`
@@ -46,18 +43,9 @@ type Metadata struct {
 	ServerReadyTimeoutSeconds int `json:"dolt_server_ready_timeout"`
 }
 
-// ConnectionMode determines the connection mode from the metadata.
-// Returns ServerMode if dolt_mode is "server" or if server connection
-// fields are present. Otherwise returns EmbeddedMode.
+// ConnectionMode always returns ServerMode since embedded mode is no longer supported.
 func (m *Metadata) ConnectionMode() Mode {
-	if m.DoltMode == "server" {
-		return ServerMode
-	}
-	// Also detect server mode by presence of server fields
-	if m.ServerHost != "" && m.ServerPort > 0 {
-		return ServerMode
-	}
-	return EmbeddedMode
+	return ServerMode
 }
 
 // IsValid returns true if the metadata contains the minimum required fields.
@@ -183,7 +171,6 @@ func (m *Metadata) detectPortFromDoltStatus(beadsDir string) (int, error) {
 }
 
 // DoltDir returns the path to the Dolt database directory.
-// This is always beadsDir/dolt for embedded mode.
 func DoltDir(beadsDir string) string {
 	return filepath.Join(beadsDir, "dolt")
 }

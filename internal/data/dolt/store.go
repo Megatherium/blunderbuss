@@ -88,10 +88,7 @@ func handleServerMode(ctx context.Context, beadsDir string, metadata *Metadata, 
 }
 
 // NewStore creates a TicketStore connected to a Dolt database.
-// It reads metadata.json from the beads directory to determine connection mode.
-//
-// For embedded mode: opens .beads/dolt/ using the embedded driver.
-// For server mode: connects to the configured dolt sql-server.
+// It reads metadata.json from the beads directory and connects to the configured dolt sql-server.
 // If autostart is true and the server is not running, it will attempt to start it.
 func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Store, error) {
 	beadsDir := opts.BeadsDir
@@ -104,17 +101,7 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 		return nil, err
 	}
 
-	switch metadata.ConnectionMode() {
-	case ServerMode:
-		return handleServerMode(ctx, beadsDir, metadata, opts, autostart)
-	case EmbeddedMode:
-		if opts.Debug {
-			fmt.Fprintf(os.Stderr, "Dolt embedded mode enabled\n")
-		}
-		return newEmbeddedStore(ctx, beadsDir, metadata, autostart)
-	default:
-		return nil, fmt.Errorf("unknown connection mode: %v", metadata.ConnectionMode())
-	}
+	return handleServerMode(ctx, beadsDir, metadata, opts, autostart)
 }
 
 // IsConnectionError returns true if the error indicates the server is not running.
