@@ -10,34 +10,21 @@
 
 ## Building Blunderbust
 
-Blunderbust supports two build configurations:
-
-**Server-only build (default, ~20-30MB)**:
 ```bash
 make build
 ```
 
-**Full build with embedded support (~93MB)**:
-```bash
-make build-full
-```
+Builds a ~13MB binary that connects to a Dolt sql-server.
 
 **Development builds with debug symbols**:
 ```bash
-make debug          # Server-only
-make debug-full     # Full build
+make debug
 ```
 
 **Installation**:
 ```bash
-make install        # Server-only to GOPATH/bin
-make install-full   # Full build to GOPATH/bin
+make install        # Install to GOPATH/bin
 ```
-
-**Which build to use**:
-- Default build: Always use when testing or developing (faster builds)
-- Full build: Only when testing embedded mode functionality
-- CI/CD: Default build unless embedded mode is explicitly tested
 
 ---
 

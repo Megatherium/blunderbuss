@@ -12,19 +12,16 @@
 The `dolt` package implements `data.TicketStore` for reading tickets from Beads/Dolt databases.
 
 **Key files:**
-- `metadata.go` - Parses `.beads/metadata.json` to determine connection mode
-- `store_embedded.go` - Embedded Dolt driver (build tag: `embedded`, requires CGO, single-connection)
+- `metadata.go` - Parses `.beads/metadata.json` to determine connection settings
 - `server.go` - MySQL driver for Dolt server connections
-- `store.go` - Main `Store` type implementing `TicketStore` (build tag: `!embedded`)
+- `store.go` - Main `Store` type implementing `TicketStore`
 - `schema.go` - Schema verification utilities
 
-**Connection modes:**
-- **Embedded**: Requires `-tags=embedded` build, uses `github.com/dolthub/driver`, local `.beads/dolt/` directory
-- **Server**: Available in all builds, activated by `dolt_mode: server` in metadata.json, uses MySQL protocol
+**Connection mode:**
+Server mode connects to a running Dolt sql-server via MySQL protocol. Activated by `dolt_mode: server` in metadata.json.
 
-**Build modes:**
-- **Default** (no tags): Server-only build (~20-30MB)
-- **Full** (`-tags=embedded`): Server + Embedded modes (~93MB)
+**Build:**
+Standard build (~13MB) supports server mode only.
 
 **Usage:**
 ```go

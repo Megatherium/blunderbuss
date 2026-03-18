@@ -145,7 +145,7 @@ func (s *Store) AutostartEnabled() bool {
 // a new connection to it. Returns a new Store instance if successful.
 func (s *Store) TryStartServer(ctx context.Context) (*Store, error) {
 	if s.mode != ServerMode {
-		return nil, fmt.Errorf("cannot start server for embedded mode")
+		return nil, fmt.Errorf("server restart not supported for this store mode")
 	}
 
 	if startErr := StartServer(ctx, s.beadsDir, s.metadata); startErr != nil {
