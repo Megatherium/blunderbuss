@@ -27,7 +27,11 @@ func (m UIModel) handleQuitKeyMsg() (tea.Model, tea.Cmd, bool) {
 func (m UIModel) handleRefreshKeyMsg() (tea.Model, tea.Cmd, bool) {
 	if m.state == ViewStateMatrix && m.focus == FocusTickets {
 		m.state = ViewStateLoading
-		return m, tea.Batch(loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app)), true
+		return m, tea.Batch(
+			loadTicketsCmd(m.app.Project().Store()),
+			discoverWorktreesCmd(m.app),
+			m.reloadTemplates(), // Also reload templates on refresh
+		), true
 	}
 	return m, nil, false
 }

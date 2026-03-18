@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
@@ -157,6 +158,17 @@ func (m UIModel) handleWarningMsg(msg warningMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.app != nil && m.app.Opts.Debug {
 		fmt.Fprintf(os.Stderr, "[DEBUG][i29d] handleWarningMsg: warnings count=%d (latest: %s)\n", len(m.warnings), msg.err.Error())
+	}
+	return m, nil
+}
+
+func (m UIModel) handleInfoMsg(msg infoMsg) (tea.Model, tea.Cmd) {
+	m.warnings = append(m.warnings, msg.message)
+	if len(m.warnings) > maxWarnings {
+		m.warnings = m.warnings[len(m.warnings)-maxWarnings:]
+	}
+	if m.app != nil && m.app.Opts.Debug {
+		fmt.Fprintf(os.Stderr, "[DEBUG][i29d] handleInfoMsg: warnings count=%d (latest: %s)\n", len(m.warnings), msg.message)
 	}
 	return m, nil
 }
@@ -439,4 +451,47 @@ func (m UIModel) handleAddProjectConfirmed(msg addProjectConfirmedMsg) (tea.Mode
 			return warningMsg{fmt.Errorf("added project: %s", projectDir)}
 		},
 	)
+}
+
+// handleTemplatesReloaded handles the successful reloading of templates.
+// Updates the UI model with the new harness configurations containing fresh templates.
+func (m UIModel) handleTemplatesReloaded(msg TemplatesReloadedMsg) (tea.Model, tea.Cmd) {
+	// Update the harnesses with fresh templates
+	m.harnesses = msg.Harnesses
+
+	// Mark harness cache as dirty to force re-render with new templates
+	m.dirtyHarness = true
+
+	// If we're in the matrix view, update the harness list
+	if m.state == ViewStateMatrix {
+		// Rebuild the harness list with updated templates
+		var registry *discovery.Registry
+		if m.app != nil {
+			registry = m.app.Registry
+		}
+		hl := newHarnessList(m.harnesses, registry, m.currentTheme)
+		initList(&hl, 0, 0, "Select a Harness")
+		m.harnessList = hl
+
+		// Try to preserve the current selection if possible
+		if len(m.harnesses) > 0 {
+			if i, ok := m.harnessList.SelectedItem().(harnessItem); ok {
+				m.selection.Harness = i.harness
+				m, _ = m.handleModelSkip()
+				m, _ = m.handleAgentSkip()
+			}
+		}
+	}
+
+	return m, func() tea.Msg {
+		return infoMsg{message: "templates reloaded successfully"}
+	}
+}
+
+// handleTemplateReloadError handles errors that occur during template reloading.
+// Shows an error message but allows the application to continue running.
+func (m UIModel) handleTemplateReloadError(msg TemplateReloadErrorMsg) (tea.Model, tea.Cmd) {
+	return m, func() tea.Msg {
+		return errMsg{fmt.Errorf("failed to reload templates: %w", msg.Error)}
+	}
 }

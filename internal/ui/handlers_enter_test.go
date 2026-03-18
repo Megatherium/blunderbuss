@@ -208,7 +208,7 @@ func TestHandleMatrixEnterKey_AgentFocus(t *testing.T) {
 
 	newModel, cmd := m.handleMatrixEnterKey()
 
-	assert.Nil(t, cmd)
+	assert.NotNil(t, cmd)
 	assert.Equal(t, "coder", newModel.(UIModel).selection.Agent)
 	assert.Equal(t, ViewStateConfirm, newModel.(UIModel).state)
 }
@@ -387,7 +387,7 @@ func TestHandleAgentEnterKey_WithSelection(t *testing.T) {
 
 	newModel, cmd := m.handleAgentEnterKey()
 
-	assert.Nil(t, cmd)
+	assert.NotNil(t, cmd)
 	assert.Equal(t, "coder", newModel.(UIModel).selection.Agent)
 	assert.Equal(t, ViewStateConfirm, newModel.(UIModel).state)
 }

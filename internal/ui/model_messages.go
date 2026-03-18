@@ -93,4 +93,22 @@ type serverStartedMsg struct {
 	store data.TicketStore
 }
 
+// infoMsg represents an informational message for the user
+type infoMsg struct {
+	message string
+}
+
+// ReloadTemplatesMsg triggers reloading of command/prompt templates
+type ReloadTemplatesMsg struct{}
+
+// TemplatesReloadedMsg indicates templates have been successfully reloaded
+type TemplatesReloadedMsg struct {
+	Harnesses []domain.Harness
+}
+
+// TemplateReloadErrorMsg indicates an error occurred during template reloading
+type TemplateReloadErrorMsg struct {
+	Error error
+}
+
 func (e errMsg) Error() string { return e.err.Error() }

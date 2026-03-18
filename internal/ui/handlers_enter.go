@@ -108,7 +108,8 @@ func (m UIModel) handleAgentEnterKey() (tea.Model, tea.Cmd) {
 	if i, ok := m.agentList.SelectedItem().(agentItem); ok {
 		m.selection.Agent = i.name
 		m.state = ViewStateConfirm
-		return m, nil
+		// Reload templates before showing the confirm screen to ensure we have the latest versions
+		return m, m.reloadTemplates()
 	}
 	return m, nil
 }

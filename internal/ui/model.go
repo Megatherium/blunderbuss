@@ -183,6 +183,26 @@ func (m UIModel) Init() tea.Cmd {
 	)
 }
 
+// reloadTemplates reloads command and prompt templates from the configuration file.
+// This allows users to edit template files and see changes without restarting the app.
+// Returns a tea.Cmd that sends either TemplatesReloadedMsg or TemplateReloadErrorMsg.
+func (m UIModel) reloadTemplates() tea.Cmd {
+	return func() tea.Msg {
+		if m.app == nil || m.app.Loader == nil {
+			return TemplateReloadErrorMsg{Error: fmt.Errorf("config loader not available")}
+		}
+
+		// Reload the configuration to get fresh templates
+		cfg, err := m.app.Loader.Load(m.app.Opts.ConfigPath)
+		if err != nil {
+			return TemplateReloadErrorMsg{Error: fmt.Errorf("failed to reload templates: %w", err)}
+		}
+
+		// Return the updated harnesses with fresh templates
+		return TemplatesReloadedMsg{Harnesses: cfg.Harnesses}
+	}
+}
+
 func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case registryLoadedMsg:
@@ -211,6 +231,9 @@ func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case errMsg:
 		newM, cmd := m.handleErrMsg(msg)
 		return newM, cmd, true
+	case infoMsg:
+		newM, cmd := m.handleInfoMsg(msg)
+		return newM, cmd, true
 	case warningMsg:
 		newM, cmd := m.handleWarningMsg(msg)
 		return newM, cmd, true
@@ -224,6 +247,12 @@ func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		if model, cmd, handled := m.handleKeyMsg(msg); handled {
 			return model, cmd, true
 		}
+	case TemplatesReloadedMsg:
+		newM, cmd := m.handleTemplatesReloaded(msg)
+		return newM, cmd, true
+	case TemplateReloadErrorMsg:
+		newM, cmd := m.handleTemplateReloadError(msg)
+		return newM, cmd, true
 	}
 	return m, nil, false
 }
