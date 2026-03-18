@@ -171,6 +171,11 @@ func (m UIModel) handleErrorStateKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 }
 
 func (m UIModel) handleGlobalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+	// Don't process global keys when a list is in filtering mode
+	if isFocusedListFiltering(m) {
+		return m, nil, false
+	}
+
 	if key.Matches(msg, m.keys.Quit) {
 		return m.handleQuitKeyMsg()
 	}
