@@ -236,7 +236,7 @@ func (m *Model) pushView(selected, minimum, maximum int) {
 	m.maxStack.Push(maximum)
 }
 
-func (m *Model) popView() (selected, min, max int) {
+func (m *Model) popView() (selected, minimum, maximum int) {
 	return m.selectedStack.Pop(), m.minStack.Pop(), m.maxStack.Pop()
 }
 
@@ -331,7 +331,7 @@ func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 }
 
 // didSelectRecent handles selection from the recent files list.
-func (m Model) didSelectRecent(msg tea.Msg) (bool, string) {
+func (m Model) didSelectRecent(msg tea.Msg) (didSelect bool, path string) {
 	if len(m.Recents) == 0 {
 		return false, ""
 	}
@@ -339,7 +339,7 @@ func (m Model) didSelectRecent(msg tea.Msg) (bool, string) {
 	if !ok || !key.Matches(keyMsg, m.KeyMap.Select) {
 		return false, ""
 	}
-	path := m.Recents[m.recentSelect]
+	path = m.Recents[m.recentSelect]
 	info, err := os.Stat(path)
 	if err != nil {
 		return false, ""
@@ -731,15 +731,15 @@ func (m Model) DidSelectFile(msg tea.Msg) (didSelect bool, path string) {
 // DidSelectDisabledFile returns whether a user tried to select a disabled file
 // (on this msg). This is necessary only if you would like to warn the user that
 // they tried to select a disabled file.
-func (m Model) DidSelectDisabledFile(msg tea.Msg) (bool, string) {
-	didSelect, path := m.didSelectFile(msg)
+func (m Model) DidSelectDisabledFile(msg tea.Msg) (didSelect bool, path string) {
+	didSelect, path = m.didSelectFile(msg)
 	if didSelect && !m.canSelect(path) {
 		return true, path
 	}
 	return false, ""
 }
 
-func (m Model) didSelectFile(msg tea.Msg) (bool, string) {
+func (m Model) didSelectFile(msg tea.Msg) (didSelect bool, path string) {
 	if m.recentFocus {
 		return m.didSelectRecent(msg)
 	}

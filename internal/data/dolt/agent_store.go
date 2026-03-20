@@ -32,6 +32,10 @@ func (hostProcessInspector) PIDExists(pid int) bool {
 }
 
 func (hostProcessInspector) CommandForPID(ctx context.Context, pid int) (string, error) {
+	if pid <= 0 || pid > 999999 {
+		return "", fmt.Errorf("invalid PID: %d", pid)
+	}
+	//nolint:gosec // PID is validated above, command is safe
 	cmd := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "command=")
 	out, err := cmd.Output()
 	if err != nil {
@@ -128,20 +132,23 @@ func (s *Store) ListRunningAgentsByProjects(ctx context.Context, projectDirs []s
 		return nil, nil
 	}
 
-	placeholders := make([]string, 0, len(projectDirs))
 	args := make([]any, 0, len(projectDirs))
+	placeholders := strings.Repeat("?,", len(projectDirs))
+	if placeholders != "" {
+		placeholders = placeholders[:len(placeholders)-1] // remove trailing comma
+	}
 	for _, dir := range projectDirs {
-		placeholders = append(placeholders, "?")
 		args = append(args, dir)
 	}
 
+	//nolint:gosec // placeholders are safe, never user input
 	query := fmt.Sprintf(`
 SELECT
 	id, project_dir, worktree_path, pid, launcher_type, launcher_id, ticket, ticket_title,
 	harness_name, harness_binary, model, agent, started_at, last_seen
 FROM running_agents
 WHERE project_dir IN (%s)
-ORDER BY started_at DESC`, strings.Join(placeholders, ", "))
+ORDER BY started_at DESC`, placeholders)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -208,8 +215,8 @@ func (s *Store) ValidateAndPruneRunningAgents(ctx context.Context, projectDirs [
 	}
 
 	valid := make([]domain.PersistedRunningAgent, 0, len(agents))
-	for _, a := range agents {
-		isValid, err := s.validateRunningAgent(ctx, a, inspector)
+	for i := range agents {
+		isValid, err := s.validateRunningAgent(ctx, agents[i], inspector)
 		if err != nil {
 			return nil, err
 		}
@@ -217,10 +224,10 @@ func (s *Store) ValidateAndPruneRunningAgents(ctx context.Context, projectDirs [
 			continue
 		}
 
-		if err := s.touchRunningAgentByID(ctx, a.ID); err != nil {
+		if err := s.touchRunningAgentByID(ctx, agents[i].ID); err != nil {
 			return nil, err
 		}
-		valid = append(valid, a)
+		valid = append(valid, agents[i])
 	}
 
 	return valid, nil
