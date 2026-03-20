@@ -241,18 +241,21 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if newModel, cmd, handled := m.handleCoreMsgs(msg); handled {
 		if uiModel, ok := newModel.(UIModel); ok {
+			uiModel.updateKeyBindings()
 			newModel = updateListCaches(&uiModel)
 		}
 		return newModel, cmd
 	}
 	if newModel, cmd, handled := m.handleProjectMsgs(msg); handled {
 		if uiModel, ok := newModel.(UIModel); ok {
+			uiModel.updateKeyBindings()
 			newModel = updateListCaches(&uiModel)
 		}
 		return newModel, cmd
 	}
 	if newModel, cmd, handled := m.handleAgentMsgs(msg); handled {
 		if uiModel, ok := newModel.(UIModel); ok {
+			uiModel.updateKeyBindings()
 			newModel = updateListCaches(&uiModel)
 		}
 		return newModel, cmd
