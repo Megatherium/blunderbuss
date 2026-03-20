@@ -218,7 +218,7 @@ func TestHandleTicketsLoaded_FilterByID(t *testing.T) {
 	// Should find only the ticket with ID bb-123
 	visibleItems := m.ticketList.VisibleItems()
 	assert.Equal(t, 1, len(visibleItems))
-	
+
 	selectedItem, ok := visibleItems[0].(ticketItem)
 	assert.True(t, ok)
 	assert.Equal(t, "bb-123", selectedItem.ticket.ID)
@@ -248,7 +248,7 @@ func TestHandleTicketsLoaded_FilterByIDWithHyphen(t *testing.T) {
 	// Should find only the ticket with ID bb-123
 	visibleItems := m.ticketList.VisibleItems()
 	assert.Equal(t, 1, len(visibleItems))
-	
+
 	selectedItem, ok := visibleItems[0].(ticketItem)
 	assert.True(t, ok)
 	assert.Equal(t, "bb-123", selectedItem.ticket.ID)

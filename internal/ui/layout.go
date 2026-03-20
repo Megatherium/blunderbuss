@@ -30,7 +30,7 @@ const (
 // Compute calculates all layout dimensions based on terminal size, sidebar visibility,
 // and zoom mode. When zoom is enabled, the ticket column expands by shrinking H/M/A
 // columns to minimum width.
-func Compute(termW, termH int, showSidebar bool, zoom bool) LayoutDimensions {
+func Compute(termW, termH int, showSidebar, zoom bool) LayoutDimensions {
 	h, v := docStyle.GetFrameSize()
 
 	width := termW - h

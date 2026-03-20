@@ -291,14 +291,15 @@ func (m Model) Init() tea.Cmd {
 // SetHeight sets the height of the filepicker.
 func (m *Model) SetHeight(height int) {
 	m.Height = height
-	if len(m.files) == 0 {
+	switch {
+	case len(m.files) == 0:
 		m.max = m.Height - 1
-	} else if m.max < m.min+m.Height-1 {
+	case m.max < m.min+m.Height-1:
 		m.max = m.min + m.Height - 1
 		if m.max >= len(m.files) {
 			m.max = len(m.files) - 1
 		}
-	} else if m.max > m.min+m.Height-1 {
+	case m.max >= m.min+m.Height:
 		m.max = m.min + m.Height - 1
 	}
 }
@@ -648,11 +649,12 @@ func (m Model) View() string {
 			}
 
 			style := m.Styles.File
-			if f.IsDir() {
+			switch {
+			case f.IsDir():
 				style = m.Styles.Directory
-			} else if isSymlink {
+			case isSymlink:
 				style = m.Styles.Symlink
-			} else if disabled {
+			case disabled:
 				style = m.Styles.DisabledFile
 			}
 

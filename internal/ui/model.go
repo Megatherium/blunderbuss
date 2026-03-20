@@ -30,19 +30,19 @@ func initList(l *list.Model, width, height int, title string) {
 	}
 }
 
-func NewUIModel(app *app.App, harnesses []domain.Harness) UIModel {
+func NewUIModel(blunderbustApp *app.App, harnesses []domain.Harness) UIModel {
 	// Initialize default keys
 	keys := DefaultKeyMap()
 
 	themeName := "default"
-	if app != nil && app.Opts.Theme != "" {
-		themeName = app.Opts.Theme
+	if blunderbustApp != nil && blunderbustApp.Opts.Theme != "" {
+		themeName = blunderbustApp.Opts.Theme
 	}
 	theme := GetTheme(themeName)
 
 	var registry *discovery.Registry
-	if app != nil {
-		registry = app.Registry
+	if blunderbustApp != nil {
+		registry = blunderbustApp.Registry
 	}
 
 	hl := newHarnessList(harnesses, registry, theme)
@@ -70,8 +70,8 @@ func NewUIModel(app *app.App, harnesses []domain.Harness) UIModel {
 
 	var recents []string
 	var maxRecents int
-	if app != nil && app.Opts.TUIConfigPath != "" {
-		if cfg, err := config.LoadTUIConfig(app.Opts.TUIConfigPath); err == nil && cfg != nil {
+	if blunderbustApp != nil && blunderbustApp.Opts.TUIConfigPath != "" {
+		if cfg, err := config.LoadTUIConfig(blunderbustApp.Opts.TUIConfigPath); err == nil && cfg != nil {
 			recents = cfg.FilePickerRecents
 			maxRecents = cfg.FilePickerMaxRecents
 		}
@@ -89,7 +89,7 @@ func NewUIModel(app *app.App, harnesses []domain.Harness) UIModel {
 	}
 
 	return UIModel{
-		app:          app,
+		app:          blunderbustApp,
 		state:        ViewStateLoading,
 		focus:        FocusSidebar,
 		harnesses:    harnesses,
@@ -469,11 +469,10 @@ func (m UIModel) continueNormalInit() tea.Cmd {
 // This is called from registryLoadedMsg handler to ensure registry is loaded
 // before any model discovery happens.
 func (m UIModel) continueInitAfterRegistry() tea.Cmd {
-	// Capture app reference explicitly for clarity
-	app := m.app
+	myApp := m.app
 	return tea.Batch(
 		func() tea.Msg {
-			project, err := app.CreateProjectContext(context.Background())
+			project, err := myApp.CreateProjectContext(context.Background())
 			if err != nil {
 				return errMsg{err: err, showRetryOptions: true}
 			}
@@ -484,7 +483,7 @@ func (m UIModel) continueInitAfterRegistry() tea.Cmd {
 			}
 			return ticketsLoadedMsg(tickets)
 		},
-		discoverWorktreesCmd(app),
+		discoverWorktreesCmd(myApp),
 		// Animation tick is only started on demand (LockIn) to save CPU
 	)
 }

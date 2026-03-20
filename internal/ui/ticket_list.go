@@ -49,17 +49,17 @@ func newTicketDelegate(theme ...*ThemePalette) *ticketDelegate {
 // UpdateMaxTitleWidth scans items to find the longest title and updates the
 // delegate's height budget to minimize gaps.
 func (d *ticketDelegate) UpdateMaxTitleWidth(items []list.Item) {
-	max := 0
+	maxWidth := 0
 	for _, item := range items {
 		if ti, ok := item.(ticketItem); ok {
 			w := ansi.StringWidth(ti.Title())
-			if w > max {
-				max = w
+			if w > maxWidth {
+				maxWidth = w
 			}
 		}
 	}
-	if max > 0 {
-		d.maxTitleWidth = max
+	if maxWidth > 0 {
+		d.maxTitleWidth = maxWidth
 	} else {
 		d.maxTitleWidth = 120 // Fallback
 	}

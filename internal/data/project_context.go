@@ -30,7 +30,7 @@ type ProjectContext struct {
 
 // NewProjectContext creates a new ProjectContext with the given store.
 // Returns an error if store is nil.
-func NewProjectContext(store TicketStore, beadsDir string, rootPath string) (*ProjectContext, error) {
+func NewProjectContext(store TicketStore, beadsDir, rootPath string) (*ProjectContext, error) {
 	if store == nil {
 		return nil, fmt.Errorf("store cannot be nil")
 	}

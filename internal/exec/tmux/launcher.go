@@ -141,7 +141,7 @@ func (l *Launcher) dryRunLaunch(
 
 // fetchPaneMetadata resolves pane id, pane pid and tmux session.
 // Best-effort only: errors return empty metadata.
-func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, launcherID string) (string, int, string) {
+func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, launcherID string) (paneID string, panePID int, sessionName string) {
 	target := windowID
 	if target == "" {
 		target = launcherID

@@ -392,13 +392,13 @@ func (m UIModel) handleTicketsAutoRefreshed(msg ticketsAutoRefreshedMsg) (tea.Mo
 		}))
 	}
 
-	cmds = append(cmds, tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
-		return clearRefreshIndicatorMsg{}
-	}))
-
-	cmds = append(cmds, tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
-		return ticketUpdateCheckMsg{}
-	}))
+	cmds = append(cmds,
+		tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
+			return clearRefreshIndicatorMsg{}
+		}),
+		tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
+			return ticketUpdateCheckMsg{}
+		}))
 
 	return m, tea.Batch(cmds...)
 }
