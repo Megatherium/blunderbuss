@@ -317,6 +317,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			break
 		}
 		m.files = msg.entries
+		m.selected = 0
+		m.min = 0
 		m.max = max(m.max, m.Height-1)
 	case tea.WindowSizeMsg:
 		if m.AutoHeight {
