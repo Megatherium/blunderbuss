@@ -236,7 +236,7 @@ func (m *Model) pushView(selected, minimum, maximum int) {
 	m.maxStack.Push(maximum)
 }
 
-func (m *Model) popView() (int, int, int) {
+func (m *Model) popView() (selected, min, max int) {
 	return m.selectedStack.Pop(), m.minStack.Pop(), m.maxStack.Pop()
 }
 
@@ -309,48 +309,86 @@ func (m *Model) SetSize(width, height int) {
 	m.SetHeight(height)
 }
 
+// handleReadDirMsg handles directory reading messages.
+func (m Model) handleReadDirMsg(msg readDirMsg) (Model, tea.Cmd) {
+	if msg.id != m.id {
+		return m, nil
+	}
+	m.files = msg.entries
+	m.selected = 0
+	m.min = 0
+	m.max = max(m.max, m.Height-1)
+	return m, nil
+}
+
+// handleWindowSizeMsg handles window resize messages.
+func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
+	if m.AutoHeight {
+		m.Height = msg.Height - marginBottom
+	}
+	m.max = m.Height - 1
+	return m, nil
+}
+
+// didSelectRecent handles selection from the recent files list.
+func (m Model) didSelectRecent(msg tea.Msg) (bool, string) {
+	if len(m.Recents) == 0 {
+		return false, ""
+	}
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok || !key.Matches(keyMsg, m.KeyMap.Select) {
+		return false, ""
+	}
+	path := m.Recents[m.recentSelect]
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, ""
+	}
+	isDir := info.IsDir()
+	if (!isDir && m.FileAllowed) || (isDir && m.DirAllowed) && m.Path != "" {
+		return true, path
+	}
+	return false, ""
+}
+
+// handleCwdKeyMsg handles key messages when editing the current working directory.
+func (m Model) handleCwdKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.EditingCwd = false
+		m.CwdError = ""
+		m.cwdInput.Blur()
+		return m, nil
+	case "enter":
+		newPath := m.cwdInput.Value()
+		if stat, err := os.Stat(newPath); err == nil && stat.IsDir() {
+			m.EditingCwd = false
+			m.CwdError = ""
+			m.cwdInput.Blur()
+			m.CurrentDirectory = newPath
+			return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
+		}
+		m.CwdError = "Invalid directory"
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.cwdInput, cmd = m.cwdInput.Update(msg)
+	if msg.String() != "enter" && msg.String() != "esc" {
+		m.CwdError = ""
+	}
+	return m, cmd
+}
+
 // Update handles user interactions within the file picker model.
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case readDirMsg:
-		if msg.id != m.id {
-			break
-		}
-		m.files = msg.entries
-		m.selected = 0
-		m.min = 0
-		m.max = max(m.max, m.Height-1)
+		return m.handleReadDirMsg(msg)
 	case tea.WindowSizeMsg:
-		if m.AutoHeight {
-			m.Height = msg.Height - marginBottom
-		}
-		m.max = m.Height - 1
+		return m.handleWindowSizeMsg(msg)
 	case tea.KeyMsg:
 		if m.EditingCwd {
-			switch msg.String() {
-			case "esc":
-				m.EditingCwd = false
-				m.CwdError = ""
-				m.cwdInput.Blur()
-				return m, nil
-			case "enter":
-				newPath := m.cwdInput.Value()
-				if stat, err := os.Stat(newPath); err == nil && stat.IsDir() {
-					m.EditingCwd = false
-					m.CwdError = ""
-					m.cwdInput.Blur()
-					m.CurrentDirectory = newPath
-					return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
-				}
-				m.CwdError = "Invalid directory"
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.cwdInput, cmd = m.cwdInput.Update(msg)
-			if msg.String() != "enter" && msg.String() != "esc" {
-				m.CwdError = ""
-			}
-			return m, cmd
+			return m.handleCwdKeyMsg(msg)
 		}
 
 		switch {
@@ -573,7 +611,7 @@ func (m Model) View() string {
 				continue
 			}
 			isSymlink := info.Mode()&os.ModeSymlink != 0
-			size := strings.Replace(humanize.Bytes(uint64(info.Size())), " ", "", 1) //nolint:gosec
+			size := strings.Replace(humanize.Bytes(uint64(info.Size())), " ", "", 1) //nolint:gosec // safe: replacing spaces in human-readable byte string
 			name := f.Name()
 
 			if isSymlink {
@@ -582,7 +620,7 @@ func (m Model) View() string {
 
 			disabled := !m.canSelect(name) && !f.IsDir()
 
-			if m.selected == i { //nolint:nestif
+			if m.selected == i { //nolint:nestif // acceptable nesting for UI formatting logic
 				selected := ""
 				if m.ShowPermissions {
 					selected += " " + info.Mode().String()
@@ -682,8 +720,8 @@ func (m Model) View() string {
 }
 
 // DidSelectFile returns whether a user has selected a file (on this msg).
-func (m Model) DidSelectFile(msg tea.Msg) (bool, string) {
-	didSelect, path := m.didSelectFile(msg)
+func (m Model) DidSelectFile(msg tea.Msg) (didSelect bool, path string) {
+	didSelect, path = m.didSelectFile(msg)
 	if didSelect && m.canSelect(path) {
 		return true, path
 	}
@@ -703,27 +741,7 @@ func (m Model) DidSelectDisabledFile(msg tea.Msg) (bool, string) {
 
 func (m Model) didSelectFile(msg tea.Msg) (bool, string) {
 	if m.recentFocus {
-		if len(m.Recents) == 0 {
-			return false, ""
-		}
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			if !key.Matches(msg, m.KeyMap.Select) {
-				return false, ""
-			}
-			path := m.Recents[m.recentSelect]
-			info, err := os.Stat(path)
-			if err != nil {
-				return false, ""
-			}
-			isDir := info.IsDir()
-			if (!isDir && m.FileAllowed) || (isDir && m.DirAllowed) && m.Path != "" {
-				return true, m.Path
-			}
-			return false, ""
-		default:
-			return false, ""
-		}
+		return m.didSelectRecent(msg)
 	}
 
 	if len(m.files) == 0 {
@@ -770,7 +788,7 @@ func (m Model) didSelectFile(msg tea.Msg) (bool, string) {
 }
 
 func (m Model) canSelect(file string) bool {
-	if m.ShowAllExts || len(m.AllowedTypes) <= 0 {
+	if m.ShowAllExts || len(m.AllowedTypes) == 0 {
 		return true
 	}
 
