@@ -261,9 +261,9 @@ func TestUpdate_OpenFilePickerMsg(t *testing.T) {
 		t.Errorf("Expected pendingProjectPath to be empty, got %s", uiModel.pendingProjectPath)
 	}
 
-	// Assert: No command should be returned
-	if cmd != nil {
-		t.Error("Expected nil command from OpenFilePickerMsg handler")
+	// Assert: Command should be returned (Init command)
+	if cmd == nil {
+		t.Error("Expected Init command from OpenFilePickerMsg handler")
 	}
 }
 

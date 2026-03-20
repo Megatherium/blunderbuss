@@ -41,8 +41,8 @@ func TestTemplateFilePickerFlow(t *testing.T) {
 	if m.filePickerPurpose != fpPurposeTemplate {
 		t.Errorf("Expected purpose to be fpPurposeTemplate, got %v", m.filePickerPurpose)
 	}
-	if cmd != nil {
-		t.Error("Expected nil command when opening filepicker for template")
+	if cmd == nil {
+		t.Error("Expected Init command when opening filepicker for template")
 	}
 
 	// 2. Simulate file selection in handleFilePickerKeyMsg

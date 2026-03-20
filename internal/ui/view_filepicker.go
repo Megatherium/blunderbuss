@@ -42,6 +42,15 @@ func RenderFilePicker(cfg FilePickerConfig) string {
 	s.WriteString("\n\n")
 	s.WriteString(cfg.Filepicker.View())
 	s.WriteString("\n")
+	
+	if cfg.Filepicker.EditingCwd {
+		s.WriteString(cfg.Filepicker.CwdInputView())
+	} else {
+		cwdStyle := lipgloss.NewStyle().Foreground(theme.TitleColor).Bold(true)
+		s.WriteString("CWD: " + cwdStyle.Render(cfg.Filepicker.CurrentDirectory))
+	}
+	s.WriteString("\n")
+	
 	s.WriteString(helpStyle.Render(help))
 
 	return s.String()

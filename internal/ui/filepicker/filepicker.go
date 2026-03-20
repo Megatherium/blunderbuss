@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
@@ -25,6 +26,10 @@ func nextID() int {
 
 // New returns a new filepicker model with default styling and key bindings.
 func New() Model {
+	ti := textinput.New()
+	ti.Prompt = "CWD: "
+	ti.Placeholder = "/path/to/dir"
+
 	return Model{
 		id:               nextID(),
 		CurrentDirectory: ".",
@@ -41,6 +46,7 @@ func New() Model {
 		MaxRecents:       5,
 		max:              0,
 		min:              0,
+		cwdInput:         ti,
 		selectedStack:    newStack(),
 		minStack:         newStack(),
 		maxStack:         newStack(),
@@ -83,6 +89,7 @@ type KeyMap struct {
 	SwapView key.Binding
 	ToggleAllExts key.Binding
 	ToggleHidden  key.Binding
+	EditCwd       key.Binding
 }
 
 // DefaultKeyMap defines the default keybindings.
@@ -95,11 +102,12 @@ func DefaultKeyMap() KeyMap {
 		PageUp:   key.NewBinding(key.WithKeys("K", "pgup"), key.WithHelp("pgup", "page up")),
 		PageDown: key.NewBinding(key.WithKeys("J", "pgdown"), key.WithHelp("pgdown", "page down")),
 		Back:     key.NewBinding(key.WithKeys("h", "backspace", "left", "esc"), key.WithHelp("h", "back")),
-		Open:     key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("l", "open")),
+		Open:     key.NewBinding(key.WithKeys("right", "enter"), key.WithHelp("enter", "open")),
 		Select:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
 		SwapView: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "swap view")),
 		ToggleAllExts: key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("ctrl+a", "toggle exts")),
 		ToggleHidden:  key.NewBinding(key.WithKeys("ctrl+."), key.WithHelp("ctrl+.", "toggle hidden")),
+		EditCwd:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "edit cwd")),
 	}
 }
 
@@ -175,6 +183,9 @@ type Model struct {
 	FileSelected  string
 	selected      int
 	selectedStack stack
+
+	cwdInput   textinput.Model
+	EditingCwd bool
 
 	min      int
 	max      int
@@ -310,7 +321,34 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		m.max = m.Height - 1
 	case tea.KeyMsg:
+		if m.EditingCwd {
+			switch msg.String() {
+			case "esc":
+				m.EditingCwd = false
+				m.cwdInput.Blur()
+				return m, nil
+			case "enter":
+				m.EditingCwd = false
+				m.cwdInput.Blur()
+				newPath := m.cwdInput.Value()
+				if stat, err := os.Stat(newPath); err == nil && stat.IsDir() {
+					m.CurrentDirectory = newPath
+					return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
+				}
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.cwdInput, cmd = m.cwdInput.Update(msg)
+			return m, cmd
+		}
+
 		switch {
+		case key.Matches(msg, m.KeyMap.EditCwd):
+			m.EditingCwd = true
+			m.cwdInput.SetValue(m.CurrentDirectory)
+			m.cwdInput.Focus()
+			m.cwdInput.SetCursor(len(m.cwdInput.Value()))
+			return m, textinput.Blink
 		case key.Matches(msg, m.KeyMap.ToggleAllExts):
 			m.ShowAllExts = !m.ShowAllExts
 		case key.Matches(msg, m.KeyMap.ToggleHidden):
@@ -493,6 +531,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m Model) CwdInputView() string {
+	return m.cwdInput.View()
 }
 
 // View returns the view of the file picker.

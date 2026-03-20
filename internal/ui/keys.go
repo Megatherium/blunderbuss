@@ -68,8 +68,8 @@ var keys = KeyMap{
 		key.WithHelp("r", "refresh"),
 	),
 	PickTemplate: key.NewBinding(
-		key.WithKeys("C"),
-		key.WithHelp("C", "pick template"),
+		key.WithKeys("c", "C"),
+		key.WithHelp("c", "pick template"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
