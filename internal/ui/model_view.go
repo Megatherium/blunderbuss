@@ -29,7 +29,7 @@ func (m *UIModel) updateSizes() {
 	m.agentList.SetSize(safeW(m.layout.AWidth), m.layout.InnerListHeight)
 	m.sidebar.SetSize(m.layout.SidebarWidth, m.layout.Height)
 	m.help.Width = m.layout.Width
-	
+
 	// Update filepicker size (deduct margins/headers)
 	fpHeight := m.layout.Height - 10
 	if fpHeight < 5 {
@@ -68,6 +68,9 @@ func (m UIModel) renderMainContent() string {
 		Filepicker:         m.filepicker,
 		FilePickerPurpose:  m.filePickerPurpose,
 		AnimState:          m.animState,
+		InlineEditTextarea: m.inlineEditTextarea,
+		InlineEditMode:     m.inlineEditMode,
+		InlineEditError:    m.inlineEditError,
 	})
 }
 

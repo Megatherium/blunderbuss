@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/megatherium/blunderbust/internal/app"
@@ -258,12 +259,16 @@ func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.state = ViewStateFilePicker
 		return m, nil, true
 	case templateLoadedMsg:
+		m.inlineEditMode = editModeCommand
 		if m.selection.Agent != "" {
-			m.selection.Harness.PromptTemplate = msg.content
-		} else {
-			m.selection.Harness.CommandTemplate = msg.content
+			m.inlineEditMode = editModePrompt
 		}
-		m.state = ViewStateConfirm
+		m.inlineEditTextarea = textarea.New()
+		m.inlineEditTextarea.SetValue(msg.content)
+		m.inlineEditTextarea.SetWidth(m.layout.Width - 10)
+		m.inlineEditTextarea.SetHeight(10)
+		m.inlineEditTextarea.Focus()
+		m.state = ViewStateInlineEdit
 		return m, nil, true
 	}
 	return m, nil, false

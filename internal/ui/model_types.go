@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/megatherium/blunderbust/internal/app"
@@ -59,6 +60,7 @@ const (
 	ViewStateAddProjectModal
 	ViewStateAgentOutput
 	ViewStateConfirm
+	ViewStateInlineEdit
 	ViewStateError
 )
 
@@ -191,6 +193,11 @@ type UIModel struct {
 	// Stored separately because list.Model (v1) does not expose its delegate,
 	// so we need a direct reference to call SetWidth on resize/theme-toggle.
 	ticketDel *ticketDelegate
+
+	// Inline template editor
+	inlineEditTextarea textarea.Model
+	inlineEditMode     editMode
+	inlineEditError    string
 }
 
 type filePickerPurpose int
@@ -198,6 +205,13 @@ type filePickerPurpose int
 const (
 	fpPurposeAddProject filePickerPurpose = iota
 	fpPurposeTemplate
+)
+
+type editMode int
+
+const (
+	editModeCommand editMode = iota
+	editModePrompt
 )
 
 // RunningAgent tracks a launched agent session

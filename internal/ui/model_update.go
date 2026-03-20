@@ -175,6 +175,17 @@ func (m *UIModel) updateKeyBindings() {
 		m.keys.ToggleSidebar.SetEnabled(false)
 		m.keys.ToggleTheme.SetEnabled(true)
 		m.keys.PickTemplate.SetEnabled(true)
+		m.keys.EditTemplate.SetEnabled(true)
+	case ViewStateInlineEdit:
+		m.keys.Back.SetEnabled(true)
+		m.keys.Refresh.SetEnabled(false)
+		m.keys.Enter.SetEnabled(false)
+		m.keys.Info.SetEnabled(false)
+		m.keys.Zoom.SetEnabled(false)
+		m.keys.ToggleSidebar.SetEnabled(false)
+		m.keys.ToggleTheme.SetEnabled(false)
+		m.keys.PickTemplate.SetEnabled(false)
+		m.keys.EditTemplate.SetEnabled(false)
 	default:
 		m.keys.Back.SetEnabled(true)
 		m.keys.Refresh.SetEnabled(false)

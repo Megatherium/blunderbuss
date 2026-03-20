@@ -58,21 +58,39 @@ func TestTemplateFilePickerFlow(t *testing.T) {
 		t.Errorf("Expected content %q, got %q", templateContent, templateMsg.content)
 	}
 
-	// 3. Handle templateLoadedMsg
+	// 3. Handle templateLoadedMsg - should enter inline edit mode
 	model, cmd, handled = m.handleCoreMsgs(templateMsg)
 	if !handled {
 		t.Fatal("Expected templateLoadedMsg to be handled")
 	}
 	m = model.(UIModel)
 
-	if m.state != ViewStateConfirm {
-		t.Errorf("Expected state to return to ViewStateConfirm, got %v", m.state)
+	if m.state != ViewStateInlineEdit {
+		t.Errorf("Expected state to be ViewStateInlineEdit, got %v", m.state)
 	}
-	if m.selection.Harness.CommandTemplate != templateContent {
-		t.Errorf("Expected CommandTemplate to be %q, got %q", templateContent, m.selection.Harness.CommandTemplate)
+	if m.selection.Harness.CommandTemplate != "" {
+		t.Errorf("Expected CommandTemplate to be empty (content goes to textarea), got %q", m.selection.Harness.CommandTemplate)
+	}
+	if m.inlineEditTextarea.Value() != templateContent {
+		t.Errorf("Expected textarea to contain template content, got %q", m.inlineEditTextarea.Value())
 	}
 	if cmd != nil {
 		t.Error("Expected nil command after template loaded")
+	}
+
+	// 4. Simulate Ctrl-y to accept the edit
+	ctrlY := tea.KeyMsg{Type: tea.KeyCtrlY}
+	model, _, handled = m.handleInlineEditKeyMsg(ctrlY)
+	if !handled {
+		t.Fatal("Expected Ctrl-y to be handled in inline edit mode")
+	}
+	m = model.(UIModel)
+
+	if m.state != ViewStateConfirm {
+		t.Errorf("Expected state to return to ViewStateConfirm after Ctrl-y, got %v", m.state)
+	}
+	if m.selection.Harness.CommandTemplate != templateContent {
+		t.Errorf("Expected CommandTemplate to be %q after accept, got %q", templateContent, m.selection.Harness.CommandTemplate)
 	}
 }
 
@@ -87,7 +105,7 @@ func TestTemplateFilePicker_BinaryFile(t *testing.T) {
 
 	app := newTestApp()
 	m := NewUIModel(app, []domain.Harness{})
-	
+
 	loadCmd := m.loadTemplateFromFile(binaryPath)
 	msg := loadCmd()
 
@@ -202,5 +220,81 @@ func TestTemplateFilePicker_KeyBindingsAndEditing(t *testing.T) {
 	}
 	if m.filepicker.CwdError != "" {
 		t.Error("Expected CwdError to be cleared after Esc")
+	}
+}
+
+func TestInlineEdit_EKeyEntersEditMode(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, []domain.Harness{{Name: "test-harness"}})
+	m.state = ViewStateConfirm
+	m.selection = domain.Selection{
+		Harness: domain.Harness{
+			Name:            "test-harness",
+			CommandTemplate: "echo hello {{.TicketID}}",
+		},
+		Ticket: domain.Ticket{ID: "BB-123"},
+	}
+
+	eKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	model, _, handled := m.handleKeyMsg(eKey)
+	if !handled {
+		t.Fatal("Expected 'e' key to be handled in ViewStateConfirm")
+	}
+	m = model.(UIModel)
+
+	if m.state != ViewStateInlineEdit {
+		t.Errorf("Expected state to be ViewStateInlineEdit, got %v", m.state)
+	}
+	if m.inlineEditMode != editModeCommand {
+		t.Errorf("Expected editModeCommand, got %v", m.inlineEditMode)
+	}
+	if m.inlineEditTextarea.Value() != "echo hello {{.TicketID}}" {
+		t.Errorf("Expected textarea to contain template, got %q", m.inlineEditTextarea.Value())
+	}
+
+	// Test Esc cancels and returns to confirm
+	escKey := tea.KeyMsg{Type: tea.KeyEscape}
+	model, _, handled = m.handleInlineEditKeyMsg(escKey)
+	if !handled {
+		t.Fatal("Expected Esc to be handled in inline edit mode")
+	}
+	m = model.(UIModel)
+
+	if m.state != ViewStateConfirm {
+		t.Errorf("Expected state to return to ViewStateConfirm, got %v", m.state)
+	}
+	if m.selection.Harness.CommandTemplate != "echo hello {{.TicketID}}" {
+		t.Errorf("Expected CommandTemplate to be unchanged after cancel, got %q", m.selection.Harness.CommandTemplate)
+	}
+}
+
+func TestInlineEdit_EKeyWithPrompt(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, []domain.Harness{{Name: "test-harness"}})
+	m.state = ViewStateConfirm
+	m.selection = domain.Selection{
+		Harness: domain.Harness{
+			Name:           "test-harness",
+			PromptTemplate: "Please help with {{.TicketID}}",
+		},
+		Ticket: domain.Ticket{ID: "BB-123"},
+		Agent:  "codex",
+	}
+
+	eKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	model, _, handled := m.handleKeyMsg(eKey)
+	if !handled {
+		t.Fatal("Expected 'e' key to be handled when agent is selected")
+	}
+	m = model.(UIModel)
+
+	if m.state != ViewStateInlineEdit {
+		t.Errorf("Expected state to be ViewStateInlineEdit, got %v", m.state)
+	}
+	if m.inlineEditMode != editModePrompt {
+		t.Errorf("Expected editModePrompt when agent is selected, got %v", m.inlineEditMode)
+	}
+	if m.inlineEditTextarea.Value() != "Please help with {{.TicketID}}" {
+		t.Errorf("Expected textarea to contain prompt template, got %q", m.inlineEditTextarea.Value())
 	}
 }

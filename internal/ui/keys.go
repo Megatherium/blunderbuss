@@ -14,6 +14,7 @@ type KeyMap struct {
 	Back          key.Binding
 	Refresh       key.Binding
 	PickTemplate  key.Binding
+	EditTemplate  key.Binding
 	Quit          key.Binding
 }
 
@@ -25,7 +26,7 @@ func (k KeyMap) ShortHelp() []key.Binding {
 // FullHelp returns keybindings for the expanded help view.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Enter, k.Info, k.ToggleSidebar, k.ToggleTheme, k.Zoom, k.PickTemplate},
+		{k.Up, k.Down, k.Enter, k.Info, k.ToggleSidebar, k.ToggleTheme, k.Zoom, k.PickTemplate, k.EditTemplate},
 		{k.Back, k.Refresh, k.Quit},
 	}
 }
@@ -70,6 +71,10 @@ var keys = KeyMap{
 	PickTemplate: key.NewBinding(
 		key.WithKeys("c", "C"),
 		key.WithHelp("c", "pick template"),
+	),
+	EditTemplate: key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "edit template"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),

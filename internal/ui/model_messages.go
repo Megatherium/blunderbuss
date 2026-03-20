@@ -119,4 +119,16 @@ type templateErrorMsg struct {
 	err error
 }
 
+type inlineEditEnterMsg struct {
+	content string
+	mode    editMode
+}
+
+type inlineEditConfirmedMsg struct {
+	content string
+	mode    editMode
+}
+
+type inlineEditCancelledMsg struct{}
+
 func (e errMsg) Error() string { return e.err.Error() }

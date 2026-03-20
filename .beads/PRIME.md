@@ -115,6 +115,43 @@ When a task is functionally complete:
 - `bd stats` - Project statistics (open/closed/blocked counts)
 - `bd doctor` - Check for issues (sync problems, missing hooks)
 
+### Auto-Sync
+
+bd automatically syncs via Dolt:
+
+- Each write auto-commits to Dolt history
+- No manual export/import needed!
+
+### Issue Types
+
+- `bug` - Something broken
+- `feature` - New functionality
+- `task` - Work item (tests, docs, refactoring)
+- `epic` - Large feature with subtasks
+- `chore` - Maintenance (dependencies, tooling)
+- `review` - Request to review work
+- `refinement` - Order to improve reviewed but insufficient work
+
+### Priorities
+
+- `0` - Critical (security, data loss, broken builds)
+- `1` - High (major features, important bugs)
+- `2` - Medium (default, nice-to-have)
+- `3` - Low (polish, optimization)
+- `4` - Backlog (future ideas)
+
+### Important Rules
+
+- ✅ Use bd for ALL task tracking
+- ✅ Always use `--json` flag for programmatic use
+- ✅ Link discovered work with `discovered-from` dependencies
+- ✅ Check `bd ready` before asking "what should I work on?"
+- ❌ Do NOT create markdown TODO lists
+- ❌ Do NOT use external issue trackers
+- ❌ Do NOT duplicate tracking systems
+
+For more details, see README.md and docs/QUICKSTART.md.
+
 ## Common Workflows
 
 **Starting work:**
@@ -131,10 +168,11 @@ git add . && git commit -m "..."  # Commit code changes
 git push                    # Push to remote
 ```
 
-**Creating dependent work:**
+**Create new issues:**
+
 ```bash
-# Run bd create commands in parallel (use subagents for many items)
+bd create "Issue title" --description="Detailed context" -t bug|feature|task|review|refinement -p 0-4 --json
+bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
 bd create --title="Implement feature X" --description="Why this issue exists and what needs to be done" --type=feature
-bd create --title="Write tests for X" --description="Why this issue exists and what needs to be done" --type=task
-bd dep add beads-yyy beads-xxx  # Tests depend on Feature (Feature blocks tests)
 ```
+

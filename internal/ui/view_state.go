@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/megatherium/blunderbust/internal/config"
@@ -35,6 +36,11 @@ type MainContentConfig struct {
 	Filepicker        filepicker.Model
 	FilePickerPurpose filePickerPurpose
 	AnimState         AnimationState
+
+	// Inline edit state
+	InlineEditTextarea textarea.Model
+	InlineEditMode     editMode
+	InlineEditError    string
 }
 
 // RenderMainContent renders the main content area based on current state
@@ -69,6 +75,15 @@ func RenderMainContent(cfg MainContentConfig) string {
 		s = RenderMatrix(cfg.MatrixConfig)
 	case ViewStateConfirm:
 		s = confirmView(cfg.Selection, cfg.Renderer, cfg.DryRun, cfg.SelectedWorktree, cfg.CurrentTheme)
+	case ViewStateInlineEdit:
+		s = RenderInlineEdit(InlineEditConfig{
+			Textarea: cfg.InlineEditTextarea,
+			Mode:     cfg.InlineEditMode,
+			Theme:    cfg.CurrentTheme,
+			Error:    cfg.InlineEditError,
+			Width:    cfg.Width,
+			Height:   cfg.Height,
+		})
 	case ViewStateError:
 		s = renderErrorState(cfg)
 	}

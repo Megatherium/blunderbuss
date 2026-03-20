@@ -2,9 +2,11 @@ package ui
 
 import (
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/megatherium/blunderbust/internal/data/dolt"
+	"github.com/megatherium/blunderbust/internal/domain"
 )
 
 func (m UIModel) handleModalKeyMsg() (tea.Model, tea.Cmd, bool) {
@@ -241,17 +243,107 @@ func (m UIModel) handleGlobalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			m.filepicker.AllowedTypes = []string{".md", ".txt", ".tpl", ".tmpl"}
 			m.filepicker.DirAllowed = true
 			m.filepicker.FileAllowed = true
-			
+
 			// Set the initial directory to the project worktree if available, else current dir
 			dir := m.selectedWorktree
 			if dir == "" {
 				dir = m.filepicker.CurrentDirectory
 			}
 			m.filepicker.CurrentDirectory = dir
-			
+
 			return m, m.filepicker.Init(), true
 		}
 	}
 
+	if key.Matches(msg, m.keys.EditTemplate) {
+		if m.state == ViewStateConfirm {
+			return m.handleEditTemplateKey()
+		}
+	}
+
+	if m.state == ViewStateInlineEdit {
+		return m.handleInlineEditKeyMsg(msg)
+	}
+
 	return m, nil, false
+}
+
+func (m UIModel) handleEditTemplateKey() (tea.Model, tea.Cmd, bool) {
+	var content string
+	var mode editMode
+
+	if m.selection.Agent != "" {
+		content = m.selection.Harness.PromptTemplate
+		mode = editModePrompt
+	} else {
+		content = m.selection.Harness.CommandTemplate
+		mode = editModeCommand
+	}
+
+	m.inlineEditMode = mode
+	m.inlineEditTextarea = textarea.New()
+	m.inlineEditTextarea.SetValue(content)
+	m.inlineEditTextarea.SetWidth(m.layout.Width - 10)
+	m.inlineEditTextarea.SetHeight(10)
+	m.inlineEditTextarea.Focus()
+	m.state = ViewStateInlineEdit
+
+	return m, nil, true
+}
+
+func (m UIModel) handleInlineEditKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+	if key.Matches(msg, m.keys.Back) {
+		m.state = ViewStateConfirm
+		m.inlineEditTextarea.Blur()
+		m.inlineEditError = ""
+		return m, nil, true
+	}
+
+	if key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+y"))) {
+		content := m.inlineEditTextarea.Value()
+		m.inlineEditTextarea.Blur()
+
+		var err error
+		if m.inlineEditMode == editModePrompt {
+			_, err = m.app.Renderer.RenderPrompt(m.selection.Harness, domain.TemplateContext{
+				TicketID:    m.selection.Ticket.ID,
+				TicketTitle: m.selection.Ticket.Title,
+				Model:       domain.NewModelContext(m.selection.Model),
+				Agent:       m.selection.Agent,
+				HarnessName: m.selection.Harness.Name,
+				WorkDir:     m.selectedWorktree,
+			})
+			if err == nil {
+				m.selection.Harness.PromptTemplate = content
+			} else {
+				m.inlineEditError = err.Error()
+				m.inlineEditTextarea.Focus()
+				return m, nil, true
+			}
+		} else {
+			_, err = m.app.Renderer.RenderCommand(m.selection.Harness, domain.TemplateContext{
+				TicketID:    m.selection.Ticket.ID,
+				TicketTitle: m.selection.Ticket.Title,
+				Model:       domain.NewModelContext(m.selection.Model),
+				Agent:       m.selection.Agent,
+				HarnessName: m.selection.Harness.Name,
+				WorkDir:     m.selectedWorktree,
+			})
+			if err == nil {
+				m.selection.Harness.CommandTemplate = content
+			} else {
+				m.inlineEditError = err.Error()
+				m.inlineEditTextarea.Focus()
+				return m, nil, true
+			}
+		}
+
+		m.state = ViewStateConfirm
+		m.inlineEditError = ""
+		return m, nil, true
+	}
+
+	var cmd tea.Cmd
+	m.inlineEditTextarea, cmd = m.inlineEditTextarea.Update(msg)
+	return m, cmd, true
 }

@@ -102,6 +102,6 @@ func confirmView(selection domain.Selection, renderer *config.Renderer, dryRun b
 		launchButtonStyle.Render("LAUNCH"),
 	)
 	s += readyPanelStyle.Render(readyBlock) + "\n"
-	s += lipgloss.NewStyle().Faint(true).Render("[Press Enter to launch, esc to go back]")
+	s += lipgloss.NewStyle().Faint(true).Render("[Press Enter to launch, e to edit, esc to go back]")
 	return s
 }

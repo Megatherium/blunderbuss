@@ -23,7 +23,7 @@ func TestConfirmView_ShowsReadyPanelAndLaunchButton(t *testing.T) {
 	assert.Contains(t, s, "Confirm Launch Spec")
 	assert.Contains(t, s, "READY?")
 	assert.Contains(t, s, "LAUNCH")
-	assert.Contains(t, s, "[Press Enter to launch, esc to go back]")
+	assert.Contains(t, s, "[Press Enter to launch, e to edit, esc to go back]")
 }
 
 func TestConfirmView_ShowsDryRunBadge(t *testing.T) {
