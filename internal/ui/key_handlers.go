@@ -116,18 +116,31 @@ func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 	}
 	switch msg.String() {
 	case "a":
-		currentDir := m.filepicker.CurrentDirectory
-		if currentDir != "" {
-			return m, m.checkAndPromptAddProject(currentDir), true
+		if m.filePickerPurpose == fpPurposeAddProject {
+			currentDir := m.filepicker.CurrentDirectory
+			if currentDir != "" {
+				return m, m.checkAndPromptAddProject(currentDir), true
+			}
+			return m, nil, true
 		}
-		return m, nil, true
 	case "esc":
-		m.state = ViewStateMatrix
+		if m.filePickerPurpose == fpPurposeTemplate {
+			m.state = ViewStateConfirm
+		} else {
+			m.state = ViewStateMatrix
+		}
 		return m, nil, true
 	}
 
 	var cmd tea.Cmd
 	m.filepicker, cmd = m.filepicker.Update(msg)
+
+	if m.filePickerPurpose == fpPurposeTemplate {
+		didSelect, path := m.filepicker.DidSelectFile(msg)
+		if didSelect {
+			return m, m.loadTemplateFromFile(path), true
+		}
+	}
 
 	return m, cmd, true
 }
@@ -214,6 +227,25 @@ func (m UIModel) handleGlobalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		// Only enable zoom when ticket column is focused
 		if m.focus == FocusTickets {
 			return m.handleZoomKeyMsg()
+		}
+	}
+
+	if key.Matches(msg, m.keys.PickTemplate) {
+		if m.state == ViewStateConfirm {
+			m.state = ViewStateFilePicker
+			m.filePickerPurpose = fpPurposeTemplate
+			m.filepicker.AllowedTypes = []string{".md", ".txt", ".tpl", ".tmpl"}
+			m.filepicker.DirAllowed = true
+			m.filepicker.FileAllowed = true
+			
+			// Set the initial directory to the project worktree if available, else current dir
+			dir := m.selectedWorktree
+			if dir == "" {
+				dir = m.filepicker.CurrentDirectory
+			}
+			m.filepicker.CurrentDirectory = dir
+			
+			return m, m.filepicker.Init(), true
 		}
 	}
 

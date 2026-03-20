@@ -253,6 +253,18 @@ func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case TemplateReloadErrorMsg:
 		newM, cmd := m.handleTemplateReloadError(msg)
 		return newM, cmd, true
+	case templateErrorMsg:
+		m.warnings = append(m.warnings, msg.err.Error())
+		m.state = ViewStateFilePicker
+		return m, nil, true
+	case templateLoadedMsg:
+		if m.selection.Agent != "" {
+			m.selection.Harness.PromptTemplate = msg.content
+		} else {
+			m.selection.Harness.CommandTemplate = msg.content
+		}
+		m.state = ViewStateConfirm
+		return m, nil, true
 	}
 	return m, nil, false
 }
@@ -277,7 +289,7 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case OpenFilePickerMsg:
 		m.state = ViewStateFilePicker
 		m.pendingProjectPath = ""
-		return m, nil, true
+		return m, m.filepicker.Init(), true
 	case ShowAddProjectModalMsg:
 		m.state = ViewStateAddProjectModal
 		m.pendingProjectPath = msg.path

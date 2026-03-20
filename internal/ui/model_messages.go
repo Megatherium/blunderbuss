@@ -111,4 +111,12 @@ type TemplateReloadErrorMsg struct {
 	Error error
 }
 
+type templateLoadedMsg struct {
+	content string
+}
+
+type templateErrorMsg struct {
+	err error
+}
+
 func (e errMsg) Error() string { return e.err.Error() }

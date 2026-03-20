@@ -81,6 +81,8 @@ type KeyMap struct {
 	Open     key.Binding
 	Select   key.Binding
 	SwapView key.Binding
+	ToggleAllExts key.Binding
+	ToggleHidden  key.Binding
 }
 
 // DefaultKeyMap defines the default keybindings.
@@ -96,6 +98,8 @@ func DefaultKeyMap() KeyMap {
 		Open:     key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("l", "open")),
 		Select:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
 		SwapView: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "swap view")),
+		ToggleAllExts: key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("ctrl+a", "toggle exts")),
+		ToggleHidden:  key.NewBinding(key.WithKeys("ctrl+."), key.WithHelp("ctrl+.", "toggle hidden")),
 	}
 }
 
@@ -158,6 +162,7 @@ type Model struct {
 	ShowPermissions bool
 	ShowSize        bool
 	ShowHidden      bool
+	ShowAllExts     bool
 	DirAllowed      bool
 	FileAllowed     bool
 
@@ -181,6 +186,8 @@ type Model struct {
 	// Deprecated: use [Model.SetHeight] instead.
 	Height     int
 	AutoHeight bool
+
+	Width int
 
 	Cursor string
 	Styles Styles
@@ -270,9 +277,22 @@ func (m Model) Init() tea.Cmd {
 // SetHeight sets the height of the filepicker.
 func (m *Model) SetHeight(height int) {
 	m.Height = height
-	if m.max > m.Height-1 {
+	if len(m.files) == 0 {
+		m.max = m.Height - 1
+	} else if m.max < m.min+m.Height-1 {
+		m.max = m.min + m.Height - 1
+		if m.max >= len(m.files) {
+			m.max = len(m.files) - 1
+		}
+	} else if m.max > m.min+m.Height-1 {
 		m.max = m.min + m.Height - 1
 	}
+}
+
+// SetSize sets the width and height of the filepicker.
+func (m *Model) SetSize(width, height int) {
+	m.Width = width
+	m.SetHeight(height)
 }
 
 // Update handles user interactions within the file picker model.
@@ -291,6 +311,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.max = m.Height - 1
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, m.KeyMap.ToggleAllExts):
+			m.ShowAllExts = !m.ShowAllExts
+		case key.Matches(msg, m.KeyMap.ToggleHidden):
+			m.ShowHidden = !m.ShowHidden
+			return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
 		case key.Matches(msg, m.KeyMap.SwapView):
 			if m.ShowRecents {
 				m.recentFocus = !m.recentFocus
@@ -555,6 +580,11 @@ func (m Model) View() string {
 		leftPane = s.String()
 	}
 
+	if m.Width > 0 && m.ShowRecents {
+		leftWidth := (m.Width * 2) / 3
+		leftPane = lipgloss.NewStyle().Width(leftWidth).Render(leftPane)
+	}
+
 	if !m.ShowRecents {
 		return leftPane
 	}
@@ -681,7 +711,7 @@ func (m Model) didSelectFile(msg tea.Msg) (bool, string) {
 }
 
 func (m Model) canSelect(file string) bool {
-	if len(m.AllowedTypes) <= 0 {
+	if m.ShowAllExts || len(m.AllowedTypes) <= 0 {
 		return true
 	}
 

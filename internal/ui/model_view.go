@@ -29,6 +29,13 @@ func (m *UIModel) updateSizes() {
 	m.agentList.SetSize(safeW(m.layout.AWidth), m.layout.InnerListHeight)
 	m.sidebar.SetSize(m.layout.SidebarWidth, m.layout.Height)
 	m.help.Width = m.layout.Width
+	
+	// Update filepicker size (deduct margins/headers)
+	fpHeight := m.layout.Height - 10
+	if fpHeight < 5 {
+		fpHeight = 5
+	}
+	m.filepicker.SetSize(m.layout.Width, fpHeight)
 }
 
 func (m UIModel) getThemeValue() ThemePalette {
@@ -59,6 +66,7 @@ func (m UIModel) renderMainContent() string {
 		MatrixConfig:       m.buildMatrixConfig(),
 		Agent:              m.agents[m.viewingAgentID],
 		Filepicker:         m.filepicker,
+		FilePickerPurpose:  m.filePickerPurpose,
 		AnimState:          m.animState,
 	})
 }

@@ -19,15 +19,23 @@
 
 ## 🕵️ CODE REVIEW & REFINEMENT PROTOCOL
 
-**1. Initiating Review**
+** STATE A: Initiating Review**
 When a task is functionally complete:
 - **STOP**: Do NOT close the task yet.
 - Create a review ticket: `bd create --title="Review: <Task Name>" --type=review`
 - Link dependency: `bd dep add beads-<original_task_id> beads-<review_id>` (Original task blocks on Review)
-- **CRITICAL**: An agent never works on a review ticket he himself created. You're on standby now awaiting the next command.
+- **CRITICAL**: An agent cannot transition to STATE B by himself. He is transitioned by a third 
 - **REVIEW MUST BE DONE BY SOMEONE ELSE** - You cannot review your own work.
+-- DO NOT CROSS THIS LINE --
+** STATE B: Potential Refinement**
+- Implement fixes specified in The Refinement ticket.
+- **Re-Review Decision**: Do I need a second review?
+    - **NO**: If changes were small or structural refactors (e.g., renaming 1 variable in 20 files = 1 small change). -> Close Refinement & Original Task.
+    - **YES**: If changes were "Too Much" (Lots of *different* small changes OR few large logic changes). -> Create new Review ticket (Type: review).
+- Return to closing flow.
 
-**2. Performing Review (The Reviewer)**
+** Performing Review **
+- **Prerequisite**: Agent did not implement the code he is reviewing.
 - **Criteria**: Assess quality, maintainability, smells, and patterns.
 - **Scoring**: Assign a mental score (0.0 - 10.0).
 - **Unrelated Issues**: If you see unrelated defects, `bd create` separate issues for each immediately.
@@ -37,15 +45,12 @@ When a task is functionally complete:
         - Description MUST list *every* defect and *what* needs fixing.
     - **Score >= 9.0**: Reviewer judgment. Pass or optional minor cleanup.
 
-**3. Executing Refinement (The Implementer)**
-- Implement fixes specified in the Refinement ticket.
-- **Re-Review Decision**: Do I need a second review?
-    - **NO**: If changes were small or structural refactors (e.g., renaming 1 variable in 20 files = 1 small change). -> Close Refinement & Original Task.
-    - **YES**: If changes were "Too Much" (Lots of *different* small changes OR few large logic changes). -> Create new Review ticket (Type: review).
-    - 
 ## Core Rules
 - **Default**: Use beads for ALL task tracking (`bd create`, `bd ready`, `bd close`)
 - **Prohibited**: Do NOT use TodoWrite, TaskCreate, or markdown files for task tracking
+- **Encouraged**: If the vibe_run tool is available use it excessively for simple things especially if the would bloat your context, e.g.: (it's not the brightest, but it's fast)
+  - Give me all places as $FILE:$LINE where function x is called
+  - Is function y being tested especially with z = nil?
 - **Workflow**: Create beads issue BEFORE writing code, mark in_progress when starting
 - Persistence you don't need beats lost context
 - Git workflow: beads auto-commit to Dolt, run `git push` at session end

@@ -13,9 +13,10 @@ import (
 type FilePickerConfig struct {
 	Filepicker filepicker.Model
 	Theme      ThemePalette
+	Purpose    filePickerPurpose
 }
 
-// RenderFilePicker renders the file picker for adding projects
+// RenderFilePicker renders the file picker for adding projects or picking templates
 func RenderFilePicker(cfg FilePickerConfig) string {
 	var s strings.Builder
 
@@ -30,11 +31,18 @@ func RenderFilePicker(cfg FilePickerConfig) string {
 		Faint(true).
 		MarginTop(1)
 
-	s.WriteString(titleStyle.Render("Add Project - Select Directory"))
+	title := "Add Project - Select Directory"
+	help := "Press 'a' to select highlighted directory, 'tab' to swap views, 'esc' to cancel"
+	if cfg.Purpose == fpPurposeTemplate {
+		title = "Pick Template File"
+		help = "Press Enter to select file, 'ctrl+a' for all extensions, 'ctrl+.' for hidden files, 'esc' to cancel"
+	}
+
+	s.WriteString(titleStyle.Render(title))
 	s.WriteString("\n\n")
 	s.WriteString(cfg.Filepicker.View())
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render("Press 'a' to select highlighted directory, 'tab' to swap views, 'esc' to cancel"))
+	s.WriteString(helpStyle.Render(help))
 
 	return s.String()
 }

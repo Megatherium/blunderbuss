@@ -30,10 +30,11 @@ type MainContentConfig struct {
 	RetryStore         data.TicketStore
 
 	// View dependencies
-	MatrixConfig MatrixConfig
-	Agent        *RunningAgent
-	Filepicker   filepicker.Model
-	AnimState    AnimationState
+	MatrixConfig      MatrixConfig
+	Agent             *RunningAgent
+	Filepicker        filepicker.Model
+	FilePickerPurpose filePickerPurpose
+	AnimState         AnimationState
 }
 
 // RenderMainContent renders the main content area based on current state
@@ -50,6 +51,7 @@ func RenderMainContent(cfg MainContentConfig) string {
 		s = RenderFilePicker(FilePickerConfig{
 			Filepicker: cfg.Filepicker,
 			Theme:      cfg.CurrentTheme,
+			Purpose:    cfg.FilePickerPurpose,
 		})
 	case ViewStateAddProjectModal:
 		s = RenderAddProjectModal(AddProjectConfig{

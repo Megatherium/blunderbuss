@@ -174,8 +174,9 @@ type UIModel struct {
 	// Tracks whether the initial ticket load has completed and poll loop started
 	pollStarted bool
 
-	// File picker for adding projects
+	// File picker
 	filepicker         filepicker.Model
+	filePickerPurpose  filePickerPurpose
 	pendingProjectPath string
 
 	// ticketDel is the dynamic-height delegate for ticketList.
@@ -183,6 +184,13 @@ type UIModel struct {
 	// so we need a direct reference to call SetWidth on resize/theme-toggle.
 	ticketDel *ticketDelegate
 }
+
+type filePickerPurpose int
+
+const (
+	fpPurposeAddProject filePickerPurpose = iota
+	fpPurposeTemplate
+)
 
 // RunningAgent tracks a launched agent session
 type RunningAgent struct {

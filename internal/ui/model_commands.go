@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -381,5 +382,20 @@ func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time) tea.Cmd
 		}
 
 		return ticketUpdateCheckNeededMsg{}
+	}
+}
+
+func (m UIModel) loadTemplateFromFile(path string) tea.Cmd {
+	return func() tea.Msg {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return templateErrorMsg{err: fmt.Errorf("failed to read template: %w", err)}
+		}
+
+		if len(content) > 0 && !utf8.Valid(content) {
+			return templateErrorMsg{err: fmt.Errorf("invalid template file: contains binary data")}
+		}
+
+		return templateLoadedMsg{content: string(content)}
 	}
 }

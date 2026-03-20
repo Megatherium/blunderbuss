@@ -156,6 +156,7 @@ func (m *UIModel) updateKeyBindings() {
 		}
 		m.keys.ToggleSidebar.SetEnabled(true)
 		m.keys.ToggleTheme.SetEnabled(true)
+		m.keys.PickTemplate.SetEnabled(false)
 	case ViewStateError:
 		m.keys.Back.SetEnabled(false)
 		m.keys.Refresh.SetEnabled(false)
@@ -164,6 +165,16 @@ func (m *UIModel) updateKeyBindings() {
 		m.keys.Zoom.SetEnabled(false)
 		m.keys.ToggleSidebar.SetEnabled(false)
 		m.keys.ToggleTheme.SetEnabled(false)
+		m.keys.PickTemplate.SetEnabled(false)
+	case ViewStateConfirm:
+		m.keys.Back.SetEnabled(true)
+		m.keys.Refresh.SetEnabled(false)
+		m.keys.Enter.SetEnabled(true)
+		m.keys.Info.SetEnabled(false)
+		m.keys.Zoom.SetEnabled(false)
+		m.keys.ToggleSidebar.SetEnabled(false)
+		m.keys.ToggleTheme.SetEnabled(true)
+		m.keys.PickTemplate.SetEnabled(true)
 	default:
 		m.keys.Back.SetEnabled(true)
 		m.keys.Refresh.SetEnabled(false)
@@ -172,6 +183,7 @@ func (m *UIModel) updateKeyBindings() {
 		m.keys.Zoom.SetEnabled(false)
 		m.keys.ToggleSidebar.SetEnabled(false)
 		m.keys.ToggleTheme.SetEnabled(true)
+		m.keys.PickTemplate.SetEnabled(false)
 	}
 }
 
