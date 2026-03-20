@@ -51,6 +51,8 @@ When a task is functionally complete:
 - **Encouraged**: If the vibe_run tool is available use it excessively for simple things especially if the would bloat your context, e.g.: (it's not the brightest, but it's fast)
   - Give me all places as $FILE:$LINE where function x is called
   - Is function y being tested especially with z = nil?
+  - Note: use agent=auto-approve so it can use all tools
+  - Note: max_turns is 5 by default, sufficient for a lot but maybe not for tracing a value front to end
 - **Workflow**: Create beads issue BEFORE writing code, mark in_progress when starting
 - Persistence you don't need beats lost context
 - Git workflow: beads auto-commit to Dolt, run `git push` at session end

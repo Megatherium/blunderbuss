@@ -80,12 +80,20 @@ const (
 // Valid State Transitions (Add Project flow):
 //
 //	Sidebar (focus=FocusSidebar) + 'a' key → OpenFilePickerMsg
-//	→ state = ViewStateFilePicker
+//	→ state = ViewStateFilePicker (filePickerPurpose = fpPurposeAddProject)
 //	→ File picker active, 'a' to select dir, 'esc' to cancel
 //	→ Select dir with .beads → ShowAddProjectModalMsg
 //	→ state = ViewStateAddProjectModal
 //	→ 'y' or Enter → addProjectConfirmedMsg → project added
 //	→ 'n' or Esc → addProjectCancelledMsg → back to file picker
+//
+// Valid State Transitions (Template picking flow):
+//
+//	Confirm screen (state=ViewStateConfirm) + 'C' key → OpenFilePickerMsg
+//	→ state = ViewStateFilePicker (filePickerPurpose = fpPurposeTemplate)
+//	→ File picker active, 'enter' to select file, 'l' to edit CWD, 'esc' to cancel
+//	→ Valid file selected → templateLoadedMsg → state = ViewStateConfirm
+//	→ Invalid file (e.g., binary) → templateErrorMsg → show warning, stay in ViewStateFilePicker
 //
 // Valid State Transitions (Agent view):
 //

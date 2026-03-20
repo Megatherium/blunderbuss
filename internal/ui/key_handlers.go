@@ -124,6 +124,10 @@ func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 			return m, nil, true
 		}
 	case "esc":
+		if m.filepicker.EditingCwd {
+			// Let the filepicker handle Esc to exit edit mode
+			break
+		}
 		if m.filePickerPurpose == fpPurposeTemplate {
 			m.state = ViewStateConfirm
 		} else {

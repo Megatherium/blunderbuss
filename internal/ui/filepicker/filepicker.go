@@ -125,6 +125,7 @@ type Styles struct {
 	FileSize         lipgloss.Style
 	EmptyDirectory   lipgloss.Style
 	RecentsTitle     lipgloss.Style
+	CwdError         lipgloss.Style
 }
 
 // DefaultStyles defines the default styling for the file picker.
@@ -148,6 +149,7 @@ func DefaultStylesWithRenderer(r *lipgloss.Renderer) Styles {
 		FileSize:         r.NewStyle().Foreground(lipgloss.Color("240")).Width(fileSizeWidth).Align(lipgloss.Right),
 		EmptyDirectory:   r.NewStyle().Foreground(lipgloss.Color("240")).PaddingLeft(paddingLeft).SetString("Bummer. No Files Found."),
 		RecentsTitle:     r.NewStyle().Foreground(lipgloss.Color("212")).Bold(true).MarginBottom(1),
+		CwdError:         r.NewStyle().Foreground(lipgloss.Color("9")).PaddingLeft(1),
 	}
 }
 
@@ -186,6 +188,7 @@ type Model struct {
 
 	cwdInput   textinput.Model
 	EditingCwd bool
+	CwdError   string
 
 	min      int
 	max      int
@@ -325,20 +328,26 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			switch msg.String() {
 			case "esc":
 				m.EditingCwd = false
+				m.CwdError = ""
 				m.cwdInput.Blur()
 				return m, nil
 			case "enter":
-				m.EditingCwd = false
-				m.cwdInput.Blur()
 				newPath := m.cwdInput.Value()
 				if stat, err := os.Stat(newPath); err == nil && stat.IsDir() {
+					m.EditingCwd = false
+					m.CwdError = ""
+					m.cwdInput.Blur()
 					m.CurrentDirectory = newPath
 					return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
 				}
+				m.CwdError = "Invalid directory"
 				return m, nil
 			}
 			var cmd tea.Cmd
 			m.cwdInput, cmd = m.cwdInput.Update(msg)
+			if msg.String() != "enter" && msg.String() != "esc" {
+				m.CwdError = ""
+			}
 			return m, cmd
 		}
 
@@ -534,7 +543,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) CwdInputView() string {
-	return m.cwdInput.View()
+	view := m.cwdInput.View()
+	if m.CwdError != "" {
+		view += m.Styles.CwdError.Render("⚠ " + m.CwdError)
+	}
+	return view
 }
 
 // View returns the view of the file picker.
@@ -623,7 +636,7 @@ func (m Model) View() string {
 	}
 
 	if m.Width > 0 && m.ShowRecents {
-		leftWidth := (m.Width * 2) / 3
+		leftWidth := m.Width * 2 / 3
 		leftPane = lipgloss.NewStyle().Width(leftWidth).Render(leftPane)
 	}
 

@@ -130,3 +130,77 @@ func TestTemplateFilePicker_EscBackToConfirm(t *testing.T) {
 		t.Errorf("Expected state to be ViewStateConfirm after Esc, got %v", m.state)
 	}
 }
+
+func TestTemplateFilePicker_KeyBindingsAndEditing(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, []domain.Harness{})
+	m.state = ViewStateFilePicker
+	m.filePickerPurpose = fpPurposeTemplate
+
+	// Test Ctrl-a (Toggle all extensions)
+	ctrlA := tea.KeyMsg{Type: tea.KeyCtrlA}
+	model, _, handled := m.handleFilePickerKeyMsg(ctrlA)
+	if !handled {
+		t.Fatal("Expected Ctrl-a to be handled")
+	}
+	m = model.(UIModel)
+	if !m.filepicker.ShowAllExts {
+		t.Error("Expected ShowAllExts to be true after Ctrl-a")
+	}
+
+	// Enable recents for swap testing
+	m.filepicker.ShowRecents = true
+	m.filepicker.Recents = []string{"/recent/1", "/recent/2"}
+
+	// Test Tab (Swap View)
+	tabKey := tea.KeyMsg{Type: tea.KeyTab}
+	// bubbles/key matches string via msg.String(), so tea.KeyMsg{Type: tea.KeyTab} stringifies to "tab"
+	model, _, handled = m.handleFilePickerKeyMsg(tabKey)
+	if !handled {
+		t.Fatal("Expected Tab to be handled")
+	}
+	m = model.(UIModel)
+	// We can't directly check `recentFocus` because it's not exported,
+	// but we know it's handled. We could test behavior if we needed.
+
+	// Test 'l' (Edit CWD)
+	lKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+	model, _, handled = m.handleFilePickerKeyMsg(lKey)
+	if !handled {
+		t.Fatal("Expected 'l' to be handled")
+	}
+	m = model.(UIModel)
+	if !m.filepicker.EditingCwd {
+		t.Fatal("Expected filepicker to enter EditingCwd state")
+	}
+
+	// Test Enter with invalid path (shows error)
+	// First simulate typing an invalid path
+	m.filepicker, _ = m.filepicker.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b', 'a', 'd'}})
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	model, _, handled = m.handleFilePickerKeyMsg(enterKey)
+	if !handled {
+		t.Fatal("Expected Enter to be handled while editing")
+	}
+	m = model.(UIModel)
+	if m.filepicker.CwdError == "" {
+		t.Error("Expected CwdError for invalid path")
+	}
+	if !m.filepicker.EditingCwd {
+		t.Error("Expected to stay in EditingCwd when path is invalid")
+	}
+
+	// Test Esc cancels editing
+	escKey := tea.KeyMsg{Type: tea.KeyEscape}
+	model, _, handled = m.handleFilePickerKeyMsg(escKey)
+	if !handled {
+		t.Fatal("Expected Esc to be handled while editing")
+	}
+	m = model.(UIModel)
+	if m.filepicker.EditingCwd {
+		t.Error("Expected EditingCwd to be false after Esc")
+	}
+	if m.filepicker.CwdError != "" {
+		t.Error("Expected CwdError to be cleared after Esc")
+	}
+}

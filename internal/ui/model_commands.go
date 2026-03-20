@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -392,8 +393,10 @@ func (m UIModel) loadTemplateFromFile(path string) tea.Cmd {
 			return templateErrorMsg{err: fmt.Errorf("failed to read template: %w", err)}
 		}
 
-		if len(content) > 0 && !utf8.Valid(content) {
-			return templateErrorMsg{err: fmt.Errorf("invalid template file: contains binary data")}
+		if len(content) > 0 {
+			if bytes.IndexByte(content, 0) != -1 || !utf8.Valid(content) {
+				return templateErrorMsg{err: fmt.Errorf("invalid template file: contains binary data")}
+			}
 		}
 
 		return templateLoadedMsg{content: string(content)}
