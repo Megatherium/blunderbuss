@@ -35,14 +35,14 @@ func RenderFilePicker(cfg FilePickerConfig) string {
 	help := "Press 'a' to select highlighted directory, 'tab' to swap views, 'esc' to cancel"
 	if cfg.Purpose == fpPurposeTemplate {
 		title = "Pick Template File"
-		help = "Press Enter to select file, 'ctrl+a' for all extensions, 'ctrl+.' for hidden files, 'esc' to cancel"
+		help = "Press Enter to select file, 'ctrl+a' for all extensions, 'ctrl+h' for hidden files, 'esc' to cancel"
 	}
 
 	s.WriteString(titleStyle.Render(title))
 	s.WriteString("\n\n")
 	s.WriteString(cfg.Filepicker.View())
 	s.WriteString("\n")
-	
+
 	if cfg.Filepicker.EditingCwd {
 		s.WriteString(cfg.Filepicker.CwdInputView())
 	} else {
@@ -50,7 +50,7 @@ func RenderFilePicker(cfg FilePickerConfig) string {
 		s.WriteString("CWD: " + cwdStyle.Render(cfg.Filepicker.CurrentDirectory))
 	}
 	s.WriteString("\n")
-	
+
 	s.WriteString(helpStyle.Render(help))
 
 	return s.String()

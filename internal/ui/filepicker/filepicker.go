@@ -77,16 +77,16 @@ const (
 
 // KeyMap defines key bindings for each user action.
 type KeyMap struct {
-	GoToTop  key.Binding
-	GoToLast key.Binding
-	Down     key.Binding
-	Up       key.Binding
-	PageUp   key.Binding
-	PageDown key.Binding
-	Back     key.Binding
-	Open     key.Binding
-	Select   key.Binding
-	SwapView key.Binding
+	GoToTop       key.Binding
+	GoToLast      key.Binding
+	Down          key.Binding
+	Up            key.Binding
+	PageUp        key.Binding
+	PageDown      key.Binding
+	Back          key.Binding
+	Open          key.Binding
+	Select        key.Binding
+	SwapView      key.Binding
 	ToggleAllExts key.Binding
 	ToggleHidden  key.Binding
 	EditCwd       key.Binding
@@ -95,18 +95,18 @@ type KeyMap struct {
 // DefaultKeyMap defines the default keybindings.
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		GoToTop:  key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "first")),
-		GoToLast: key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "last")),
-		Down:     key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
-		Up:       key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
-		PageUp:   key.NewBinding(key.WithKeys("K", "pgup"), key.WithHelp("pgup", "page up")),
-		PageDown: key.NewBinding(key.WithKeys("J", "pgdown"), key.WithHelp("pgdown", "page down")),
-		Back:     key.NewBinding(key.WithKeys("h", "backspace", "left", "esc"), key.WithHelp("h", "back")),
-		Open:     key.NewBinding(key.WithKeys("right", "enter"), key.WithHelp("enter", "open")),
-		Select:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
-		SwapView: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "swap view")),
+		GoToTop:       key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "first")),
+		GoToLast:      key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "last")),
+		Down:          key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
+		Up:            key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
+		PageUp:        key.NewBinding(key.WithKeys("K", "pgup"), key.WithHelp("pgup", "page up")),
+		PageDown:      key.NewBinding(key.WithKeys("J", "pgdown"), key.WithHelp("pgdown", "page down")),
+		Back:          key.NewBinding(key.WithKeys("h", "backspace", "left", "esc"), key.WithHelp("h", "back")),
+		Open:          key.NewBinding(key.WithKeys("right", "enter"), key.WithHelp("enter", "open")),
+		Select:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		SwapView:      key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "swap view")),
 		ToggleAllExts: key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("ctrl+a", "toggle exts")),
-		ToggleHidden:  key.NewBinding(key.WithKeys("ctrl+."), key.WithHelp("ctrl+.", "toggle hidden")),
+		ToggleHidden:  key.NewBinding(key.WithKeys("ctrl+h"), key.WithHelp("ctrl+h", "toggle hidden")),
 		EditCwd:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "edit cwd")),
 	}
 }
@@ -361,8 +361,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.KeyMap.ToggleAllExts):
 			m.ShowAllExts = !m.ShowAllExts
 		case key.Matches(msg, m.KeyMap.ToggleHidden):
-			m.ShowHidden = !m.ShowHidden
-			return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
+			if !m.EditingCwd {
+				m.ShowHidden = !m.ShowHidden
+				return m, m.readDir(m.CurrentDirectory, m.ShowHidden)
+			}
 		case key.Matches(msg, m.KeyMap.SwapView):
 			if m.ShowRecents {
 				m.recentFocus = !m.recentFocus

@@ -298,3 +298,78 @@ func TestInlineEdit_EKeyWithPrompt(t *testing.T) {
 		t.Errorf("Expected textarea to contain prompt template, got %q", m.inlineEditTextarea.Value())
 	}
 }
+
+func TestTemplateFilePicker_ToggleHidden(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, []domain.Harness{})
+	m.state = ViewStateFilePicker
+	m.filePickerPurpose = fpPurposeTemplate
+
+	// Initially ShowHidden should be false
+	if m.filepicker.ShowHidden {
+		t.Error("Expected ShowHidden to be false initially")
+	}
+
+	// Test Ctrl-h (Toggle hidden) - use KeyCtrlH which is backspace key type
+	// When terminal sends ctrl+h, bubbletea interprets it as KeyCtrlH (key type for ctrl+h)
+	ctrlH := tea.KeyMsg{Type: tea.KeyCtrlH}
+	model, cmd, handled := m.handleFilePickerKeyMsg(ctrlH)
+	if !handled {
+		t.Fatal("Expected Ctrl-h to be handled")
+	}
+	m = model.(UIModel)
+
+	// ShowHidden should now be true
+	if !m.filepicker.ShowHidden {
+		t.Error("Expected ShowHidden to be true after Ctrl-h")
+	}
+
+	// A command should be returned to reload the directory
+	if cmd == nil {
+		t.Error("Expected a command to reload directory after toggle")
+	}
+
+	// Toggle again - ShowHidden should be false
+	model, _, handled = m.handleFilePickerKeyMsg(ctrlH)
+	if !handled {
+		t.Fatal("Expected Ctrl-h to be handled second time")
+	}
+	m = model.(UIModel)
+	if m.filepicker.ShowHidden {
+		t.Error("Expected ShowHidden to be false after second Ctrl-h")
+	}
+}
+
+func TestTemplateFilePicker_ToggleHidden_DisabledWhileEditingCwd(t *testing.T) {
+	app := newTestApp()
+	m := NewUIModel(app, []domain.Harness{})
+	m.state = ViewStateFilePicker
+	m.filePickerPurpose = fpPurposeTemplate
+
+	// Enter EditingCwd mode by pressing 'l'
+	lKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+	model, _, handled := m.handleFilePickerKeyMsg(lKey)
+	if !handled {
+		t.Fatal("Expected 'l' key to be handled")
+	}
+	m = model.(UIModel)
+	if !m.filepicker.EditingCwd {
+		t.Fatal("Expected filepicker to enter EditingCwd state")
+	}
+
+	// ShowHidden should still be false
+	initialState := m.filepicker.ShowHidden
+
+	// Ctrl-h should NOT toggle hidden while in EditingCwd mode
+	ctrlH := tea.KeyMsg{Type: tea.KeyCtrlH}
+	model, _, handled = m.handleFilePickerKeyMsg(ctrlH)
+	if !handled {
+		t.Fatal("Expected Ctrl-h to be handled even while editing CWD")
+	}
+	m = model.(UIModel)
+
+	// ShowHidden should NOT have changed
+	if m.filepicker.ShowHidden != initialState {
+		t.Error("Expected ShowHidden to NOT change while in EditingCwd mode")
+	}
+}
