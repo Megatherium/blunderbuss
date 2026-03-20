@@ -9,7 +9,10 @@ import (
 
 type ticketsLoadedMsg []domain.Ticket
 
-type errMsg struct{ err error }
+type errMsg struct {
+	err              error
+	showRetryOptions bool
+}
 
 type warningMsg struct{ err error }
 

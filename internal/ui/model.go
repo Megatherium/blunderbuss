@@ -129,9 +129,9 @@ func (m UIModel) checkAndPromptAddProject(dirPath string) tea.Cmd {
 	return func() tea.Msg {
 		beadsPath := filepath.Join(dirPath, ".beads")
 		if _, err := os.Stat(beadsPath); os.IsNotExist(err) {
-			return errMsg{fmt.Errorf("no .beads directory found in %s", dirPath)}
+			return errMsg{err: fmt.Errorf("no .beads directory found in %s", dirPath), showRetryOptions: false}
 		} else if err != nil {
-			return errMsg{fmt.Errorf("error checking .beads directory: %w", err)}
+			return errMsg{err: fmt.Errorf("error checking .beads directory: %w", err), showRetryOptions: false}
 		}
 		return ShowAddProjectModalMsg{path: dirPath}
 	}
@@ -154,7 +154,7 @@ func (m UIModel) Init() tea.Cmd {
 				// Show error modal for missing .beads
 				return tea.Batch(
 					func() tea.Msg {
-						return errMsg{err}
+						return errMsg{err: err, showRetryOptions: false}
 					},
 					m.loadRegistryCmd(),
 				)
@@ -171,7 +171,7 @@ func (m UIModel) Init() tea.Cmd {
 		if err := m.app.SetActiveProject(context.Background(), targetProject); err != nil {
 			return tea.Batch(
 				func() tea.Msg {
-					return errMsg{err}
+					return errMsg{err: err, showRetryOptions: true}
 				},
 				m.loadRegistryCmd(),
 			)
@@ -475,12 +475,12 @@ func (m UIModel) continueInitAfterRegistry() tea.Cmd {
 		func() tea.Msg {
 			project, err := app.CreateProjectContext(context.Background())
 			if err != nil {
-				return errMsg{err}
+				return errMsg{err: err, showRetryOptions: true}
 			}
 
 			tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
 			if err != nil {
-				return errMsg{err}
+				return errMsg{err: err, showRetryOptions: true}
 			}
 			return ticketsLoadedMsg(tickets)
 		},

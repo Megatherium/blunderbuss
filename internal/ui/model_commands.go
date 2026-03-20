@@ -25,13 +25,13 @@ import (
 func startServerAndRetryCmd(myApp *app.App, store *dolt.Store) tea.Cmd {
 	return func() tea.Msg {
 		if myApp == nil || store == nil {
-			return errMsg{err: fmt.Errorf("invalid app or store for retry")}
+			return errMsg{err: fmt.Errorf("invalid app or store for retry"), showRetryOptions: false}
 		}
 
 		// Try to start the server
 		newStore, err := store.TryStartServer(context.Background())
 		if err != nil {
-			return errMsg{err: err}
+			return errMsg{err: err, showRetryOptions: true}
 		}
 
 		return serverStartedMsg{store: newStore}
@@ -42,7 +42,7 @@ func loadTicketsCmd(store data.TicketStore) tea.Cmd {
 	return func() tea.Msg {
 		tickets, err := store.ListTickets(context.Background(), data.TicketFilter{})
 		if err != nil {
-			return errMsg{err}
+			return errMsg{err: err, showRetryOptions: true}
 		}
 		return ticketsLoadedMsg(tickets)
 	}
@@ -372,7 +372,7 @@ func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time) tea.Cmd
 			if doltStore, ok := store.(*dolt.Store); ok &&
 				doltStore.CanRetryConnection() &&
 				dolt.IsConnectionError(err) {
-				return errMsg{err: err}
+				return errMsg{err: err, showRetryOptions: true}
 			}
 			// If not retryable or non-server-mode, continue polling silently
 			return ticketUpdateCheckNeededMsg{}

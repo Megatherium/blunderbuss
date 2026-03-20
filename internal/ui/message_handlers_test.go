@@ -43,7 +43,7 @@ func TestHandleErrMsg_SetsRetryStore(t *testing.T) {
 	model.app = app
 
 	testErr := errors.New("test error")
-	errMsg := errMsg{err: testErr}
+	errMsg := errMsg{err: testErr, showRetryOptions: true}
 	newModel, _ := model.handleErrMsg(errMsg)
 
 	uiModel := newModel.(UIModel)

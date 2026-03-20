@@ -143,8 +143,12 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 func (m UIModel) handleErrMsg(msg errMsg) (tea.Model, tea.Cmd) {
 	m.err = msg.err
 	m.state = ViewStateError
-	if project := m.app.Project(); project != nil {
-		m.retryStore = project.Store()
+	if msg.showRetryOptions {
+		if project := m.app.Project(); project != nil {
+			m.retryStore = project.Store()
+		}
+	} else {
+		m.retryStore = nil
 	}
 	return m, nil
 }
@@ -492,6 +496,6 @@ func (m UIModel) handleTemplatesReloaded(msg TemplatesReloadedMsg) (tea.Model, t
 // Shows an error message but allows the application to continue running.
 func (m UIModel) handleTemplateReloadError(msg TemplateReloadErrorMsg) (tea.Model, tea.Cmd) {
 	return m, func() tea.Msg {
-		return errMsg{fmt.Errorf("failed to reload templates: %w", msg.Error)}
+		return errMsg{err: fmt.Errorf("failed to reload templates: %w", msg.Error), showRetryOptions: false}
 	}
 }
