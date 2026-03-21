@@ -268,9 +268,9 @@ func TestErrorRecovery_HandleErrMsgSetsRetryStore(t *testing.T) {
 	// Initial state should not have retryStore set
 	assert.Nil(t, m.retryStore)
 
-	// Simulate an error
+	// Simulate an error with showRetryOptions enabled
 	testErr := errors.New("test connection error")
-	msg := errMsg{err: testErr}
+	msg := errMsg{err: testErr, showRetryOptions: true}
 
 	newModel, _ := m.handleErrMsg(msg)
 	updatedModel := newModel.(UIModel)
