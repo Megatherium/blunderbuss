@@ -38,10 +38,13 @@ func startServerAndRetryCmd(myApp *app.App, store *dolt.Store) tea.Cmd {
 	}
 }
 
-func loadTicketsCmd(store data.TicketStore, debug bool) tea.Cmd {
+func loadTicketsCmd(project *data.ProjectContext, debug bool) tea.Cmd {
 	return func() tea.Msg {
 		start := time.Now()
-		tickets, err := store.ListTickets(context.Background(), data.TicketFilter{})
+		if project == nil {
+			return errMsg{err: fmt.Errorf("no project context available"), showRetryOptions: true}
+		}
+		tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
 		elapsed := time.Since(start)
 
 		if debug {
@@ -56,13 +59,17 @@ func loadTicketsCmd(store data.TicketStore, debug bool) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err, showRetryOptions: true}
 		}
-		return ticketsLoadedMsg(tickets)
+		return ticketsLoadedMsg{tickets: tickets, project: project}
 	}
 }
 
-func loadModalCmd(ticketID string) tea.Cmd {
+func loadModalCmd(ticketID string, beadsDir string) tea.Cmd {
 	return func() tea.Msg {
-		out, err := osexec.Command("bd", "show", ticketID).CombinedOutput()
+		cmd := osexec.Command("bd", "show", ticketID)
+		if beadsDir != "" {
+			cmd.Env = append(cmd.Env, "BEADS_DIR="+beadsDir)
+		}
+		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return modalContentMsg(fmt.Sprintf("Error loading bd show:\n%v\n%s", err, string(out)))
 		}

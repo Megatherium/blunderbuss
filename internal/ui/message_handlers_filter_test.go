@@ -39,7 +39,7 @@ func TestHandleTicketsLoaded_PreservesSelectionWithFilter(t *testing.T) {
 	m.selection.Ticket = selectedItem.ticket
 
 	// Refresh with same tickets (simulating refresh with active filter)
-	msg := ticketsLoadedMsg(tickets)
+	msg := ticketsLoadedMsg{tickets: tickets, project: nil}
 	updatedModel, _ := m.handleTicketsLoaded(msg)
 	updatedM := updatedModel.(UIModel)
 
@@ -89,7 +89,7 @@ func TestHandleTicketsLoaded_ClearsSelectionWhenExcludedByFilter(t *testing.T) {
 	// Refresh tickets where "Apple" ticket is excluded by filter
 	// Change filter to "Zebra" which matches nothing
 	tickets[0].Title = "Apricot Ticket" // Change title so Apple is excluded
-	msg := ticketsLoadedMsg(tickets)
+	msg := ticketsLoadedMsg{tickets: tickets, project: nil}
 	updatedModel, _ := m.handleTicketsLoaded(msg)
 	updatedM := updatedModel.(UIModel)
 
@@ -131,7 +131,7 @@ func TestHandleTicketsLoaded_PreservesSelectionWithPositionChange(t *testing.T) 
 		{ID: "bb-3", Title: "Cherry Tart", Status: "open", Priority: 3},
 		{ID: "bb-1", Title: "Apple Pie", Status: "open", Priority: 1},
 	}
-	msg := ticketsLoadedMsg(newTickets)
+	msg := ticketsLoadedMsg{tickets: newTickets, project: nil}
 	updatedModel, _ := m.handleTicketsLoaded(msg)
 	updatedM := updatedModel.(UIModel)
 
@@ -176,7 +176,7 @@ func TestHandleTicketsLoaded_PreservesPaginationWithFilter(t *testing.T) {
 	m.ticketList.SetSize(50, 20) // Width 50, Height 20
 
 	// Refresh tickets
-	msg := ticketsLoadedMsg(tickets)
+	msg := ticketsLoadedMsg{tickets: tickets, project: nil}
 	updatedModel, _ := m.handleTicketsLoaded(msg)
 	updatedM := updatedModel.(UIModel)
 

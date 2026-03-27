@@ -33,7 +33,7 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 	if m.app.Opts.Debug {
 		sinceLast := now.Sub(perfLastLoadedTime)
 		fmt.Fprintf(os.Stderr, "[DEBUG][perf] ticketsLoaded #%d lastLoadAgo=%v count=%d goroutines=%d\n",
-			perfTicketsLoadedCount, sinceLast.Round(time.Millisecond), len(msg), runtime.NumGoroutine())
+			perfTicketsLoadedCount, sinceLast.Round(time.Millisecond), len(msg.tickets), runtime.NumGoroutine())
 	}
 	perfLastLoadedTime = now
 
@@ -61,7 +61,7 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		m.ticketDel.applyTheme(m.currentTheme)
 	}
 
-	if len(msg) == 0 {
+	if len(msg.tickets) == 0 {
 		if m.app.Project() == nil || m.app.Project().Store() == nil {
 			m.ticketList = createErrorList("Couldn't load ticket list:\nStore initialization failed", m.currentTheme)
 			m.sidebar.SetStoreError(true)
@@ -78,9 +78,9 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		m.ticketList.SetShowStatusBar(false)
 		m.sidebar.SetStoreError(false)
 	} else {
-		items := make([]list.Item, 0, len(msg))
-		for i := range msg {
-			items = append(items, ticketItem{ticket: msg[i]})
+		items := make([]list.Item, 0, len(msg.tickets))
+		for i := range msg.tickets {
+			items = append(items, ticketItem{ticket: msg.tickets[i], project: msg.project})
 		}
 		if m.ticketDel != nil {
 			m.ticketDel.UpdateMaxTitleWidth(items)
@@ -121,7 +121,7 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 	if prevTicketID != "" && savedFilterValue == "" {
 		// No filter: use unfiltered index
 		foundIndex := -1
-		for idx, ticket := range msg {
+		for idx, ticket := range msg.tickets {
 			if ticket.ID == prevTicketID {
 				m.selection.Ticket = ticket
 				foundIndex = idx
@@ -422,7 +422,7 @@ func (m UIModel) handleTicketsAutoRefreshed(msg ticketsAutoRefreshedMsg) (tea.Mo
 	m.refreshedRecently = true
 	m.refreshAnimationFrame = 0
 
-	cmds := []tea.Cmd{loadTicketsCmd(m.app.Project().Store(), m.app.Opts.Debug), discoverWorktreesCmd(m.app)}
+	cmds := []tea.Cmd{loadTicketsCmd(m.app.Project(), m.app.Opts.Debug), discoverWorktreesCmd(m.app)}
 
 	if m.app.Fonts.HasNerdFont {
 		cmds = append(cmds, tea.Tick(animationTickInterval, func(t time.Time) tea.Msg {

@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"path/filepath"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
 )
@@ -30,7 +33,7 @@ func (m UIModel) handleRefreshKeyMsg() (tea.Model, tea.Cmd, bool) {
 	if m.state == ViewStateMatrix && m.focus == FocusTickets {
 		m.state = ViewStateLoading
 		return m, tea.Batch(
-			loadTicketsCmd(m.app.Project().Store(), m.app.Opts.Debug),
+			loadTicketsCmd(m.app.Project(), m.app.Opts.Debug),
 			discoverWorktreesCmd(m.app),
 			m.reloadTemplates(), // Also reload templates on refresh
 		), true
@@ -60,7 +63,11 @@ func (m UIModel) handleInfoKeyMsg() (tea.Model, tea.Cmd, bool) {
 		if i, ok := m.ticketList.SelectedItem().(ticketItem); ok {
 			m.showModal = true
 			m.modalContent = "Loading bd show..."
-			return m, loadModalCmd(i.ticket.ID), true
+			beadsDir := ""
+			if i.project != nil {
+				beadsDir = i.project.BeadsDir()
+			}
+			return m, loadModalCmd(i.ticket.ID, beadsDir), true
 		}
 	}
 	return m, nil, false
@@ -178,7 +185,16 @@ func (m UIModel) handleErrorStateKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 	case "r", "R":
 		if m.retryStore != nil {
 			m.state = ViewStateLoading
-			return m, loadTicketsCmd(m.retryStore, m.app.Opts.Debug), true
+			activeProject := m.app.ActiveProject
+			if activeProject != "" {
+				beadsDir := filepath.Join(activeProject, ".beads")
+				projectCtx, err := data.NewProjectContext(m.retryStore, beadsDir, activeProject)
+				if err != nil {
+					return m, loadTicketsCmd(nil, m.app.Opts.Debug), true
+				}
+				return m, loadTicketsCmd(projectCtx, m.app.Opts.Debug), true
+			}
+			return m, loadTicketsCmd(nil, m.app.Opts.Debug), true
 		}
 	case "s", "S":
 		if m.retryStore != nil {

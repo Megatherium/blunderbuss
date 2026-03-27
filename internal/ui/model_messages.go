@@ -7,7 +7,10 @@ import (
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
-type ticketsLoadedMsg []domain.Ticket
+type ticketsLoadedMsg struct {
+	tickets []domain.Ticket
+	project *data.ProjectContext
+}
 
 type errMsg struct {
 	err              error

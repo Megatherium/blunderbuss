@@ -1282,7 +1282,7 @@ func TestHandleTicketsLoaded_PreservesSelection(t *testing.T) {
 	m.selection.Ticket = tickets[1]
 
 	// Call handleTicketsLoaded with refreshed tickets (same list)
-	msg := ticketsLoadedMsg(tickets)
+	msg := ticketsLoadedMsg{tickets: tickets, project: nil}
 	updatedModel, _ := m.handleTicketsLoaded(msg)
 	updatedM := updatedModel.(UIModel)
 
@@ -1323,7 +1323,7 @@ func TestHandleTicketsLoaded_PreservesSelectionAfterReorder(t *testing.T) {
 		{ID: "bb-2", Title: "Ticket 2", Status: "open", Priority: 2},
 	}
 
-	updatedModel, _ := m.handleTicketsLoaded(ticketsLoadedMsg(newTickets))
+	updatedModel, _ := m.handleTicketsLoaded(ticketsLoadedMsg{tickets: newTickets, project: nil})
 	updatedM := updatedModel.(UIModel)
 
 	assert.Equal(t, "bb-2", updatedM.selection.Ticket.ID)
@@ -1354,7 +1354,7 @@ func TestHandleTicketsLoaded_UpdatesRemovedSelection(t *testing.T) {
 		{ID: "bb-1", Title: "Ticket 1", Status: "open", Priority: 1},
 		{ID: "bb-2", Title: "Ticket 2", Status: "open", Priority: 2},
 	}
-	msg := ticketsLoadedMsg(newTickets)
+	msg := ticketsLoadedMsg{tickets: newTickets, project: nil}
 	updatedModel, _ := m.handleTicketsLoaded(msg)
 	updatedM := updatedModel.(UIModel)
 

@@ -8,11 +8,13 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
 type ticketItem struct {
-	ticket domain.Ticket
+	ticket  domain.Ticket
+	project *data.ProjectContext
 }
 
 func (i ticketItem) Title() string { return fmt.Sprintf("[%s] %s", i.ticket.ID, i.ticket.Title) }

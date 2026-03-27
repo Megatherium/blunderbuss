@@ -290,8 +290,14 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		activeProject := m.app.ActiveProject
 		if activeProject != "" {
 			m.app.Stores[activeProject] = msg.store
+			beadsDir := filepath.Join(activeProject, ".beads")
+			projectCtx, err := data.NewProjectContext(msg.store, beadsDir, activeProject)
+			if err != nil {
+				return m, loadTicketsCmd(nil, m.app.Opts.Debug), true
+			}
+			return m, loadTicketsCmd(projectCtx, m.app.Opts.Debug), true
 		}
-		return m, loadTicketsCmd(msg.store, m.app.Opts.Debug), true
+		return m, loadTicketsCmd(nil, m.app.Opts.Debug), true
 	case OpenFilePickerMsg:
 		m.state = ViewStateFilePicker
 		m.pendingProjectPath = ""
@@ -403,7 +409,7 @@ func (m UIModel) handleSidebarFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 					m.dirtyTicket = true
 					m.dirtyModel = true
 					m.dirtyAgent = true
-					cmd = tea.Batch(cmd, loadTicketsCmd(m.app.Project().Store(), m.app.Opts.Debug))
+					cmd = tea.Batch(cmd, loadTicketsCmd(m.app.Project(), m.app.Opts.Debug))
 				}
 			}
 		}
@@ -476,16 +482,16 @@ func (m UIModel) continueInitAfterRegistry() tea.Cmd {
 	// Instead, discover is triggered from the ticketsLoadedMsg handler
 	// which fires after projects are initialized.
 	return func() tea.Msg {
-		project, err := myApp.CreateProjectContext(context.Background())
+		projectCtx, err := myApp.CreateProjectContext(context.Background())
 		if err != nil {
 			return errMsg{err: err, showRetryOptions: true}
 		}
 
-		tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
+		tickets, err := projectCtx.Store().ListTickets(context.Background(), data.TicketFilter{})
 		if err != nil {
 			return errMsg{err: err, showRetryOptions: true}
 		}
-		return ticketsLoadedMsg(tickets)
+		return ticketsLoadedMsg{tickets: tickets, project: projectCtx}
 	}
 }
 
@@ -503,9 +509,9 @@ func (m UIModel) loadRegistryCmd() tea.Cmd {
 	}
 }
 
-func latestTicketUpdate(tickets ticketsLoadedMsg) time.Time {
+func latestTicketUpdate(msg ticketsLoadedMsg) time.Time {
 	var latest time.Time
-	for _, ticket := range tickets {
+	for _, ticket := range msg.tickets {
 		if ticket.UpdatedAt.After(latest) {
 			latest = ticket.UpdatedAt
 		}
