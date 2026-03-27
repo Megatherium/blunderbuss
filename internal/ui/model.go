@@ -226,6 +226,7 @@ func (m UIModel) handleCoreMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 					return ticketUpdateCheckMsg{}
 				}),
 				loadRunningAgentsCmd(m.app),
+				discoverWorktreesCmd(m.app),
 			), true
 		}
 		return updatedM, nil, true
@@ -290,7 +291,7 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		if activeProject != "" {
 			m.app.Stores[activeProject] = msg.store
 		}
-		return m, loadTicketsCmd(msg.store), true
+		return m, loadTicketsCmd(msg.store, m.app.Opts.Debug), true
 	case OpenFilePickerMsg:
 		m.state = ViewStateFilePicker
 		m.pendingProjectPath = ""
@@ -402,7 +403,7 @@ func (m UIModel) handleSidebarFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 					m.dirtyTicket = true
 					m.dirtyModel = true
 					m.dirtyAgent = true
-					cmd = tea.Batch(cmd, loadTicketsCmd(m.app.Project().Store()))
+					cmd = tea.Batch(cmd, loadTicketsCmd(m.app.Project().Store(), m.app.Opts.Debug))
 				}
 			}
 		}
@@ -470,22 +471,22 @@ func (m UIModel) continueNormalInit() tea.Cmd {
 // before any model discovery happens.
 func (m UIModel) continueInitAfterRegistry() tea.Cmd {
 	myApp := m.app
-	return tea.Batch(
-		func() tea.Msg {
-			project, err := myApp.CreateProjectContext(context.Background())
-			if err != nil {
-				return errMsg{err: err, showRetryOptions: true}
-			}
+	// NOTE: discoverWorktreesCmd cannot run in parallel here because
+	// CreateProjectContext sets myApp.projects which discover needs.
+	// Instead, discover is triggered from the ticketsLoadedMsg handler
+	// which fires after projects are initialized.
+	return func() tea.Msg {
+		project, err := myApp.CreateProjectContext(context.Background())
+		if err != nil {
+			return errMsg{err: err, showRetryOptions: true}
+		}
 
-			tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
-			if err != nil {
-				return errMsg{err: err, showRetryOptions: true}
-			}
-			return ticketsLoadedMsg(tickets)
-		},
-		discoverWorktreesCmd(myApp),
-		// Animation tick is only started on demand (LockIn) to save CPU
-	)
+		tickets, err := project.Store().ListTickets(context.Background(), data.TicketFilter{})
+		if err != nil {
+			return errMsg{err: err, showRetryOptions: true}
+		}
+		return ticketsLoadedMsg(tickets)
+	}
 }
 
 // loadRegistryCmd returns a command that loads the model registry.

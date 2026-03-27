@@ -838,11 +838,36 @@ func TestCheckTicketUpdatesCmd_DemoMode(t *testing.T) {
 	app.Stores = map[string]data.TicketStore{"test-project": &mockStore{}}
 	m := NewUIModel(app, nil)
 
-	cmd := checkTicketUpdatesCmd(app.Stores["test-project"], m.lastTicketUpdate)
+	cmd := checkTicketUpdatesCmd(app.Stores["test-project"], m.lastTicketUpdate, false)
 	assert.NotNil(t, cmd)
 
 	msg := cmd()
 	assert.IsType(t, ticketUpdateCheckNeededMsg{}, msg)
+}
+
+func TestTicketNeedsRefresh(t *testing.T) {
+	now := time.Now()
+	older := now.Add(-1 * time.Hour)
+	newer := now.Add(1 * time.Hour)
+	zero := time.Time{}
+
+	// Normal case: newer data triggers refresh
+	assert.True(t, ticketNeedsRefresh(newer, now), "newer dbUpdate should trigger refresh")
+
+	// Normal case: same time does not trigger refresh
+	assert.False(t, ticketNeedsRefresh(now, now), "equal times should not trigger refresh")
+
+	// Normal case: older data does not trigger refresh
+	assert.False(t, ticketNeedsRefresh(older, now), "older dbUpdate should not trigger refresh")
+
+	// Edge case: empty DB (zero lastUpdate) with new data should trigger refresh
+	assert.True(t, ticketNeedsRefresh(now, zero), "first data from empty DB should trigger refresh")
+
+	// Edge case: both zero should not trigger refresh
+	assert.False(t, ticketNeedsRefresh(zero, zero), "both zero should not trigger refresh")
+
+	// Edge case: zero dbUpdate with non-zero lastUpdate should not trigger refresh
+	assert.False(t, ticketNeedsRefresh(zero, now), "zero dbUpdate should not trigger refresh")
 }
 
 type mockStore struct{}

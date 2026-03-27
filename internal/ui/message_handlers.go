@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -15,7 +16,27 @@ import (
 	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
+// Performance counters for debug instrumentation (--debug flag).
+// These track the ticket refresh cycle to diagnose CPU burn issues.
+var (
+	perfTicketCheckCount   int64
+	perfLastCheckTime      time.Time
+	perfAutoRefreshCount   int64
+	perfLastRefreshTime    time.Time
+	perfTicketsLoadedCount int64
+	perfLastLoadedTime     time.Time
+)
+
 func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) {
+	perfTicketsLoadedCount++
+	now := time.Now()
+	if m.app.Opts.Debug {
+		sinceLast := now.Sub(perfLastLoadedTime)
+		fmt.Fprintf(os.Stderr, "[DEBUG][perf] ticketsLoaded #%d lastLoadAgo=%v count=%d goroutines=%d\n",
+			perfTicketsLoadedCount, sinceLast.Round(time.Millisecond), len(msg), runtime.NumGoroutine())
+	}
+	perfLastLoadedTime = now
+
 	var prevTicketID string
 	if i, ok := m.ticketList.SelectedItem().(ticketItem); ok {
 		prevTicketID = i.ticket.ID
@@ -356,6 +377,15 @@ func (m UIModel) handleWorktreeSelected(msg WorktreeSelectedMsg) (tea.Model, tea
 }
 
 func (m UIModel) handleTicketUpdateCheck() (tea.Model, tea.Cmd) {
+	perfTicketCheckCount++
+	now := time.Now()
+	if m.app.Opts.Debug {
+		sinceLast := now.Sub(perfLastCheckTime)
+		fmt.Fprintf(os.Stderr, "[DEBUG][perf] ticketUpdateCheck #%d lastCheckAgo=%v lastDBUpdate=%v goroutines=%d\n",
+			perfTicketCheckCount, sinceLast.Round(time.Millisecond), m.lastTicketUpdate, runtime.NumGoroutine())
+	}
+	perfLastCheckTime = now
+
 	if m.app.Project() == nil {
 		return m, tea.Tick(ticketPollingInterval, func(t time.Time) tea.Msg {
 			return ticketUpdateCheckMsg{}
@@ -368,7 +398,7 @@ func (m UIModel) handleTicketUpdateCheck() (tea.Model, tea.Cmd) {
 			return ticketUpdateCheckMsg{}
 		})
 	}
-	return m, checkTicketUpdatesCmd(store, m.lastTicketUpdate)
+	return m, checkTicketUpdatesCmd(store, m.lastTicketUpdate, m.app.Opts.Debug)
 }
 
 func (m UIModel) handleTicketUpdateCheckNeeded() (tea.Model, tea.Cmd) {
@@ -378,13 +408,22 @@ func (m UIModel) handleTicketUpdateCheckNeeded() (tea.Model, tea.Cmd) {
 }
 
 func (m UIModel) handleTicketsAutoRefreshed(msg ticketsAutoRefreshedMsg) (tea.Model, tea.Cmd) {
+	perfAutoRefreshCount++
+	now := time.Now()
+	if m.app.Opts.Debug {
+		sinceLast := now.Sub(perfLastRefreshTime)
+		fmt.Fprintf(os.Stderr, "[DEBUG][perf] ticketsAutoRefreshed #%d lastRefreshAgo=%v dbUpdatedAt=%v goroutines=%d\n",
+			perfAutoRefreshCount, sinceLast.Round(time.Millisecond), msg.dbUpdatedAt, runtime.NumGoroutine())
+	}
+	perfLastRefreshTime = now
+
 	if !msg.dbUpdatedAt.IsZero() {
 		m.lastTicketUpdate = msg.dbUpdatedAt
 	}
 	m.refreshedRecently = true
 	m.refreshAnimationFrame = 0
 
-	cmds := []tea.Cmd{loadTicketsCmd(m.app.Project().Store()), discoverWorktreesCmd(m.app)}
+	cmds := []tea.Cmd{loadTicketsCmd(m.app.Project().Store(), m.app.Opts.Debug), discoverWorktreesCmd(m.app)}
 
 	if m.app.Fonts.HasNerdFont {
 		cmds = append(cmds, tea.Tick(animationTickInterval, func(t time.Time) tea.Msg {

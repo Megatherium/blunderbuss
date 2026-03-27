@@ -38,9 +38,21 @@ func startServerAndRetryCmd(myApp *app.App, store *dolt.Store) tea.Cmd {
 	}
 }
 
-func loadTicketsCmd(store data.TicketStore) tea.Cmd {
+func loadTicketsCmd(store data.TicketStore, debug bool) tea.Cmd {
 	return func() tea.Msg {
+		start := time.Now()
 		tickets, err := store.ListTickets(context.Background(), data.TicketFilter{})
+		elapsed := time.Since(start)
+
+		if debug {
+			count := -1
+			if err == nil {
+				count = len(tickets)
+			}
+			fmt.Fprintf(os.Stderr, "[DEBUG][perf] ListTickets() took %v count=%d err=%v\n",
+				elapsed.Round(time.Microsecond), count, err)
+		}
+
 		if err != nil {
 			return errMsg{err: err, showRetryOptions: true}
 		}
@@ -72,6 +84,13 @@ func extractRepoRoot(beadsDir string) string {
 
 func discoverWorktreesCmd(myApp *app.App) tea.Cmd {
 	return func() tea.Msg {
+		start := time.Now()
+		if myApp.Opts.Debug {
+			defer func() {
+				fmt.Fprintf(os.Stderr, "[DEBUG][perf] discoverWorktreesCmd took %v\n", time.Since(start).Round(time.Millisecond))
+			}()
+		}
+
 		projects := myApp.GetProjects()
 		if myApp.Opts.Debug {
 			fmt.Fprintf(os.Stderr, "[DEBUG] discoverWorktreesCmd: found %d projects\n", len(projects))
@@ -364,9 +383,25 @@ func clearAllStoppedAgentsCmd(agents []agentToClear) tea.Cmd {
 
 // Ticket auto-refresh commands
 
-func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time) tea.Cmd {
+// ticketNeedsRefresh returns true when the database has newer data than what we've loaded.
+// Uses After() to prevent false positives from stale DB timestamps, but also handles
+// the zero-time edge case: when lastUpdate is zero (empty DB), any non-zero dbUpdate means new data.
+func ticketNeedsRefresh(dbUpdate, lastUpdate time.Time) bool {
+	return dbUpdate.After(lastUpdate) || (lastUpdate.IsZero() && !dbUpdate.IsZero())
+}
+
+func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time, debug bool) tea.Cmd {
 	return func() tea.Msg {
+		start := time.Now()
 		dbUpdate, err := store.LatestUpdate(context.Background())
+		elapsed := time.Since(start)
+
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG][perf] LatestUpdate() took %v dbUpdate=%v lastUpdate=%v newer=%v err=%v\n",
+				elapsed.Round(time.Microsecond), dbUpdate, lastUpdate,
+				err == nil && ticketNeedsRefresh(dbUpdate, lastUpdate), err)
+		}
+
 		if err != nil {
 			// Check if this is a connection error for server-mode stores
 			if doltStore, ok := store.(*dolt.Store); ok &&
@@ -378,7 +413,9 @@ func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time) tea.Cmd
 			return ticketUpdateCheckNeededMsg{}
 		}
 
-		if !dbUpdate.Equal(lastUpdate) && !dbUpdate.IsZero() {
+		// Only refresh when the database has NEWER data than what we've already loaded.
+		// ticketNeedsRefresh handles both the normal case (After) and the empty-DB edge case.
+		if ticketNeedsRefresh(dbUpdate, lastUpdate) {
 			return ticketsAutoRefreshedMsg{dbUpdatedAt: dbUpdate}
 		}
 

@@ -30,7 +30,7 @@ func (m UIModel) handleRefreshKeyMsg() (tea.Model, tea.Cmd, bool) {
 	if m.state == ViewStateMatrix && m.focus == FocusTickets {
 		m.state = ViewStateLoading
 		return m, tea.Batch(
-			loadTicketsCmd(m.app.Project().Store()),
+			loadTicketsCmd(m.app.Project().Store(), m.app.Opts.Debug),
 			discoverWorktreesCmd(m.app),
 			m.reloadTemplates(), // Also reload templates on refresh
 		), true
@@ -178,7 +178,7 @@ func (m UIModel) handleErrorStateKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 	case "r", "R":
 		if m.retryStore != nil {
 			m.state = ViewStateLoading
-			return m, loadTicketsCmd(m.retryStore), true
+			return m, loadTicketsCmd(m.retryStore, m.app.Opts.Debug), true
 		}
 	case "s", "S":
 		if m.retryStore != nil {

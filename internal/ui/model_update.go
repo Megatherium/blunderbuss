@@ -229,11 +229,12 @@ func (m UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// at a rate proportional to overall UI activity, matching old behavior.
 	m.sidebar.TickAnimation()
 
-	if m.app.Opts.Debug && time.Since(lastPerfLog) >= 30*time.Second {
+	if m.app.Opts.Debug && time.Since(lastPerfLog) >= 10*time.Second {
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
-		fmt.Fprintf(os.Stderr, "[DEBUG][i29d] perf: goroutines=%d heapMB=%.1f agents=%d warnings=%d animFrame=%d\n",
-			runtime.NumGoroutine(), float64(memStats.HeapAlloc)/1024/1024, len(m.agents), len(m.warnings), m.sidebar.animFrame)
+		fmt.Fprintf(os.Stderr, "[DEBUG][perf] heartbeat: goroutines=%d heapMB=%.1f agents=%d warnings=%d animFrame=%d refreshChecks=%d autoRefreshes=%d ticketLoads=%d\n",
+			runtime.NumGoroutine(), float64(memStats.HeapAlloc)/1024/1024, len(m.agents), len(m.warnings), m.sidebar.animFrame,
+			perfTicketCheckCount, perfAutoRefreshCount, perfTicketsLoadedCount)
 		lastPerfLog = time.Now()
 	}
 
