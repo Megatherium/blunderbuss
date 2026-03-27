@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/megatherium/blunderbust/internal/data"
+	"github.com/megatherium/blunderbust/internal/domain"
 )
 
 func TestHandleQuitKeyMsg_ExitsFromAgentOutput(t *testing.T) {
@@ -354,4 +357,50 @@ func TestHandleGlobalKeyMsg_NonMatrixState(t *testing.T) {
 	assert.Nil(t, cmd, "should not return quit command in agent output state (returns to matrix instead)")
 	assert.Equal(t, ViewStateMatrix, newModel.(UIModel).state, "should return to matrix state")
 	assert.Empty(t, newModel.(UIModel).viewingAgentID, "should clear viewing agent ID")
+}
+
+func TestHandleFilePickerKeyMsg_FileSelectUpdatesRecents(t *testing.T) {
+	tempDir := t.TempDir()
+	templatePath := filepath.Join(tempDir, "test.tmpl")
+	if err := os.WriteFile(templatePath, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create template file: %v", err)
+	}
+
+	app := newTestApp()
+	model := NewUIModel(app, []domain.Harness{})
+	model.state = ViewStateFilePicker
+	model.filePickerPurpose = fpPurposeTemplate
+	model.filepicker.FileAllowed = true
+	model.filepicker.AllowedTypes = []string{".tmpl"}
+	model.filepicker.CurrentDirectory = tempDir
+	model.filepicker.Path = "/non-empty-path"
+	model.filepicker.ShowAllExts = false
+
+	initCmd := model.filepicker.Init()
+	initMsg := initCmd()
+
+	newFp, fpCmd := model.filepicker.Update(initMsg)
+	model.filepicker = newFp
+	if fpCmd != nil {
+		fpCmd()
+	}
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	newModel, cmd, handled := model.handleFilePickerKeyMsg(enterKey)
+	updatedModel := newModel.(UIModel)
+
+	if !handled {
+		t.Fatal("Expected Enter to be handled in filepicker")
+	}
+	if cmd == nil {
+		t.Fatal("Expected command to be returned when file is selected (should include RecentsChangedMsg)")
+	}
+
+	if len(updatedModel.filepicker.Recents) == 0 {
+		t.Error("Expected Recents to be updated when file is selected")
+	}
+
+	if updatedModel.filepicker.Recents[0] != templatePath {
+		t.Errorf("Expected selected file to be first in recents, got %s", updatedModel.filepicker.Recents[0])
+	}
 }

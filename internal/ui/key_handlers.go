@@ -151,7 +151,7 @@ func (m UIModel) handleFilePickerKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 	if m.filePickerPurpose == fpPurposeTemplate {
 		didSelect, path := m.filepicker.DidSelectFile(msg)
 		if didSelect {
-			return m, m.loadTemplateFromFile(path), true
+			return m, tea.Batch(cmd, m.loadTemplateFromFile(path)), true
 		}
 	}
 
