@@ -93,7 +93,6 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		m.state = ViewStateMatrix
 	}
 	m.updateSizes()
-	m.lastTicketUpdate = time.Now()
 	m.dirtyTicket = true
 
 	// Restore filter state if one was active.
