@@ -9,7 +9,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -194,13 +193,17 @@ func TestSaveTUIConfig_ZeroMaxRecents(t *testing.T) {
 func TestLoadTUIConfig_FileNotFound(t *testing.T) {
 	configPath := "/nonexistent/path/tui_config.yaml"
 
-	_, err := LoadTUIConfig(configPath)
-	if err == nil {
-		t.Fatal("Expected error when loading nonexistent file")
+	cfg, err := LoadTUIConfig(configPath)
+	if err != nil {
+		t.Fatalf("Expected no error when file does not exist, got: %v", err)
 	}
 
-	if !os.IsNotExist(err) && !strings.Contains(err.Error(), "not found") {
-		t.Errorf("Expected file not found error, got: %v", err)
+	if cfg.FilePickerRecents != nil {
+		t.Errorf("Expected FilePickerRecents to be nil, got %v", cfg.FilePickerRecents)
+	}
+
+	if cfg.FilePickerMaxRecents != DefaultMaxRecents {
+		t.Errorf("Expected FilePickerMaxRecents to be %d, got %d", DefaultMaxRecents, cfg.FilePickerMaxRecents)
 	}
 }
 

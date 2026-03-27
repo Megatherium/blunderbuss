@@ -20,13 +20,16 @@ type yamlTUIConfig struct {
 }
 
 // LoadTUIConfig reads and parses a TUI YAML configuration file.
-// Returns actionable errors for parse errors or file not found.
+// If the file does not exist, returns defaults (no error).
+// Returns actionable errors for parse errors or other I/O failures.
 // If FilePickerMaxRecents is not specified or invalid, defaults to DefaultMaxRecents.
 func LoadTUIConfig(path string) (*TUIConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("TUI config file not found: %s", path)
+			return &TUIConfig{
+				FilePickerMaxRecents: DefaultMaxRecents,
+			}, nil
 		}
 		return nil, fmt.Errorf("failed to read TUI config file %s: %w", path, err)
 	}
