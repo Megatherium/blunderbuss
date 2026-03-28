@@ -253,6 +253,22 @@ func (m *Model) addRecent(path string) {
 	}
 }
 
+func (m *Model) PruneRecents() {
+	if len(m.Recents) == 0 {
+		return
+	}
+	valid := make([]string, 0, len(m.Recents))
+	for _, r := range m.Recents {
+		if _, err := os.Stat(r); err == nil {
+			valid = append(valid, r)
+		}
+	}
+	m.Recents = valid
+	if m.recentSelect >= len(m.Recents) {
+		m.recentSelect = len(m.Recents) - 1
+	}
+}
+
 func (m Model) readDir(path string, showHidden bool) tea.Cmd {
 	return func() tea.Msg {
 		dirEntries, err := os.ReadDir(path)
@@ -332,8 +348,11 @@ func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 }
 
 // didSelectRecent handles selection from the recent files list.
-func (m Model) didSelectRecent(msg tea.Msg) (didSelect bool, path string) {
+func (m *Model) didSelectRecent(msg tea.Msg) (didSelect bool, path string) {
 	if len(m.Recents) == 0 {
+		return false, ""
+	}
+	if m.recentSelect < 0 || m.recentSelect >= len(m.Recents) {
 		return false, ""
 	}
 	keyMsg, ok := msg.(tea.KeyMsg)
@@ -343,10 +362,14 @@ func (m Model) didSelectRecent(msg tea.Msg) (didSelect bool, path string) {
 	path = m.Recents[m.recentSelect]
 	info, err := os.Stat(path)
 	if err != nil {
+		m.Recents = append(m.Recents[:m.recentSelect], m.Recents[m.recentSelect+1:]...)
+		if m.recentSelect >= len(m.Recents) {
+			m.recentSelect = len(m.Recents) - 1
+		}
 		return false, ""
 	}
 	isDir := info.IsDir()
-	if (!isDir && m.FileAllowed) || (isDir && m.DirAllowed) && m.Path != "" {
+	if (!isDir && m.FileAllowed) || (isDir && m.DirAllowed && m.Path != "") {
 		return true, path
 	}
 	return false, ""
@@ -722,26 +745,27 @@ func (m Model) View() string {
 }
 
 // DidSelectFile returns whether a user has selected a file (on this msg).
-func (m Model) DidSelectFile(msg tea.Msg) (didSelect bool, path string) {
-	didSelect, path = m.didSelectFile(msg)
+// It also returns the updated model in case the internal state was mutated (e.g., pruning dead recents).
+func (m *Model) DidSelectFile(msg tea.Msg) (Model, bool, string) {
+	didSelect, path := m.didSelectFile(msg)
 	if didSelect && m.canSelect(path) {
-		return true, path
+		return *m, true, path
 	}
-	return false, ""
+	return *m, false, ""
 }
 
 // DidSelectDisabledFile returns whether a user tried to select a disabled file
 // (on this msg). This is necessary only if you would like to warn the user that
 // they tried to select a disabled file.
-func (m Model) DidSelectDisabledFile(msg tea.Msg) (didSelect bool, path string) {
-	didSelect, path = m.didSelectFile(msg)
+func (m *Model) DidSelectDisabledFile(msg tea.Msg) (Model, bool, string) {
+	didSelect, path := m.didSelectFile(msg)
 	if didSelect && !m.canSelect(path) {
-		return true, path
+		return *m, true, path
 	}
-	return false, ""
+	return *m, false, ""
 }
 
-func (m Model) didSelectFile(msg tea.Msg) (didSelect bool, path string) {
+func (m *Model) didSelectFile(msg tea.Msg) (didSelect bool, path string) {
 	if m.recentFocus {
 		return m.didSelectRecent(msg)
 	}

@@ -299,6 +299,7 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 		return m, loadTicketsCmd(nil, m.app.Opts.Debug), true
 	case OpenFilePickerMsg:
+		m.filepicker.PruneRecents()
 		m.state = ViewStateFilePicker
 		m.pendingProjectPath = ""
 		return m, m.filepicker.Init(), true
