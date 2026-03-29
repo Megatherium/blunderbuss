@@ -242,20 +242,14 @@ func (m *Model) popView() (selected, minimum, maximum int) {
 
 func (m *Model) addRecent(path string) {
 	filtered := make([]string, 0, len(m.Recents))
-	oldIndex := -1
-	for i, r := range m.Recents {
+	for _, r := range m.Recents {
 		if r != path {
 			filtered = append(filtered, r)
-		} else {
-			oldIndex = i
 		}
 	}
 	m.Recents = append([]string{path}, filtered...)
 	if m.MaxRecents > 0 && len(m.Recents) > m.MaxRecents {
 		m.Recents = m.Recents[:m.MaxRecents]
-	}
-	if oldIndex == m.recentSelect {
-		m.recentSelect = 0
 	}
 }
 

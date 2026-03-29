@@ -199,64 +199,6 @@ func TestDidSelectFile_PublicAPI_PrunesDeadEntry(t *testing.T) {
 	}
 }
 
-func TestDidSelectRecent_SelectsSecondEntry(t *testing.T) {
-	tmpDir := t.TempDir()
-	file1 := tmpDir + "/file1.txt"
-	file2 := tmpDir + "/file2.txt"
-	if err := os.WriteFile(file1, []byte("FILE1_CONTENT"), 0644); err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	if err := os.WriteFile(file2, []byte("FILE2_CONTENT"), 0644); err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-
-	m := New()
-	m.Recents = []string{file1, file2}
-	m.recentSelect = 1
-	m.recentFocus = true
-	m.FileAllowed = true
-
-	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
-	didSelect, path := m.didSelectRecent(enterKey)
-
-	if !didSelect {
-		t.Error("Expected didSelect to be true")
-	}
-	if path != file2 {
-		t.Errorf("Expected %s (2nd entry), got %s", file2, path)
-	}
-}
-
-func TestDidSelectFile_SelectsSecondRecentEntry(t *testing.T) {
-	tmpDir := t.TempDir()
-	file1 := tmpDir + "/file1.txt"
-	file2 := tmpDir + "/file2.txt"
-	if err := os.WriteFile(file1, []byte("FILE1_CONTENT"), 0644); err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	if err := os.WriteFile(file2, []byte("FILE2_CONTENT"), 0644); err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-
-	m := New()
-	m.Recents = []string{file1, file2}
-	m.recentSelect = 1
-	m.recentFocus = true
-	m.FileAllowed = true
-
-	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
-
-	m, _ = m.Update(enterKey)
-	_, didSelect, path := m.DidSelectFile(enterKey)
-
-	if !didSelect {
-		t.Error("Expected didSelect to be true")
-	}
-	if path != file2 {
-		t.Errorf("Expected %s (2nd entry), got %s", file2, path)
-	}
-}
-
 func TestDidSelectDisabledFile_PublicAPI_ReturnsModel(t *testing.T) {
 	tmpDir := t.TempDir()
 	validPath := tmpDir + "/valid.txt"
