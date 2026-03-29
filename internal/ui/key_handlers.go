@@ -21,12 +21,14 @@ func (m UIModel) handleModalKeyMsg() (tea.Model, tea.Cmd, bool) {
 }
 
 func (m UIModel) handleQuitKeyMsg() (tea.Model, tea.Cmd, bool) {
-	if m.state == ViewStateAgentOutput {
+	switch m.state {
+	case ViewStateAgentOutput:
 		m.viewingAgentID = ""
 		m.state = ViewStateMatrix
 		return m, nil, true
+	default:
+		return m, tea.Quit, true
 	}
-	return m, tea.Quit, true
 }
 
 func (m UIModel) handleRefreshKeyMsg() (tea.Model, tea.Cmd, bool) {
@@ -217,18 +219,22 @@ func (m UIModel) handleGlobalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 
+	if key.Matches(msg, m.keys.Back) {
+		if model, cmd, handled := m.handleBackKeyMsg(); handled {
+			return model, cmd, true
+		}
+	}
+
+	if m.state == ViewStateInlineEdit {
+		return m.handleInlineEditKeyMsg(msg)
+	}
+
 	if key.Matches(msg, m.keys.Quit) {
 		return m.handleQuitKeyMsg()
 	}
 
 	if key.Matches(msg, m.keys.Refresh) {
 		if model, cmd, handled := m.handleRefreshKeyMsg(); handled {
-			return model, cmd, true
-		}
-	}
-
-	if key.Matches(msg, m.keys.Back) {
-		if model, cmd, handled := m.handleBackKeyMsg(); handled {
 			return model, cmd, true
 		}
 	}
@@ -277,10 +283,6 @@ func (m UIModel) handleGlobalKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		if m.state == ViewStateConfirm {
 			return m.handleEditTemplateKey()
 		}
-	}
-
-	if m.state == ViewStateInlineEdit {
-		return m.handleInlineEditKeyMsg(msg)
 	}
 
 	return m, nil, false
