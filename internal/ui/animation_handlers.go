@@ -8,6 +8,7 @@ import (
 )
 
 func (m UIModel) handleAnimationTick(msg animationTickMsg) (tea.Model, tea.Cmd) {
+	m.animState.LoopRunning = true
 	elapsed := msg.Time.Sub(m.animState.StartTime).Seconds()
 
 	// Pulse cycle: 0 to 1 to 0 over PulsePeriodSeconds

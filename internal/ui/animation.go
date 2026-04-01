@@ -47,6 +47,11 @@ type AnimationState struct {
 	PulsePhase float64   // 0-1, sine wave phase (0=darkest valley, 1=brightest peak)
 	StartTime  time.Time // When animation started, used to calculate elapsed time
 
+	// LoopRunning prevents duplicate animation tick loops.
+	// Without this guard, each lockInMsg spawns a new concurrent 30fps loop,
+	// causing CPU load to multiply with every Enter press.
+	LoopRunning bool
+
 	// Lock-in flash state - provides satisfying "button press" feedback on selection
 	LockInActive    bool        // True when flash is currently visible
 	LockInIntensity float64     // 1.0 (full bright) → 0.0 (normal), decays linearly

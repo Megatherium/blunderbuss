@@ -394,17 +394,48 @@ func TestLockInFlashDecayCalculation(t *testing.T) {
 }
 
 func TestLockInMsgHandler(t *testing.T) {
-	// This tests the message structure that's handled in model.go
-	// Verify the message can be created with the correct column
 	msg := lockInMsg{Column: FocusHarness}
 
 	if msg.Column != FocusHarness {
 		t.Errorf("lockInMsg.Column should be FocusHarness, got %v", msg.Column)
 	}
 
-	// Verify other focus columns work too
 	msg2 := lockInMsg{Column: FocusTickets}
 	if msg2.Column != FocusTickets {
 		t.Errorf("lockInMsg.Column should be FocusTickets, got %v", msg2.Column)
+	}
+}
+
+func TestLockInMsg_NoDuplicateAnimationLoops(t *testing.T) {
+	model := NewTestModel()
+
+	newM, cmd, handled := model.handleAgentMsgs(lockInMsg{Column: FocusTickets})
+	if !handled {
+		t.Fatal("lockInMsg should be handled by handleAgentMsgs")
+	}
+	if cmd == nil {
+		t.Fatal("First lockInMsg should start animation loop (return animationTickCmd)")
+	}
+	returned := newM.(UIModel)
+	if !returned.animState.LoopRunning {
+		t.Fatal("First lockInMsg should set LoopRunning=true")
+	}
+
+	_, cmd2, _ := returned.handleAgentMsgs(lockInMsg{Column: FocusHarness})
+	if cmd2 != nil {
+		t.Fatal("Second lockInMsg should NOT start another animation loop")
+	}
+}
+
+func TestAnimationTick_SetsLoopRunning(t *testing.T) {
+	model := NewTestModel()
+	model.animState.StartTime = time.Now()
+	model.animState.LoopRunning = false
+
+	msg := animationTickMsg{Time: model.animState.StartTime}
+	newModel, _ := model.handleAnimationTick(msg)
+
+	if !newModel.(UIModel).animState.LoopRunning {
+		t.Fatal("handleAnimationTick should set LoopRunning=true")
 	}
 }

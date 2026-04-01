@@ -360,6 +360,10 @@ func (m UIModel) handleAgentMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.animState.LockInIntensity = 1.0
 		m.animState.LockInStartTime = time.Now()
 		m.animState.LockInTarget = msg.Column
+		if m.animState.LoopRunning {
+			return m, nil, true
+		}
+		m.animState.LoopRunning = true
 		return m, animationTickCmd(), true
 	case AgentClearedMsg:
 		newM, cmd := m.HandleAgentCleared(msg)
