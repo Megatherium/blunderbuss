@@ -541,6 +541,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				if key.Matches(msg, m.KeyMap.Select) {
 					m.Path = m.Recents[m.recentSelect]
 					m.addRecent(m.Path)
+					m.recentSelect = 0
 					cmd = func() tea.Msg { return RecentsChangedMsg{Recents: m.Recents} }
 				}
 				stat, err := os.Stat(m.Recents[m.recentSelect])
@@ -801,7 +802,7 @@ func (m *Model) didSelectFile(msg tea.Msg) (didSelect bool, path string) {
 			}
 		}
 
-		if (!isDir && m.FileAllowed) || (isDir && m.DirAllowed) && m.Path != "" {
+		if (!isDir && m.FileAllowed) || (isDir && m.DirAllowed && m.Path != "") {
 			return true, m.Path
 		}
 

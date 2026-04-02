@@ -226,6 +226,150 @@ func TestDidSelectDisabledFile_PublicAPI_ReturnsModel(t *testing.T) {
 	}
 }
 
+func TestUpdate_RecentSelection_ResetsCursorToZero(t *testing.T) {
+	tmpDir := t.TempDir()
+	file1 := tmpDir + "/file1.txt"
+	file2 := tmpDir + "/file2.txt"
+	for _, f := range []string{file1, file2} {
+		if err := os.WriteFile(f, []byte("content"), 0644); err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+	}
+
+	m := New()
+	m.Recents = []string{file1, file2}
+	m.recentSelect = 1
+	m.recentFocus = true
+	m.FileAllowed = true
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	m, _ = m.Update(enterKey)
+
+	if m.Path != file2 {
+		t.Errorf("Expected Path to be %s, got %s", file2, m.Path)
+	}
+	if m.recentSelect != 0 {
+		t.Errorf("Expected recentSelect to be 0 after addRecent, got %d", m.recentSelect)
+	}
+	if m.Recents[0] != file2 {
+		t.Errorf("Expected Recents[0] to be %s (moved to front), got %s", file2, m.Recents[0])
+	}
+}
+
+func TestDidSelectFile_FullFlow_SelectsSecondRecent(t *testing.T) {
+	tmpDir := t.TempDir()
+	file1 := tmpDir + "/file1.txt"
+	file2 := tmpDir + "/file2.txt"
+	for _, f := range []string{file1, file2} {
+		if err := os.WriteFile(f, []byte("content"), 0644); err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+	}
+
+	m := New()
+	m.Recents = []string{file1, file2}
+	m.recentSelect = 1
+	m.recentFocus = true
+	m.FileAllowed = true
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	m, _ = m.Update(enterKey)
+	_, didSelect, path := m.DidSelectFile(enterKey)
+
+	if !didSelect {
+		t.Error("Expected didSelect to be true")
+	}
+	if path != file2 {
+		t.Errorf("Expected path %s (2nd entry), got %s", file2, path)
+	}
+}
+
+func TestDidSelectFile_FullFlow_SelectsThirdRecent(t *testing.T) {
+	tmpDir := t.TempDir()
+	file1 := tmpDir + "/file1.txt"
+	file2 := tmpDir + "/file2.txt"
+	file3 := tmpDir + "/file3.txt"
+	for _, f := range []string{file1, file2, file3} {
+		if err := os.WriteFile(f, []byte("content"), 0644); err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+	}
+
+	m := New()
+	m.Recents = []string{file1, file2, file3}
+	m.recentSelect = 2
+	m.recentFocus = true
+	m.FileAllowed = true
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	m, _ = m.Update(enterKey)
+	_, didSelect, path := m.DidSelectFile(enterKey)
+
+	if !didSelect {
+		t.Error("Expected didSelect to be true")
+	}
+	if path != file3 {
+		t.Errorf("Expected path %s (3rd entry), got %s", file3, path)
+	}
+}
+
+func TestDidSelectFile_FullFlow_SelectsFirstRecent(t *testing.T) {
+	tmpDir := t.TempDir()
+	file1 := tmpDir + "/file1.txt"
+	file2 := tmpDir + "/file2.txt"
+	for _, f := range []string{file1, file2} {
+		if err := os.WriteFile(f, []byte("content"), 0644); err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+	}
+
+	m := New()
+	m.Recents = []string{file1, file2}
+	m.recentSelect = 0
+	m.recentFocus = true
+	m.FileAllowed = true
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	m, _ = m.Update(enterKey)
+	_, didSelect, path := m.DidSelectFile(enterKey)
+
+	if !didSelect {
+		t.Error("Expected didSelect to be true")
+	}
+	if path != file1 {
+		t.Errorf("Expected path %s (1st entry), got %s", file1, path)
+	}
+	if m.recentSelect != 0 {
+		t.Errorf("Expected recentSelect to remain 0, got %d", m.recentSelect)
+	}
+}
+
+func TestDidSelectFile_FullFlow_SelectsDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	subDir := tmpDir + "/subdir"
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	m := New()
+	m.Recents = []string{subDir}
+	m.recentSelect = 0
+	m.recentFocus = true
+	m.DirAllowed = true
+	m.Path = subDir
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	m, _ = m.Update(enterKey)
+	_, didSelect, path := m.DidSelectFile(enterKey)
+
+	if !didSelect {
+		t.Error("Expected didSelect to be true for directory recent")
+	}
+	if path != subDir {
+		t.Errorf("Expected path %s (directory), got %s", subDir, path)
+	}
+}
+
 func TestModel_SelectedResetOnFileListChange(t *testing.T) {
 	m := New()
 	m.CurrentDirectory = t.TempDir()
