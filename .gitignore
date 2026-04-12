@@ -64,3 +64,6 @@ repomix*
 .vtcode
 vtcode.toml
 mise.toml
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key

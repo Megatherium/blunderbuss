@@ -2,5 +2,6 @@
   "database": "dolt",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "beads_bb"
+  "dolt_database": "beads_bb",
+  "project_id": "d82fd995-a48e-48d4-afa1-2c3edcae3f96"
 }
