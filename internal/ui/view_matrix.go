@@ -13,12 +13,19 @@ type MatrixConfig struct {
 
 	ShowSidebar bool
 
+	GridMode GridMode
+
 	// Column widths
 	SidebarWidth int
 	TWidth       int
 	HWidth       int
 	MWidth       int
 	AWidth       int
+
+	THeight int
+	HHeight int
+	MHeight int
+	AHeight int
 
 	// Column disabled states
 	ModelColumnDisabled bool
@@ -54,34 +61,45 @@ func RenderMatrix(cfg MatrixConfig) string {
 		return "Initializing..."
 	}
 
-	listHeight := cfg.Height - filterHeight
-
 	theme := cfg.Theme
 
 	activeColor := getActiveColor(cfg.AnimState, cfg.Focus, theme)
 	glowColor := getGlowColor(cfg.AnimState.PulsePhase, &theme)
 
-	activeBorder := createActiveBorder(listHeight, activeColor, glowColor, theme)
-	inactiveBorder := createInactiveBorder(listHeight, theme)
-
-	capView := func(view string, maxW int) string {
-		return lipgloss.NewStyle().MaxHeight(listHeight - 2).MaxWidth(maxW).Render(view)
+	activeBorder := func(h int) func(int) lipgloss.Style {
+		return createActiveBorder(h, activeColor, glowColor, theme)
 	}
-	faintCapView := func(view string, maxW int) string {
-		return lipgloss.NewStyle().Faint(true).MaxHeight(listHeight - 2).MaxWidth(maxW).Render(view)
+	inactiveBorder := func(h int) func(int) lipgloss.Style {
+		return createInactiveBorder(h, theme)
+	}
+
+	capView := func(h int) func(string, int) string {
+		return func(view string, maxW int) string {
+			return lipgloss.NewStyle().MaxHeight(h - 2).MaxWidth(maxW).Render(view)
+		}
+	}
+	faintCapView := func(h int) func(string, int) string {
+		return func(view string, maxW int) string {
+			return lipgloss.NewStyle().Faint(true).MaxHeight(h - 2).MaxWidth(maxW).Render(view)
+		}
 	}
 
 	// Render columns
 	tView := renderMatrixColumn(cfg.TicketView, cfg.TWidth, cfg.Focus == FocusTickets,
-		cfg.TicketTitle, theme, activeBorder, inactiveBorder, capView, faintCapView)
+		cfg.TicketTitle, theme, activeBorder(cfg.THeight), inactiveBorder(cfg.THeight), capView(cfg.THeight), faintCapView(cfg.THeight))
 
 	hView := renderMatrixColumn(cfg.HarnessView, cfg.HWidth, cfg.Focus == FocusHarness,
-		cfg.HarnessTitle, theme, activeBorder, inactiveBorder, capView, faintCapView)
+		cfg.HarnessTitle, theme, activeBorder(cfg.HHeight), inactiveBorder(cfg.HHeight), capView(cfg.HHeight), faintCapView(cfg.HHeight))
 
-	mView := renderModelColumn(cfg, theme, listHeight, capView, faintCapView)
-	aView := renderAgentColumn(cfg, theme, listHeight, capView, faintCapView)
+	mView := renderModelColumn(cfg, theme, cfg.MHeight, capView(cfg.MHeight), faintCapView(cfg.MHeight))
+	aView := renderAgentColumn(cfg, theme, cfg.AHeight, capView(cfg.AHeight), faintCapView(cfg.AHeight))
 
 	matrixWidth := cfg.TWidth + cfg.HWidth + cfg.MWidth + cfg.AWidth + 6
+	if cfg.GridMode == Grid2x2 {
+		matrixWidth = cfg.TWidth + cfg.HWidth + 2
+	} else if cfg.GridMode == Grid1x4 {
+		matrixWidth = cfg.TWidth
+	}
 
 	filterLabel := lipgloss.NewStyle().
 		Bold(true).
@@ -102,15 +120,26 @@ func RenderMatrix(cfg MatrixConfig) string {
 		Padding(0, 1).
 		Render(filterContent)
 
-	matrixBox := lipgloss.JoinHorizontal(lipgloss.Top,
-		tView,
-		lipgloss.NewStyle().Width(2).Render("  "),
-		hView,
-		lipgloss.NewStyle().Width(2).Render("  "),
-		mView,
-		lipgloss.NewStyle().Width(2).Render("  "),
-		aView,
-	)
+	spacingX := lipgloss.NewStyle().Width(2).Render("  ")
+	spacingY := lipgloss.NewStyle().Height(1).Render("")
+
+	var matrixBox string
+	switch cfg.GridMode {
+	case Grid4x1:
+		matrixBox = lipgloss.JoinHorizontal(lipgloss.Top,
+			tView, spacingX, hView, spacingX, mView, spacingX, aView,
+		)
+	case Grid2x2:
+		topRow := lipgloss.JoinHorizontal(lipgloss.Top, tView, spacingX, hView)
+		bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, mView, spacingX, aView)
+		matrixBox = lipgloss.JoinVertical(lipgloss.Left, topRow, spacingY, bottomRow)
+	case Grid1x4:
+		matrixBox = lipgloss.JoinVertical(lipgloss.Left, tView, spacingY, hView, spacingY, mView, spacingY, aView)
+	default:
+		matrixBox = lipgloss.JoinHorizontal(lipgloss.Top,
+			tView, spacingX, hView, spacingX, mView, spacingX, aView,
+		)
+	}
 
 	rightPanelBox := lipgloss.JoinVertical(lipgloss.Top, filterBox, matrixBox)
 

@@ -23,10 +23,10 @@ func (m *UIModel) updateSizes() {
 	if m.ticketDel != nil {
 		m.ticketDel.SetWidth(ticketContentW)
 	}
-	m.ticketList.SetSize(ticketContentW, m.layout.InnerListHeight)
-	m.harnessList.SetSize(safeW(m.layout.HWidth), m.layout.InnerListHeight)
-	m.modelList.SetSize(safeW(m.layout.MWidth), m.layout.InnerListHeight)
-	m.agentList.SetSize(safeW(m.layout.AWidth), m.layout.InnerListHeight)
+	m.ticketList.SetSize(ticketContentW, m.layout.InnerTHeight)
+	m.harnessList.SetSize(safeW(m.layout.HWidth), m.layout.InnerHHeight)
+	m.modelList.SetSize(safeW(m.layout.MWidth), m.layout.InnerMHeight)
+	m.agentList.SetSize(safeW(m.layout.AWidth), m.layout.InnerAHeight)
 	m.sidebar.SetSize(m.layout.SidebarWidth, m.layout.Height)
 	m.help.Width = m.layout.Width
 
@@ -86,10 +86,15 @@ func (m UIModel) buildMatrixConfig() MatrixConfig {
 		Height:              m.layout.Height,
 		ShowSidebar:         m.showSidebar,
 		SidebarWidth:        m.layout.SidebarWidth,
+		GridMode:            m.layout.GridMode,
 		TWidth:              m.layout.TWidth,
 		HWidth:              m.layout.HWidth,
 		MWidth:              m.layout.MWidth,
 		AWidth:              m.layout.AWidth,
+		THeight:             m.layout.THeight,
+		HHeight:             m.layout.HHeight,
+		MHeight:             m.layout.MHeight,
+		AHeight:             m.layout.AHeight,
 		ModelColumnDisabled: m.modelColumnDisabled,
 		AgentColumnDisabled: m.agentColumnDisabled,
 		Focus:               m.focus,

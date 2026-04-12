@@ -82,16 +82,16 @@ func TestUIModel_UpdateSizes(t *testing.T) {
 
 	updatedM, _ := m.handleWindowSizeMsg(tea.WindowSizeMsg{Width: 20, Height: 5})
 	m = updatedM
-	assert.Equal(t, 60, m.layout.Width)
+	assert.Equal(t, 30, m.layout.Width)
 	assert.Equal(t, 10, m.layout.Height)
 
 	m.showSidebar = true
-	updatedM, _ = m.handleWindowSizeMsg(tea.WindowSizeMsg{Width: 100, Height: 30})
+	updatedM, _ = m.handleWindowSizeMsg(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = updatedM
 	assert.NotZero(t, m.layout.SidebarWidth)
 
 	m.showSidebar = false
-	updatedM, _ = m.handleWindowSizeMsg(tea.WindowSizeMsg{Width: 100, Height: 30})
+	updatedM, _ = m.handleWindowSizeMsg(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = updatedM
 	assert.Equal(t, 0, m.layout.SidebarWidth)
 }

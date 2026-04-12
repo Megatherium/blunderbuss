@@ -30,7 +30,7 @@ const (
 	filterHeight     = 3
 	statusBarHeight  = 1 // bubbles list status bar consumes 1 line
 	borderHeight     = 2 // thick border consumes 2 lines (top + bottom)
-	minWindowWidth   = 60
+	minWindowWidth   = 30
 	minWindowHeight  = 10
 	sidebarBaseWidth = 25
 	verticalMargins  = 2 // docStyle has Margin(1, 2) - 1 top + 1 bottom
