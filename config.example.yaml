@@ -40,17 +40,17 @@ harnesses:
     # You can list specific models, use "provider:ID" to include all active
     # models from a provider, or "discover:active" to include all active models
     # from all providers.
+    # Opencode adheres to the models.dev standard thus discover:active and provider: should work flawlessly
     models:
       - discover:active
       - provider:google
-      - claude-sonnet-4-20250514
-      - o3
+      - anthropic/claude-sonnet-4-6
+      - openai/o4-mini
     # Supported agent modes
     agents:
-      - coder
-      - task
-      - researcher
-      - debugger
+      - build
+      - plan
+      - debug
     # Environment variables to set when launching
     env:
       OPENCODE_LOG_LEVEL: "info"
@@ -59,9 +59,11 @@ harnesses:
   - name: amp
     # Simple command without template variables
     command_template: "amp"
-    prompt_template: "Pick up {{.TicketID}}: {{.TicketTitle}}"
+    #prompt_template: "Pick up {{.TicketID}}: {{.TicketTitle}}"
+    prompt_template: "@/home/user/projects/prompts/amp.md" # file-based loading, see below
     models:
-      - claude-sonnet-4-20250514
+      - smart
+      - deep
     # Empty agents list means this harness doesn't support agent selection
     agents: []
 
@@ -96,5 +98,5 @@ harnesses:
 # Default selections for quickdraw/blitzdraw modes (optional)
 defaults:
   harness: opencode
-  model: claude-sonnet-4-20250514
-  agent: coder
+  model: claude-sonnet-4-6
+  agent: plan
