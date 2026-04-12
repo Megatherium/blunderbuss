@@ -178,7 +178,7 @@ func TestTeatest_SidebarToggle(t *testing.T) {
 	m := NewUIModel(app, harnesses)
 	m.showSidebar = true
 
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(100, 40))
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 40))
 	defer func() { _ = tm.Quit() }()
 
 	// Wait for initial render with sidebar

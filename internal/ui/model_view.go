@@ -84,7 +84,7 @@ func (m UIModel) buildMatrixConfig() MatrixConfig {
 	cfg := MatrixConfig{
 		Width:               m.layout.Width,
 		Height:              m.layout.Height,
-		ShowSidebar:         m.showSidebar,
+		ShowSidebar:         m.showSidebar && m.layout.GridMode == Grid4x1,
 		SidebarWidth:        m.layout.SidebarWidth,
 		GridMode:            m.layout.GridMode,
 		TWidth:              m.layout.TWidth,

@@ -67,7 +67,7 @@ func TestErrorRecovery_DisplayRetryOptions(t *testing.T) {
 	m.err = errors.New("connection refused")
 	m.retryStore = &mockFailingStore{connectionOK: false}
 
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(100, 40))
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 40))
 	defer func() {
 		if err := tm.Quit(); err != nil {
 			t.Logf("Failed to quit test model: %v", err)
@@ -125,7 +125,7 @@ func TestErrorRecovery_RetryKeyRetriesLoading(t *testing.T) {
 	m.err = errors.New("connection refused")
 	m.retryStore = mockStore
 
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(100, 40))
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 40))
 	defer func() {
 		if err := tm.Quit(); err != nil {
 			t.Logf("Failed to quit test model: %v", err)
