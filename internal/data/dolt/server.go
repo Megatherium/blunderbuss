@@ -94,8 +94,7 @@ func buildServerDSN(metadata *Metadata) string {
 	}
 	cfg.Addr = fmt.Sprintf("%s:%d", host, port)
 
-	// Check for password in environment
-	cfg.Passwd = os.Getenv("BEADS_DOLT_PASSWORD")
+	cfg.Passwd = resolveServerPassword(host, port)
 
 	cfg.DBName = metadata.DoltDatabase
 

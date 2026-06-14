@@ -129,11 +129,11 @@ func TestLoadMetadata_FileNotFound(t *testing.T) {
 
 	_, err := LoadMetadata(beadsDir)
 	if err == nil {
-		t.Fatal("Expected error for missing metadata.json")
+		t.Fatal("Expected error for missing beads workspace")
 	}
 
-	if !strings.Contains(err.Error(), "no beads database found") {
-		t.Errorf("Error should mention beads database not found, got: %v", err)
+	if !strings.Contains(err.Error(), "no beads workspace found") {
+		t.Errorf("Error should mention missing workspace, got: %v", err)
 	}
 
 	if !strings.Contains(err.Error(), "Is this a beads project?") {
@@ -163,7 +163,7 @@ func TestLoadMetadata_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestLoadMetadata_MissingDoltDatabase(t *testing.T) {
+func TestLoadMetadata_MissingDoltDatabaseUsesDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 	beadsDir := filepath.Join(tmpDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0750); err != nil {
@@ -179,13 +179,13 @@ func TestLoadMetadata_MissingDoltDatabase(t *testing.T) {
 		t.Fatalf("Failed to write metadata.json: %v", err)
 	}
 
-	_, err := LoadMetadata(beadsDir)
-	if err == nil {
-		t.Fatal("Expected error for missing dolt_database")
+	meta, err := LoadMetadata(beadsDir)
+	if err != nil {
+		t.Fatalf("Expected fallback database name, got error: %v", err)
 	}
 
-	if !strings.Contains(err.Error(), "missing required field 'dolt_database'") {
-		t.Errorf("Error should mention missing dolt_database, got: %v", err)
+	if meta.DoltDatabase != defaultDoltDatabase {
+		t.Errorf("Expected default database %q, got %q", defaultDoltDatabase, meta.DoltDatabase)
 	}
 }
 
@@ -248,6 +248,29 @@ func TestDoltDir(t *testing.T) {
 	}
 }
 
+func TestMetadata_ResolveServerPort_FromPortFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0750); err != nil {
+		t.Fatalf("Failed to create beads dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(beadsDir, "config.yaml"), []byte("types:\n  custom: task\n"), 0644); err != nil {
+		t.Fatalf("write config.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(beadsDir, "dolt-server.port"), []byte("45123"), 0600); err != nil {
+		t.Fatalf("write port file: %v", err)
+	}
+
+	m := &Metadata{DoltDatabase: "test_db"}
+	port, err := m.ResolveServerPort(beadsDir)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if port != 45123 {
+		t.Errorf("Expected port 45123, got %d", port)
+	}
+}
+
 func TestMetadata_ResolveServerPort_AlreadySet(t *testing.T) {
 	m := &Metadata{
 		DoltDatabase: "test_db",
@@ -296,8 +319,7 @@ fi
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	m := &Metadata{DoltDatabase: "test_db"}
-	port, err := m.detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -335,8 +357,7 @@ fi
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	m := &Metadata{DoltDatabase: "test_db"}
-	port, err := m.detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -374,8 +395,7 @@ fi
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	m := &Metadata{DoltDatabase: "test_db"}
-	port, err := m.detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -408,8 +428,7 @@ exit 1
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	m := &Metadata{DoltDatabase: "test_db"}
-	port, err := m.detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error when command fails (graceful fallback), got: %v", err)
 	}

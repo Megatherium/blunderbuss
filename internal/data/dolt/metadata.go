@@ -7,9 +7,7 @@
 package dolt
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -25,7 +23,7 @@ const (
 	ServerMode Mode = "server"
 )
 
-// Metadata represents the parsed .beads/metadata.json file.
+// Metadata represents resolved beads Dolt connection settings.
 type Metadata struct {
 	// Database backend type (should be "dolt")
 	Backend string `json:"backend"`
@@ -43,7 +41,7 @@ type Metadata struct {
 	ServerReadyTimeoutSeconds int `json:"dolt_server_ready_timeout"`
 }
 
-// ConnectionMode always returns ServerMode since embedded mode is no longer supported.
+// ConnectionMode always returns ServerMode since embedded mode is not supported.
 func (m *Metadata) ConnectionMode() Mode {
 	return ServerMode
 }
@@ -61,73 +59,33 @@ func (m *Metadata) ServerReadyTimeout() time.Duration {
 	return 10 * time.Second
 }
 
-// LoadMetadata reads and parses the metadata.json file from the given beads directory.
-// Returns actionable errors for common failure scenarios.
-func LoadMetadata(beadsDir string) (*Metadata, error) {
-	metadataPath := filepath.Join(beadsDir, "metadata.json")
-
-	data, err := os.ReadFile(metadataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf(
-				"no beads database found at %q: metadata.json is missing\n"+
-					"Is this a beads project? Run 'bd init' to initialize beads in this repository",
-				beadsDir,
-			)
-		}
-		return nil, fmt.Errorf("failed to read metadata.json: %w", err)
-	}
-
-	var metadata Metadata
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, fmt.Errorf(
-			"metadata.json is corrupted or has invalid JSON: %w\n"+
-				"Try removing %s and running 'bd init' to recreate it",
-			err, metadataPath,
-		)
-	}
-
-	if !metadata.IsValid() {
-		return nil, fmt.Errorf(
-			"metadata.json is missing required field 'dolt_database'\n"+
-				"File location: %s\n"+
-				"Try running 'bd init' to regenerate the metadata file",
-			metadataPath,
-		)
-	}
-
-	return &metadata, nil
-}
-
-// ResolveServerPort attempts to detect the Dolt server port if not explicitly configured.
-// It first checks if ServerPort is already set in metadata. If not, it runs 'bd dolt status'
-// to extract the expected port from the output. Returns the resolved port and any error
-// encountered during detection.
+// ResolveServerPort fills in ServerPort when it is unset, using the same sources
+// as beads: env vars, dolt-server.port, config.yaml, then bd dolt status.
 func (m *Metadata) ResolveServerPort(beadsDir string) (int, error) {
-	// If port is already configured, use it
 	if m.ServerPort > 0 {
 		return m.ServerPort, nil
 	}
 
-	// Try to detect port from 'bd dolt status'
-	port, err := m.detectPortFromDoltStatus(beadsDir)
+	yamlCfg, _ := loadBeadsYAMLConfig(beadsDir)
+	resolveRuntimePort(beadsDir, m, yamlCfg)
+	if m.ServerPort > 0 {
+		return m.ServerPort, nil
+	}
+
+	port, err := detectPortFromDoltStatus(beadsDir)
 	if err != nil {
 		return 0, fmt.Errorf("failed to detect Dolt server port: %w", err)
 	}
-
 	if port > 0 {
 		m.ServerPort = port
 		return port, nil
 	}
 
-	// Return 0 to indicate no port detected - caller should use default
 	return 0, nil
 }
 
 // detectPortFromDoltStatus runs 'bd dolt status' and extracts the port from output.
-// It handles both running server ("Port: 1234") and stopped server ("Expected port: 1234") outputs.
-func (m *Metadata) detectPortFromDoltStatus(beadsDir string) (int, error) {
-	// Get the parent directory of beadsDir (project root)
+func detectPortFromDoltStatus(beadsDir string) (int, error) {
 	projectDir := filepath.Dir(beadsDir)
 
 	cmd := exec.Command("bd", "dolt", "status")
@@ -135,16 +93,10 @@ func (m *Metadata) detectPortFromDoltStatus(beadsDir string) (int, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// bd command might fail if dolt is not initialized, which is okay
-		// we'll fall back to default port
-		return 0, nil //nolint:nilerr // Expected behavior when dolt is not initialized
+		return 0, nil //nolint:nilerr // Expected when dolt is not initialized
 	}
 
 	outputStr := string(output)
-
-	// Look for port patterns in order of specificity:
-	// 1. "Port: XXXX" (when server is running)
-	// 2. "Expected port: XXXX" (when server is not running)
 	patterns := []string{
 		`(?:^|\s)Port:\s*(\d+)`,
 		`Expected port:\s*(\d+)`,
@@ -159,14 +111,12 @@ func (m *Metadata) detectPortFromDoltStatus(beadsDir string) (int, error) {
 			if err != nil {
 				return 0, fmt.Errorf("failed to parse port number from 'bd dolt status': %w", err)
 			}
-			// Validate port range (typical Dolt ports are 1024-65535)
 			if port >= 1024 && port <= 65535 {
 				return port, nil
 			}
 		}
 	}
 
-	// No port found in output - return 0 to indicate detection failed
 	return 0, nil
 }
 

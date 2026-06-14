@@ -209,23 +209,23 @@ filepicker_recents:
 
 ## Beads Database Connection
 
-Blunderbust reads ticket data from a Beads/Dolt database and connects via server mode.
+Blunderbust reads ticket data from a Beads/Dolt database via **server mode** (dolt sql-server). It resolves connection settings the same way beads does:
 
-Server mode requires `dolt_mode: server` in `.beads/metadata.json`:
+1. `bd dolt show --json` (primary)
+2. Local fallback: `BEADS_DOLT_*` env vars → `.beads/dolt-server.port` → `metadata.json` → `config.yaml`
 
-```json
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "beads_fo",
-  "dolt_server_host": "10.11.0.1",
-  "dolt_server_port": 13307,
-  "dolt_server_user": "mysql-root"
-}
+`metadata.json` is optional on fresh clones. A `.beads/` directory with `config.yaml` or bootstrapped Dolt data is sufficient. Run `bd bootstrap` or `bd init` if the database is not initialized.
+
+Team defaults can live in `.beads/config.yaml`:
+
+```yaml
+dolt:
+  host: 127.0.0.1
+  port: 3307
+  user: root
 ```
 
-For authentication, set the password via environment variable:
+For authentication, set the password via environment variable or beads credentials file:
 
 ```bash
 export BEADS_DOLT_PASSWORD="your-password"

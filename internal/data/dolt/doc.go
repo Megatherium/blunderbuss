@@ -10,8 +10,9 @@
 // This package connects to a running dolt sql-server via the MySQL protocol using
 // github.com/go-sql-driver/mysql. Supports multiple concurrent connections.
 //
-// Server connection details are read from metadata.json. The server can be
-// auto-started if configured.
+// Connection settings are resolved via bd dolt show --json with a local
+// fallback layer (env vars, dolt-server.port, metadata.json, config.yaml).
+// The server can be auto-started if configured.
 //
 // DSN format: user:password@tcp(host:port)/database?parseTime=true&loc=UTC
 //
@@ -32,7 +33,7 @@
 //
 // All errors include actionable context. Common errors:
 //
-//   - "no beads database found": metadata.json is missing
+//   - "no beads workspace found": .beads/ is missing or uninitialized
 //   - "dolt database directory not found": .beads/dolt/ directory is missing
 //   - "failed to connect": Database is corrupted or locked
 //   - "schema verification failed": Missing or incompatible schema

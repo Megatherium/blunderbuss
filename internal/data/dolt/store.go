@@ -88,7 +88,8 @@ func handleServerMode(ctx context.Context, beadsDir string, metadata *Metadata, 
 }
 
 // NewStore creates a TicketStore connected to a Dolt database.
-// It reads metadata.json from the beads directory and connects to the configured dolt sql-server.
+// It resolves connection settings via bd dolt show --json (with local fallback)
+// and connects to the configured dolt sql-server.
 // If autostart is true and the server is not running, it will attempt to start it.
 func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Store, error) {
 	beadsDir := opts.BeadsDir
@@ -96,7 +97,7 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 		beadsDir = ".beads"
 	}
 
-	metadata, err := LoadMetadata(beadsDir)
+	metadata, err := ResolveConnection(beadsDir)
 	if err != nil {
 		return nil, err
 	}
