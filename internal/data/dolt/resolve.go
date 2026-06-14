@@ -7,6 +7,7 @@
 package dolt
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,6 +26,7 @@ const (
 	defaultDoltServerUser = "root"
 	defaultDoltDatabase   = "beads"
 	defaultSharedPort     = 3308
+	bdCommandTimeout      = 10 * time.Second
 )
 
 type doltShowJSON struct {
@@ -84,14 +87,16 @@ func IsBeadsProject(beadsDir string) bool {
 // ResolveConnection resolves Dolt sql-server connection settings for a beads project.
 // It delegates to "bd dolt show --json" when available, then falls back to a local
 // layered resolver that mirrors beads' config precedence.
-func ResolveConnection(beadsDir string) (*Metadata, error) {
+func ResolveConnection(ctx context.Context, beadsDir string) (*Metadata, error) {
 	if err := validateBeadsDir(beadsDir); err != nil {
 		return nil, err
 	}
 
 	projectDir := filepath.Dir(beadsDir)
-	if meta, err := resolveViaBdShow(projectDir); err == nil {
+	if meta, err := resolveViaBdShow(ctx, projectDir, beadsDir); err == nil {
 		return meta, nil
+	} else {
+		fmt.Fprintf(os.Stderr, "Warning: bd dolt show --json failed, using local config fallback: %v\n", err)
 	}
 
 	meta, err := resolveLocal(beadsDir)
@@ -135,12 +140,15 @@ func validateBeadsDir(beadsDir string) error {
 	return nil
 }
 
-func resolveViaBdShow(projectDir string) (*Metadata, error) {
+func resolveViaBdShow(ctx context.Context, projectDir, beadsDir string) (*Metadata, error) {
 	if _, err := exec.LookPath("bd"); err != nil {
 		return nil, fmt.Errorf("bd not found in PATH")
 	}
 
-	cmd := exec.Command("bd", "dolt", "show", "--json")
+	cmdCtx, cancel := context.WithTimeout(ctx, bdCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, "bd", "dolt", "show", "--json")
 	cmd.Dir = projectDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -171,16 +179,12 @@ func resolveViaBdShow(projectDir string) (*Metadata, error) {
 		meta.ServerUser = defaultDoltServerUser
 	}
 
-	fileMeta, _ := parseMetadataFile(beadsDirFromProject(projectDir))
+	fileMeta, _ := parseMetadataFile(beadsDir)
 	if fileMeta != nil && fileMeta.ServerReadyTimeoutSeconds > 0 {
 		meta.ServerReadyTimeoutSeconds = fileMeta.ServerReadyTimeoutSeconds
 	}
 
 	return meta, nil
-}
-
-func beadsDirFromProject(projectDir string) string {
-	return filepath.Join(projectDir, ".beads")
 }
 
 func resolveLocal(beadsDir string) (*Metadata, error) {
@@ -192,7 +196,10 @@ func resolveLocal(beadsDir string) (*Metadata, error) {
 		meta = &Metadata{Backend: "dolt", DoltMode: "server"}
 	}
 
-	yamlCfg, _ := loadBeadsYAMLConfig(beadsDir)
+	yamlCfg, yamlErr := loadBeadsYAMLConfig(beadsDir)
+	if yamlErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", filepath.Join(beadsDir, "config.yaml"), yamlErr)
+	}
 	applyYAMLDefaults(meta, yamlCfg)
 	applyEnvOverrides(meta)
 	resolveRuntimePort(beadsDir, meta, yamlCfg)
@@ -290,6 +297,19 @@ func envInt(keys ...string) int {
 	return 0
 }
 
+// readPortFile reads the runtime port from a dolt-server.port file.
+func readPortFile(serverDir string) int {
+	data, err := os.ReadFile(filepath.Join(serverDir, "dolt-server.port"))
+	if err != nil {
+		return 0
+	}
+	port, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || port <= 0 {
+		return 0
+	}
+	return port
+}
+
 func resolveRuntimePort(beadsDir string, meta *Metadata, yamlCfg *beadsYAMLConfig) {
 	// Env overrides are applied before this call and always win.
 	if envInt("BEADS_DOLT_SERVER_PORT", "BEADS_DOLT_PORT") > 0 {
@@ -367,5 +387,5 @@ func inferDatabaseName(beadsDir string, yamlCfg *beadsYAMLConfig) string {
 // LoadMetadata resolves connection settings for a beads project.
 // It is kept for backward compatibility; prefer ResolveConnection.
 func LoadMetadata(beadsDir string) (*Metadata, error) {
-	return ResolveConnection(beadsDir)
+	return ResolveConnection(context.Background(), beadsDir)
 }

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -80,17 +79,4 @@ func lookupCredentialsPassword(host string, port int) string {
 	}
 
 	return ""
-}
-
-// readPortFile reads the runtime port from a dolt-server.port file.
-func readPortFile(serverDir string) int {
-	data, err := os.ReadFile(filepath.Join(serverDir, "dolt-server.port"))
-	if err != nil {
-		return 0
-	}
-	port, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || port <= 0 {
-		return 0
-	}
-	return port
 }

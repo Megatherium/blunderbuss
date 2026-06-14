@@ -7,6 +7,7 @@
 package dolt
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -262,7 +263,7 @@ func TestMetadata_ResolveServerPort_FromPortFile(t *testing.T) {
 	}
 
 	m := &Metadata{DoltDatabase: "test_db"}
-	port, err := m.ResolveServerPort(beadsDir)
+	port, err := m.ResolveServerPort(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -277,7 +278,7 @@ func TestMetadata_ResolveServerPort_AlreadySet(t *testing.T) {
 		ServerPort:   12345,
 	}
 
-	port, err := m.ResolveServerPort("/tmp/test")
+	port, err := m.ResolveServerPort(context.Background(), "/tmp/test")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -319,7 +320,7 @@ fi
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	port, err := detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -357,7 +358,7 @@ fi
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	port, err := detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -395,7 +396,7 @@ fi
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	port, err := detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -428,7 +429,7 @@ exit 1
 	os.Setenv("PATH", tmpDir+":"+origPath)
 	defer os.Setenv("PATH", origPath)
 
-	port, err := detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("Expected no error when command fails (graceful fallback), got: %v", err)
 	}

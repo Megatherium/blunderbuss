@@ -90,7 +90,7 @@ func buildServerDSN(metadata *Metadata) string {
 	}
 	port := metadata.ServerPort
 	if port == 0 {
-		port = 3307 // Default Dolt sql-server port
+		port = defaultDoltServerPort
 	}
 	cfg.Addr = fmt.Sprintf("%s:%d", host, port)
 

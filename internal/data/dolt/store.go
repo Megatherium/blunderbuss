@@ -53,7 +53,7 @@ func handleServerMode(ctx context.Context, beadsDir string, metadata *Metadata, 
 	}
 	// Resolve server port if not explicitly configured
 	if metadata.ServerPort == 0 {
-		resolvedPort, err := metadata.ResolveServerPort(beadsDir)
+		resolvedPort, err := metadata.ResolveServerPort(ctx, beadsDir)
 		if err != nil && opts.Debug {
 			fmt.Fprintf(os.Stderr, "Warning: failed to auto-detect Dolt port: %v\n", err)
 		}
@@ -97,7 +97,7 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 		beadsDir = ".beads"
 	}
 
-	metadata, err := ResolveConnection(beadsDir)
+	metadata, err := ResolveConnection(ctx, beadsDir)
 	if err != nil {
 		return nil, err
 	}

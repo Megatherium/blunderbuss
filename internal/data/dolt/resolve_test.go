@@ -7,6 +7,7 @@
 package dolt
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,7 @@ echo "unknown: $*" >&2
 exit 1
 `)
 
-	meta, err := ResolveConnection(beadsDir)
+	meta, err := ResolveConnection(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("ResolveConnection: %v", err)
 	}
@@ -107,7 +108,7 @@ dolt:
 exit 1
 `)
 
-	meta, err := ResolveConnection(beadsDir)
+	meta, err := ResolveConnection(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("ResolveConnection: %v", err)
 	}
@@ -147,7 +148,7 @@ exit 1
 	t.Setenv("BEADS_DOLT_SERVER_USER", "env-user")
 	t.Setenv("BEADS_DOLT_SERVER_DATABASE", "beads_override")
 
-	meta, err := ResolveConnection(beadsDir)
+	meta, err := ResolveConnection(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("ResolveConnection: %v", err)
 	}
@@ -196,7 +197,7 @@ exit 1
 `)
 	t.Setenv("BEADS_SHARED_SERVER_DIR", sharedDir)
 
-	meta, err := ResolveConnection(beadsDir)
+	meta, err := ResolveConnection(context.Background(), beadsDir)
 	if err != nil {
 		t.Fatalf("ResolveConnection: %v", err)
 	}
@@ -237,7 +238,7 @@ func TestResolveConnection_UninitializedWorkspace(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	_, err := ResolveConnection(beadsDir)
+	_, err := ResolveConnection(context.Background(), beadsDir)
 	if err == nil {
 		t.Fatal("expected error for uninitialized workspace")
 	}

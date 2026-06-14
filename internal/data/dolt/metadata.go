@@ -7,7 +7,9 @@
 package dolt
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -61,18 +63,21 @@ func (m *Metadata) ServerReadyTimeout() time.Duration {
 
 // ResolveServerPort fills in ServerPort when it is unset, using the same sources
 // as beads: env vars, dolt-server.port, config.yaml, then bd dolt status.
-func (m *Metadata) ResolveServerPort(beadsDir string) (int, error) {
+func (m *Metadata) ResolveServerPort(ctx context.Context, beadsDir string) (int, error) {
 	if m.ServerPort > 0 {
 		return m.ServerPort, nil
 	}
 
-	yamlCfg, _ := loadBeadsYAMLConfig(beadsDir)
+	yamlCfg, yamlErr := loadBeadsYAMLConfig(beadsDir)
+	if yamlErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", filepath.Join(beadsDir, "config.yaml"), yamlErr)
+	}
 	resolveRuntimePort(beadsDir, m, yamlCfg)
 	if m.ServerPort > 0 {
 		return m.ServerPort, nil
 	}
 
-	port, err := detectPortFromDoltStatus(beadsDir)
+	port, err := detectPortFromDoltStatus(ctx, beadsDir)
 	if err != nil {
 		return 0, fmt.Errorf("failed to detect Dolt server port: %w", err)
 	}
@@ -85,10 +90,13 @@ func (m *Metadata) ResolveServerPort(beadsDir string) (int, error) {
 }
 
 // detectPortFromDoltStatus runs 'bd dolt status' and extracts the port from output.
-func detectPortFromDoltStatus(beadsDir string) (int, error) {
+func detectPortFromDoltStatus(ctx context.Context, beadsDir string) (int, error) {
 	projectDir := filepath.Dir(beadsDir)
 
-	cmd := exec.Command("bd", "dolt", "status")
+	cmdCtx, cancel := context.WithTimeout(ctx, bdCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, "bd", "dolt", "status")
 	cmd.Dir = projectDir
 
 	output, err := cmd.CombinedOutput()
