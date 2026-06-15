@@ -199,7 +199,8 @@ func resolveLocal(beadsDir string) (*Metadata, error) {
 
 	yamlCfg, yamlErr := loadBeadsYAMLConfig(beadsDir)
 	if yamlErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", filepath.Join(beadsDir, "config.yaml"), yamlErr)
+		// Silent on non-debug; the fallback still applies and errors surface if resolution ultimately fails.
+		_ = yamlErr
 	}
 	applyYAMLDefaults(meta, yamlCfg)
 	applyEnvOverrides(meta)

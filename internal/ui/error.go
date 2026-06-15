@@ -33,7 +33,10 @@ func errorView(err error, hasRetry, hasStart bool) string {
 	b.WriteString(errorTitleStyle.Render("Error"))
 	b.WriteString("\n\n")
 
-	// Provide user-friendly messages based on error type
+	// Provide user-friendly messages based on error type.
+	// Prefer typed Is* checks (from dolt package) over raw err.Error() substrings
+	// for connection and server errors (per bb-970u.2). Fall back to strings only
+	// for high-level workspace messages that aren't yet typed.
 	switch {
 	case strings.Contains(errStr, "no beads workspace found"),
 		strings.Contains(errStr, "beads workspace at"),
@@ -49,21 +52,17 @@ func errorView(err error, hasRetry, hasStart bool) string {
 		b.WriteString("\n\n")
 		b.WriteString("Run 'bd init' to create the beads database.")
 
-	case strings.Contains(errStr, "failed to connect to") && strings.Contains(errStr, "server"):
+	case dolt.IsErrServerNotRunning(err):
+		b.WriteString(errorStyle.Render(errStr))
+
+	case dolt.IsConnectionError(err):
 		b.WriteString(errorStyle.Render("Cannot connect to Dolt server."))
 		b.WriteString("\n\n")
 		b.WriteString("Please check that the Dolt server is running and the connection details are correct.")
 
-	case dolt.IsErrServerNotRunning(err):
-		b.WriteString(errorStyle.Render(errStr))
-
-	case strings.Contains(errStr, "connection refused"):
-		b.WriteString(errorStyle.Render("Connection refused."))
-		b.WriteString("\n\n")
-		b.WriteString("Cannot connect to the database server. Please check that it's running.")
-
 	default:
-		// Show the original error for unknown cases
+		// Show the original error for unknown cases. Avoid new direct strings.Contains
+		// on connection-related errs here.
 		b.WriteString(errorStyle.Render(errStr))
 	}
 

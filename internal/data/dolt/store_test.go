@@ -683,6 +683,28 @@ func TestStore_Close_ReturnsError(t *testing.T) {
 	}
 }
 
+// TestConnectionErrorTypes exercises the new typed errors from bb-970u.2.
+func TestConnectionErrorTypes(t *testing.T) {
+	ce := &ConnectionError{cause: fmt.Errorf("dial tcp: connection refused")}
+	if !IsConnectionError(ce) {
+		t.Error("IsConnectionError should return true for *ConnectionError")
+	}
+	if ce.Error() == "" || !strings.Contains(ce.Error(), "cannot connect to Dolt server") {
+		t.Error("ConnectionError should have descriptive message")
+	}
+
+	// Wrapping should still be detectable
+	wrapped := fmt.Errorf("outer: %w", ce)
+	if !IsConnectionError(wrapped) {
+		t.Error("IsConnectionError should unwrap through %w")
+	}
+
+	se := &SchemaError{cause: fmt.Errorf("alter failed")}
+	if se.Error() == "" || !strings.Contains(se.Error(), "dolt schema error") {
+		t.Error("SchemaError should have descriptive message")
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }
