@@ -88,10 +88,7 @@ func (m UIModel) handleToggleThemeKeyMsg() (tea.Model, tea.Cmd, bool) {
 	m.harnessList.SetDelegate(newGradientDelegate(m.currentTheme))
 	m.modelList.SetDelegate(newGradientDelegate(m.currentTheme))
 	m.agentList.SetDelegate(newGradientDelegate(m.currentTheme))
-	m.dirtyTicket = true
-	m.dirtyHarness = true
-	m.dirtyModel = true
-	m.dirtyAgent = true
+	m.markAllColumnsDirty()
 	return m, nil, true
 }
 
@@ -113,10 +110,7 @@ func (m UIModel) handleZoomKeyMsg() (tea.Model, tea.Cmd, bool) {
 	m.updateSizes()
 
 	// Mark all columns dirty since widths changed
-	m.dirtyTicket = true
-	m.dirtyHarness = true
-	m.dirtyModel = true
-	m.dirtyAgent = true
+	m.markAllColumnsDirty()
 
 	return m, nil, true
 }

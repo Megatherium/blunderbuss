@@ -93,7 +93,7 @@ func (m UIModel) handleTicketsLoaded(msg ticketsLoadedMsg) (tea.Model, tea.Cmd) 
 		m.state = ViewStateMatrix
 	}
 	m.updateSizes()
-	m.dirtyTicket = true
+	m.markColumnDirty(FocusTickets)
 
 	// Restore filter state if one was active.
 	// SetFilterText applies filter and sets state to FilterApplied.
@@ -262,10 +262,7 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (UIModel, tea.Cmd) {
 	m.layout = Compute(msg.Width, msg.Height, m.showSidebar, m.ticketZoomEnabled)
 	m.updateSizes()
-	m.dirtyTicket = true
-	m.dirtyHarness = true
-	m.dirtyModel = true
-	m.dirtyAgent = true
+	m.markAllColumnsDirty()
 	return m, nil
 }
 
@@ -371,7 +368,7 @@ func (m UIModel) handleWorktreeSelected(msg WorktreeSelectedMsg) (tea.Model, tea
 
 	m.focus = FocusTickets
 	m.sidebar.SetFocused(false)
-	m.dirtyTicket = true
+	m.markColumnDirty(FocusTickets)
 	return m, nil
 }
 
@@ -502,7 +499,7 @@ func (m UIModel) handleTemplatesReloaded(msg TemplatesReloadedMsg) (tea.Model, t
 	m.harnesses = msg.Harnesses
 
 	// Mark harness cache as dirty to force re-render with new templates
-	m.dirtyHarness = true
+	m.markColumnDirty(FocusHarness)
 
 	// If we're in the matrix view, update the harness list
 	if m.state == ViewStateMatrix {

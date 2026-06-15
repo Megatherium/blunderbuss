@@ -107,10 +107,13 @@ func NewUIModel(blunderbustApp *app.App, harnesses []domain.Harness) UIModel {
 		agents:       make(map[string]*RunningAgent),
 		currentTheme: theme, // Default to TokyoNight theme
 
-		dirtyTicket:  true, // Initial build needed
-		dirtyHarness: true,
-		dirtyModel:   true,
-		dirtyAgent:   true,
+		// Initial build of all column view caches is needed on first render.
+		caches: columnViewCaches{
+			dirtyTicket:  true,
+			dirtyHarness: true,
+			dirtyModel:   true,
+			dirtyAgent:   true,
+		},
 
 		animState: AnimationState{
 			StartTime:       time.Now(),
@@ -411,9 +414,9 @@ func (m UIModel) handleSidebarFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 					m.selection.Ticket = domain.Ticket{}
 					m.selection.Model = ""
 					m.selection.Agent = ""
-					m.dirtyTicket = true
-					m.dirtyModel = true
-					m.dirtyAgent = true
+					m.markColumnDirty(FocusTickets)
+					m.markColumnDirty(FocusModel)
+					m.markColumnDirty(FocusAgent)
 					cmd = tea.Batch(cmd, loadTicketsCmd(m.app.Project(), m.app.Opts.Debug))
 				}
 			}
@@ -430,13 +433,13 @@ func (m UIModel) handleHarnessFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 	}
 
 	m.harnessList, cmd = m.harnessList.Update(msg)
-	m.dirtyHarness = true
+	m.markColumnDirty(FocusHarness)
 
 	if i, ok := m.harnessList.SelectedItem().(harnessItem); ok {
 		if prevHarness != i.harness.Name {
 			m.selection.Harness = i.harness
-			m.dirtyModel = true
-			m.dirtyAgent = true
+			m.markColumnDirty(FocusModel)
+			m.markColumnDirty(FocusAgent)
 			m, _ = m.handleModelSkip()
 			m, _ = m.handleAgentSkip()
 		}
@@ -455,15 +458,15 @@ func (m UIModel) handleFocusUpdate(msg tea.Msg) (UIModel, tea.Cmd) {
 		return m.handleSidebarFocusUpdate(msg)
 	case FocusTickets:
 		m.ticketList, cmd = m.ticketList.Update(msg)
-		m.dirtyTicket = true
+		m.markColumnDirty(FocusTickets)
 	case FocusHarness:
 		return m.handleHarnessFocusUpdate(msg)
 	case FocusModel:
 		m.modelList, cmd = m.modelList.Update(msg)
-		m.dirtyModel = true
+		m.markColumnDirty(FocusModel)
 	case FocusAgent:
 		m.agentList, cmd = m.agentList.Update(msg)
-		m.dirtyAgent = true
+		m.markColumnDirty(FocusAgent)
 	}
 	return m, cmd
 }

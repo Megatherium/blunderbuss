@@ -64,6 +64,31 @@ const (
 	ViewStateError
 )
 
+// columnViewCaches groups the per-column view caches (pre-rendered .View() strings)
+// and their dirty/initialized flags. This reduces the flat field count on UIModel
+// (god object smell) and centralizes cache invalidation logic for the matrix columns.
+//
+// The 4 columns (ticket/harness/model/agent) each have a dirty flag (set on focus change,
+// data load, theme toggle, resize, etc.), an initialized flag (first build), and the
+// cached string from list.View().
+//
+// Direct access to the inner fields is limited to this package during the refactor
+// transition; prefer UIModel methods (markColumnDirty, updateListCaches, etc.).
+type columnViewCaches struct {
+	dirtyTicket        bool
+	dirtyHarness       bool
+	dirtyModel         bool
+	dirtyAgent         bool
+	initializedTicket  bool
+	initializedHarness bool
+	initializedModel   bool
+	initializedAgent   bool
+	ticketViewCache    string
+	harnessViewCache   string
+	modelViewCache     string
+	agentViewCache     string
+}
+
 // UIModel represents the complete state of the TUI application.
 //
 // View State Machine (ViewState enum):
@@ -151,21 +176,11 @@ type UIModel struct {
 	// expands to show more content including additional description lines.
 	ticketZoomEnabled bool
 
-	// Caches for list views to avoid re-rendering on every tick
-	dirtyTicket  bool // ticket column cache needs rebuilding
-	dirtyHarness bool // harness column cache needs rebuilding
-	dirtyModel   bool // model column cache needs rebuilding
-	dirtyAgent   bool // agent column cache needs rebuilding
-
-	initializedTicket  bool // true if ticketViewCache has been built at least once
-	initializedHarness bool // true if harnessViewCache has been built at least once
-	initializedModel   bool // true if modelViewCache has been built at least once
-	initializedAgent   bool // true if agentViewCache has been built at least once
-
-	ticketViewCache  string
-	harnessViewCache string
-	modelViewCache   string
-	agentViewCache   string
+	// caches groups the per-column view caches (pre-computed list.View() strings)
+	// and associated dirty/initialized flags. This replaces 12 previous flat fields
+	// on UIModel to reduce god-object surface area and centralize cache logic.
+	// Mutations should go through helper methods where possible (markColumnDirty etc.).
+	caches columnViewCaches
 
 	// Animation state
 	animState AnimationState
