@@ -70,7 +70,7 @@ func (m *Metadata) ResolveServerPort(ctx context.Context, beadsDir string) (int,
 
 	yamlCfg, yamlErr := loadBeadsYAMLConfig(beadsDir)
 	if yamlErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", filepath.Join(beadsDir, "config.yaml"), yamlErr)
+		fmt.Fprintf(os.Stderr, "Info: failed to parse %s: %v\n", filepath.Join(beadsDir, "config.yaml"), yamlErr)
 	}
 	resolveRuntimePort(beadsDir, m, yamlCfg)
 	if m.ServerPort > 0 {

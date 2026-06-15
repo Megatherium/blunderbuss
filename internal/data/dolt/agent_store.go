@@ -2,6 +2,7 @@ package dolt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -194,9 +195,11 @@ func ensureRunningAgentsTicketTitleColumn(ctx context.Context, s *Store) error {
 		return nil
 	}
 	// Column already exists on upgraded/newer schemas.
-	// Prefer structured *mysql.MySQLError (code 1060 = ER_DUP_FIELDNAME) to avoid
-	// brittle string matching on driver/locale-specific messages.
-	if me, ok := err.(*mysql.MySQLError); ok && me.Number == 1060 {
+	// Prefer errors.As for *mysql.MySQLError (code 1060 = ER_DUP_FIELDNAME) to avoid
+	// brittle string matching on driver/locale-specific messages. Using As (not type
+	// assert) so it works if the error is ever wrapped.
+	var me *mysql.MySQLError
+	if errors.As(err, &me) && me.Number == 1060 {
 		return nil
 	}
 	// Isolated fallback string check for Dolt variants or other drivers.

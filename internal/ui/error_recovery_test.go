@@ -315,7 +315,7 @@ func TestErrorRecovery_ErrorViewDisplaysCorrectly(t *testing.T) {
 			err:      errors.New("connection refused"),
 			hasRetry: true,
 			hasStart: false,
-			wantText: []string{"Connection refused", "[r]", "[q]"},
+			wantText: []string{"Cannot connect to Dolt server", "[r]", "[q]"},
 		},
 		{
 			name:     "server not running error",
