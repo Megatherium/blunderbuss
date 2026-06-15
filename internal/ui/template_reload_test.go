@@ -92,7 +92,7 @@ func TestTemplatesReloadedHandler(t *testing.T) {
 	uiModel := resultModel.(UIModel)
 	assert.Equal(t, "new-harness", uiModel.harnesses[0].Name)
 	assert.Equal(t, "new-command", uiModel.harnesses[0].CommandTemplate)
-	assert.True(t, uiModel.dirtyHarness)
+	assert.True(t, uiModel.caches.dirtyHarness)
 
 	// Verify an info message was generated
 	if cmd != nil {

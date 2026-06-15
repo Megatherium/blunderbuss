@@ -133,8 +133,8 @@ func TestHandleToggleThemeKeyMsg_TogglesTheme(t *testing.T) {
 	if newModel.(UIModel).currentTheme == initialTheme {
 		t.Error("Expected theme to change")
 	}
-	if !newModel.(UIModel).dirtyTicket {
-		t.Error("Expected dirtyTicket to be set")
+	if !newModel.(UIModel).caches.dirtyTicket {
+		t.Error("Expected caches.dirtyTicket to be set")
 	}
 }
 

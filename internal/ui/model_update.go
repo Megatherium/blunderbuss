@@ -199,25 +199,26 @@ func (m *UIModel) updateKeyBindings() {
 }
 
 func updateListCaches(m *UIModel) UIModel {
-	if m.dirtyTicket || !m.initializedTicket {
-		m.ticketViewCache = m.ticketList.View()
-		m.dirtyTicket = false
-		m.initializedTicket = true
+	c := &m.caches
+	if c.dirtyTicket || !c.initializedTicket {
+		c.ticketViewCache = m.ticketList.View()
+		c.dirtyTicket = false
+		c.initializedTicket = true
 	}
-	if m.dirtyHarness || !m.initializedHarness {
-		m.harnessViewCache = m.harnessList.View()
-		m.dirtyHarness = false
-		m.initializedHarness = true
+	if c.dirtyHarness || !c.initializedHarness {
+		c.harnessViewCache = m.harnessList.View()
+		c.dirtyHarness = false
+		c.initializedHarness = true
 	}
-	if m.dirtyModel || !m.initializedModel {
-		m.modelViewCache = m.modelList.View()
-		m.dirtyModel = false
-		m.initializedModel = true
+	if c.dirtyModel || !c.initializedModel {
+		c.modelViewCache = m.modelList.View()
+		c.dirtyModel = false
+		c.initializedModel = true
 	}
-	if m.dirtyAgent || !m.initializedAgent {
-		m.agentViewCache = m.agentList.View()
-		m.dirtyAgent = false
-		m.initializedAgent = true
+	if c.dirtyAgent || !c.initializedAgent {
+		c.agentViewCache = m.agentList.View()
+		c.dirtyAgent = false
+		c.initializedAgent = true
 	}
 	return *m
 }

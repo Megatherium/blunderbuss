@@ -144,13 +144,13 @@ func TestHandleWorktreeSelected_UpdatesFocus(t *testing.T) {
 
 func TestHandleWorktreeSelected_DirtiesTicket(t *testing.T) {
 	model := NewTestModel()
-	model.dirtyTicket = false
+	model.caches.dirtyTicket = false
 
 	msg := WorktreeSelectedMsg{Path: "/test/path"}
 	newModel, _ := model.handleWorktreeSelected(msg)
 
 	uiModel := newModel.(UIModel)
-	if !uiModel.dirtyTicket {
-		t.Error("Expected dirtyTicket to be set")
+	if !uiModel.caches.dirtyTicket {
+		t.Error("Expected caches.dirtyTicket to be set")
 	}
 }

@@ -78,25 +78,26 @@ func (fm *FocusManager) retreat() {
 
 // markColumnDirty sets the appropriate dirty flag based on the given focus type
 func (fm *FocusManager) markColumnDirty(focus FocusColumn) {
-	m := fm.model
+	c := &fm.model.caches
 	switch focus {
 	case FocusTickets:
-		m.dirtyTicket = true
+		c.dirtyTicket = true
 	case FocusHarness:
-		m.dirtyHarness = true
+		c.dirtyHarness = true
 	case FocusModel:
-		m.dirtyModel = true
+		c.dirtyModel = true
 	case FocusAgent:
-		m.dirtyAgent = true
+		c.dirtyAgent = true
 	}
 }
 
 // markAllColumnsDirty sets all column dirty flags to true
 func (fm *FocusManager) markAllColumnsDirty() {
-	fm.model.dirtyTicket = true
-	fm.model.dirtyHarness = true
-	fm.model.dirtyModel = true
-	fm.model.dirtyAgent = true
+	c := &fm.model.caches
+	c.dirtyTicket = true
+	c.dirtyHarness = true
+	c.dirtyModel = true
+	c.dirtyAgent = true
 }
 
 // advanceFocus moves focus right, skipping disabled columns

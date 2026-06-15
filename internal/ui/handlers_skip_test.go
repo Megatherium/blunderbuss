@@ -291,11 +291,11 @@ func TestHandleAgentSkip_SetsDirtyFlag(t *testing.T) {
 		Name:            "test-harness",
 		SupportedAgents: []string{"coder"},
 	}
-	m.dirtyAgent = false
+	m.caches.dirtyAgent = false
 
 	newModel, _ := m.handleAgentSkip()
 
-	assert.True(t, newModel.dirtyAgent, "should set dirty flag")
+	assert.True(t, newModel.caches.dirtyAgent, "should set dirty flag")
 }
 
 func TestHandleModelSkip_SetsDirtyFlag(t *testing.T) {
@@ -304,11 +304,11 @@ func TestHandleModelSkip_SetsDirtyFlag(t *testing.T) {
 		Name:            "test-harness",
 		SupportedModels: []string{"gpt-4"},
 	}
-	m.dirtyModel = false
+	m.caches.dirtyModel = false
 
 	newModel, _ := m.handleModelSkip()
 
-	assert.True(t, newModel.dirtyModel, "should set dirty flag")
+	assert.True(t, newModel.caches.dirtyModel, "should set dirty flag")
 }
 
 func TestHandleModelSkip_UpdatesSizes(t *testing.T) {

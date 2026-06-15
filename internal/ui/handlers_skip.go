@@ -107,7 +107,7 @@ func (m UIModel) handleModelSkip() (UIModel, tea.Cmd) {
 		prevModel,
 		&m.modelColumnDisabled,
 		&m.selection.Model,
-		&m.dirtyModel,
+		&m.caches.dirtyModel,
 	)
 
 	return m, cmd
@@ -130,7 +130,7 @@ func (m UIModel) handleAgentSkip() (UIModel, tea.Cmd) {
 		prevAgent,
 		&m.agentColumnDisabled,
 		&m.selection.Agent,
-		&m.dirtyAgent,
+		&m.caches.dirtyAgent,
 	)
 
 	return m, nil

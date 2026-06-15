@@ -177,22 +177,22 @@ func TestMarkColumnDirty(t *testing.T) {
 		{
 			name:   "mark tickets dirty",
 			focus:  FocusTickets,
-			expect: func(m *UIModel) bool { return m.dirtyTicket },
+			expect: func(m *UIModel) bool { return m.caches.dirtyTicket },
 		},
 		{
 			name:   "mark harness dirty",
 			focus:  FocusHarness,
-			expect: func(m *UIModel) bool { return m.dirtyHarness },
+			expect: func(m *UIModel) bool { return m.caches.dirtyHarness },
 		},
 		{
 			name:   "mark model dirty",
 			focus:  FocusModel,
-			expect: func(m *UIModel) bool { return m.dirtyModel },
+			expect: func(m *UIModel) bool { return m.caches.dirtyModel },
 		},
 		{
 			name:   "mark agent dirty",
 			focus:  FocusAgent,
-			expect: func(m *UIModel) bool { return m.dirtyAgent },
+			expect: func(m *UIModel) bool { return m.caches.dirtyAgent },
 		},
 	}
 
@@ -214,16 +214,16 @@ func TestMarkAllColumnsDirty(t *testing.T) {
 
 	model.markAllColumnsDirty()
 
-	if !model.dirtyTicket {
+	if !model.caches.dirtyTicket {
 		t.Error("Expected dirtyTicket to be true")
 	}
-	if !model.dirtyHarness {
+	if !model.caches.dirtyHarness {
 		t.Error("Expected dirtyHarness to be true")
 	}
-	if !model.dirtyModel {
+	if !model.caches.dirtyModel {
 		t.Error("Expected dirtyModel to be true")
 	}
-	if !model.dirtyAgent {
+	if !model.caches.dirtyAgent {
 		t.Error("Expected dirtyAgent to be true")
 	}
 }
