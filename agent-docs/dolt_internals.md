@@ -58,3 +58,8 @@ tickets, err := store.ListTickets(ctx, data.TicketFilter{
 - Uninitialized workspace → "Run 'bd init' or 'bd bootstrap'"
 - Connection failures → Check server running / database corrupted
 - Schema failures → "Try running 'bd init' to repair"
+
+New typed errors (bb-970u.2):
+- `*dolt.ConnectionError` (use `dolt.IsConnectionError(err)` which prefers `errors.As`)
+- `*dolt.SchemaError`
+These replace scattered `strings.Contains(err.Error())` for runtime branching (isolated fallbacks remain only inside Is helpers and one alter path for DB driver variants). See `store.go`, `server.go`, `agent_store.go`.

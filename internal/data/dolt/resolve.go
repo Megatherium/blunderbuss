@@ -95,9 +95,10 @@ func ResolveConnection(ctx context.Context, beadsDir string) (*Metadata, error) 
 	projectDir := filepath.Dir(beadsDir)
 	if meta, err := resolveViaBdShow(ctx, projectDir, beadsDir); err == nil {
 		return meta, nil
-	} else {
-		fmt.Fprintf(os.Stderr, "Warning: bd dolt show --json failed, using local config fallback: %v\n", err)
 	}
+	// bd dolt show failed; fall back to local layered resolver (no warning spam;
+	// actionable errors are returned from resolveLocal if it also fails).
+	// Debug logging of the bd show err (if needed) is left to callers.
 
 	meta, err := resolveLocal(beadsDir)
 	if err != nil {

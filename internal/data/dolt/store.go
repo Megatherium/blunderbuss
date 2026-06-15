@@ -47,6 +47,37 @@ func IsErrServerNotRunning(err error) bool {
 	return errors.As(err, &e)
 }
 
+// ConnectionError indicates a failure to connect to the Dolt sql-server
+// (server not running, refused, network issue, etc.). It wraps the underlying
+// cause for use with errors.As/Is.
+type ConnectionError struct {
+	cause error
+}
+
+func (e *ConnectionError) Error() string {
+	if e.cause != nil {
+		return "cannot connect to Dolt server: " + e.cause.Error()
+	}
+	return "cannot connect to Dolt server"
+}
+
+func (e *ConnectionError) Unwrap() error { return e.cause }
+
+// SchemaError indicates a problem verifying or migrating the expected Dolt schema
+// (e.g. missing tables or columns during ALTERs).
+type SchemaError struct {
+	cause error
+}
+
+func (e *SchemaError) Error() string {
+	if e.cause != nil {
+		return "dolt schema error: " + e.cause.Error()
+	}
+	return "dolt schema error"
+}
+
+func (e *SchemaError) Unwrap() error { return e.cause }
+
 func handleServerMode(ctx context.Context, beadsDir string, metadata *Metadata, opts domain.AppOptions, autostart bool) (*Store, error) {
 	if opts.Debug {
 		fmt.Fprintf(os.Stderr, "Dolt server mode enabled\n")
@@ -106,10 +137,19 @@ func NewStore(ctx context.Context, opts domain.AppOptions, autostart bool) (*Sto
 }
 
 // IsConnectionError returns true if the error indicates the server is not running.
+// It prefers typed *ConnectionError via errors.As (for wrapped connect failures).
+// Falls back to string inspection only for raw driver errors during queries
+// (isolated here; the goal is to eliminate scattered strings.Contains for control flow).
 func IsConnectionError(err error) bool {
 	if err == nil {
 		return false
 	}
+	var ce *ConnectionError
+	if errors.As(err, &ce) {
+		return true
+	}
+	// Legacy/raw driver fallback (e.g. query-time connection drops before we wrap everywhere).
+	// TODO: remove once all DB access paths wrap low-level errs.
 	errStr := err.Error()
 	return strings.Contains(errStr, "cannot connect to Dolt server") ||
 		strings.Contains(errStr, "connection refused") ||

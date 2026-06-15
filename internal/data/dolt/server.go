@@ -29,7 +29,7 @@ func newServerStore(ctx context.Context, beadsDir string, metadata *Metadata, au
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create MySQL connection pool: %w", err)
+		return nil, &ConnectionError{cause: err}
 	}
 
 	// Configure connection pool for server mode
@@ -43,11 +43,7 @@ func newServerStore(ctx context.Context, beadsDir string, metadata *Metadata, au
 
 	if err := db.PingContext(pingCtx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf(
-			"cannot connect to Dolt server at %s:%d: %w; "+
-				"check that the server is running and accessible",
-			metadata.ServerHost, metadata.ServerPort, err,
-		)
+		return nil, &ConnectionError{cause: err}
 	}
 
 	// Verify the database schema is accessible

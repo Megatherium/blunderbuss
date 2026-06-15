@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/domain"
 )
@@ -192,15 +193,20 @@ func ensureRunningAgentsTicketTitleColumn(ctx context.Context, s *Store) error {
 	if err == nil {
 		return nil
 	}
-	// Column already exists on upgraded/newer schemas. Dolt/MySQL variants:
-	// - "Duplicate column name 'ticket_title'"
-	// - `Column "ticket_title" already exists`
+	// Column already exists on upgraded/newer schemas.
+	// Prefer structured *mysql.MySQLError (code 1060 = ER_DUP_FIELDNAME) to avoid
+	// brittle string matching on driver/locale-specific messages.
+	if me, ok := err.(*mysql.MySQLError); ok && me.Number == 1060 {
+		return nil
+	}
+	// Isolated fallback string check for Dolt variants or other drivers.
+	// This is the *only* remaining strings.Contains on err for schema control flow.
 	errMsg := strings.ToLower(err.Error())
 	if strings.Contains(errMsg, "duplicate column name") ||
 		(strings.Contains(errMsg, "ticket_title") && strings.Contains(errMsg, "already exists")) {
 		return nil
 	}
-	return fmt.Errorf("failed to ensure running_agents.ticket_title column: %w", err)
+	return &SchemaError{cause: err}
 }
 
 // ValidateAndPruneRunningAgents validates running agents and removes invalid rows.
