@@ -117,10 +117,15 @@ func TestErrorRecovery_RetryKeyRetriesLoading(t *testing.T) {
 	harnesses := newTestHarnesses()
 	m := NewUIModel(app, harnesses)
 
-	// Set up error state with a store that will succeed on retry
+	// Set up error state with a store that will succeed on retry.
+	// The retry handler builds a ProjectContext from retryStore +
+	// app.ActiveProject, so both must be configured for the retry to
+	// reach loadTicketsCmd with a valid project.
 	mockStore := &mockFailingStore{
 		maxFailures: 0, // Will succeed immediately on retry
 	}
+	app.ActiveProject = "/test/project"
+	app.AddStore("/test/project", mockStore)
 	m.state = ViewStateError
 	m.err = errors.New("connection refused")
 	m.retryStore = mockStore
