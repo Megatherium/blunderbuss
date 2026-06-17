@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	osexec "os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -75,18 +74,6 @@ func loadModalCmd(ticketID string, beadsDir string) tea.Cmd {
 		}
 		return modalContentMsg(string(out))
 	}
-}
-
-// extractRepoRoot extracts the repository root path from a beadsDir path.
-// It handles both "/path/to/.beads" and "/path/to/.beads/" patterns.
-func extractRepoRoot(beadsDir string) string {
-	repoRoot := beadsDir
-	if idx := strings.LastIndex(beadsDir, "/.beads"); idx > 0 {
-		repoRoot = beadsDir[:idx]
-	} else if strings.HasSuffix(beadsDir, ".beads") {
-		repoRoot = filepath.Dir(beadsDir)
-	}
-	return repoRoot
 }
 
 func discoverWorktreesCmd(myApp *app.App) tea.Cmd {

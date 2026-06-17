@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/data"
-	"github.com/megatherium/blunderbust/internal/domain"
 )
 
 func (m UIModel) handleModalKeyMsg() (tea.Model, tea.Cmd, bool) {
@@ -316,14 +316,8 @@ func (m UIModel) handleInlineEditKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 
 		var err error
 		if m.inlineEditMode == editModePrompt {
-			_, err = m.app.Renderer.RenderPrompt(m.selection.Harness, domain.TemplateContext{
-				TicketID:    m.selection.Ticket.ID,
-				TicketTitle: m.selection.Ticket.Title,
-				Model:       domain.NewModelContext(m.selection.Model),
-				Agent:       m.selection.Agent,
-				HarnessName: m.selection.Harness.Name,
-				WorkDir:     m.selectedWorktree,
-			})
+			_, err = m.app.Renderer.RenderPrompt(m.selection.Harness,
+				config.BuildTemplateContext(m.selection, m.selectedWorktree))
 			if err == nil {
 				m.selection.Harness.PromptTemplate = content
 			} else {
@@ -332,14 +326,8 @@ func (m UIModel) handleInlineEditKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 				return m, nil, true
 			}
 		} else {
-			_, err = m.app.Renderer.RenderCommand(m.selection.Harness, domain.TemplateContext{
-				TicketID:    m.selection.Ticket.ID,
-				TicketTitle: m.selection.Ticket.Title,
-				Model:       domain.NewModelContext(m.selection.Model),
-				Agent:       m.selection.Agent,
-				HarnessName: m.selection.Harness.Name,
-				WorkDir:     m.selectedWorktree,
-			})
+			_, err = m.app.Renderer.RenderCommand(m.selection.Harness,
+				config.BuildTemplateContext(m.selection, m.selectedWorktree))
 			if err == nil {
 				m.selection.Harness.CommandTemplate = content
 			} else {

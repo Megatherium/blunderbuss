@@ -40,7 +40,6 @@ var (
 	dryRun     bool
 	debug      bool
 	beadsDir   string
-	dsn        string
 	demo       bool
 )
 
@@ -94,7 +93,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Print commands without executing")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().StringVar(&beadsDir, "beads-dir", "", "Path to beads directory (default: ./.beads)")
-	rootCmd.PersistentFlags().StringVar(&dsn, "dsn", "", "DSN for Dolt server mode (optional, overrides metadata)")
 	rootCmd.PersistentFlags().BoolVar(&demo, "demo", false, "Use fake data instead of real beads database")
 	// --version flag for compatibility (also available as 'bdb version' subcommand)
 	rootCmd.PersistentFlags().Bool("version", false, "Print version and exit")

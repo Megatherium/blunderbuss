@@ -232,12 +232,6 @@ export BEADS_DOLT_PASSWORD="your-password"
 ./blunderbust
 ```
 
-You can also override the connection using the `--dsn` flag:
-
-```bash
-./blunderbust --dsn "user:password@tcp(host:port)/database"
-```
-
 ## Command-Line Flags
 
 | Flag | Description | Default |
@@ -247,7 +241,6 @@ You can also override the connection using the `--dsn` flag:
 | `--dry-run` | Print commands without executing | `false` |
 | `--debug` | Enable debug logging | `false` |
 | `--demo` | Use fake data instead of real database | `false` |
-| `--dsn` | DSN for Dolt server mode (overrides metadata) | - |
 | `--version` | Print version and exit | - |
 | `--help` | Show help message | - |
 

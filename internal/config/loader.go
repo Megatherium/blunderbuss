@@ -13,3 +13,12 @@ type Loader interface {
 	Load(path string) (*domain.Config, error)
 	Save(path string, cfg *domain.Config) error
 }
+
+// TUILoader abstracts TUI-specific configuration I/O using the same Loader
+// pattern as the main config. This lets the UI depend on an interface rather
+// than calling package-level free functions, and makes TUI config testable
+// with fakes. YAMLLoader implements both Loader and TUILoader.
+type TUILoader interface {
+	LoadTUI(path string) (*TUIConfig, error)
+	SaveTUI(path string, cfg *TUIConfig) error
+}

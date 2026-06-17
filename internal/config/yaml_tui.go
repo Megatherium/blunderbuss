@@ -19,11 +19,11 @@ type yamlTUIConfig struct {
 	FilePickerMaxRecents int      `yaml:"filepicker_max_recents,omitempty"`
 }
 
-// LoadTUIConfig reads and parses a TUI YAML configuration file.
-// If the file does not exist, returns defaults (no error).
+// LoadTUI reads and parses a TUI YAML configuration file using the Loader
+// pattern. If the file does not exist, returns defaults (no error).
 // Returns actionable errors for parse errors or other I/O failures.
 // If FilePickerMaxRecents is not specified or invalid, defaults to DefaultMaxRecents.
-func LoadTUIConfig(path string) (*TUIConfig, error) {
+func (l *YAMLLoader) LoadTUI(path string) (*TUIConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -43,7 +43,6 @@ func LoadTUIConfig(path string) (*TUIConfig, error) {
 		FilePickerRecents: raw.FilePickerRecents,
 	}
 
-	// Default FilePickerMaxRecents to DefaultMaxRecents if not specified or invalid
 	if raw.FilePickerMaxRecents > 0 {
 		cfg.FilePickerMaxRecents = raw.FilePickerMaxRecents
 	} else {
@@ -53,8 +52,11 @@ func LoadTUIConfig(path string) (*TUIConfig, error) {
 	return cfg, nil
 }
 
-// SaveTUIConfig writes the TUI configuration to a YAML file.
-func SaveTUIConfig(path string, cfg *TUIConfig) error {
+// SaveTUI writes the TUI configuration to a YAML file.
+// Note: this is a lossy write — FilePickerMaxRecents is omitted from YAML
+// when zero, and the load path re-defaults it to DefaultMaxRecents. This
+// means a zero value never round-trips (by design: zero means "use default").
+func (l *YAMLLoader) SaveTUI(path string, cfg *TUIConfig) error {
 	yamlCfg := yamlTUIConfig{
 		FilePickerRecents: cfg.FilePickerRecents,
 	}
@@ -73,4 +75,20 @@ func SaveTUIConfig(path string, cfg *TUIConfig) error {
 	}
 
 	return nil
+}
+
+// Compile-time check that YAMLLoader implements TUILoader.
+var _ TUILoader = (*YAMLLoader)(nil)
+
+// LoadTUIConfig reads and parses a TUI YAML configuration file.
+// Deprecated: use YAMLLoader.LoadTUI via the TUILoader interface so callers
+// depend on the abstraction, not a free function.
+func LoadTUIConfig(path string) (*TUIConfig, error) {
+	return (&YAMLLoader{}).LoadTUI(path)
+}
+
+// SaveTUIConfig writes the TUI configuration to a YAML file.
+// Deprecated: use YAMLLoader.SaveTUI via the TUILoader interface.
+func SaveTUIConfig(path string, cfg *TUIConfig) error {
+	return (&YAMLLoader{}).SaveTUI(path, cfg)
 }

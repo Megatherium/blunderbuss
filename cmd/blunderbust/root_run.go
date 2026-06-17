@@ -49,7 +49,6 @@ func runRoot(_ *cobra.Command, args []string) error {
 		ConfigPath:    cfgPath,
 		TUIConfigPath: resolveTUIConfigPath(),
 		BeadsDir:      beadsPath,
-		DSN:           dsn,
 		DryRun:        dryRun,
 		Debug:         debug,
 		Demo:          demo,

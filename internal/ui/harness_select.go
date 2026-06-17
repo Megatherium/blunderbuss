@@ -9,11 +9,6 @@ import (
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
-const (
-	providerPrefix = "provider:"
-	activeKeyword  = "discover:active"
-)
-
 type harnessItem struct {
 	harness  domain.Harness
 	registry *discovery.Registry
@@ -48,14 +43,14 @@ func (i harnessItem) getModelCount() int {
 	count := 0
 	for _, model := range i.harness.SupportedModels {
 		switch {
-		case model == activeKeyword:
+		case model == discovery.KeywordDiscoverActive:
 			// Expand to all active models from all providers
 			activeModels := i.registry.GetActiveModels()
 			count += len(activeModels)
 
-		case strings.HasPrefix(model, providerPrefix):
+		case strings.HasPrefix(model, discovery.PrefixProvider):
 			// Expand to models for this specific provider
-			providerID := strings.TrimPrefix(model, providerPrefix)
+			providerID := strings.TrimPrefix(model, discovery.PrefixProvider)
 			providerModels := i.registry.GetModelsForProvider(providerID)
 			count += len(providerModels)
 

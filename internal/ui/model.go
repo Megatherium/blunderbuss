@@ -13,7 +13,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/megatherium/blunderbust/internal/app"
-	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
@@ -71,7 +70,7 @@ func NewUIModel(blunderbustApp *app.App, harnesses []domain.Harness) UIModel {
 	var recents []string
 	var maxRecents int
 	if blunderbustApp != nil && blunderbustApp.Opts.TUIConfigPath != "" {
-		if cfg, err := config.LoadTUIConfig(blunderbustApp.Opts.TUIConfigPath); err == nil && cfg != nil {
+		if cfg, err := loadTUIConfig(blunderbustApp); err == nil && cfg != nil {
 			recents = cfg.FilePickerRecents
 			maxRecents = cfg.FilePickerMaxRecents
 		}
@@ -142,7 +141,7 @@ func (m UIModel) checkAndPromptAddProject(dirPath string) tea.Cmd {
 
 func (m UIModel) Init() tea.Cmd {
 	if m.app != nil && m.app.Opts.TUIConfigPath != "" {
-		if cfg, err := config.LoadTUIConfig(m.app.Opts.TUIConfigPath); err == nil && cfg != nil {
+		if cfg, err := loadTUIConfig(m.app); err == nil && cfg != nil {
 			m.filepicker.Recents = cfg.FilePickerRecents
 			m.filepicker.MaxRecents = cfg.FilePickerMaxRecents
 		}
@@ -319,10 +318,10 @@ func (m UIModel) handleProjectMsgs(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case filepicker.RecentsChangedMsg:
 		if m.app != nil && m.app.Opts.TUIConfigPath != "" {
-			cfg, err := config.LoadTUIConfig(m.app.Opts.TUIConfigPath)
+			cfg, err := loadTUIConfig(m.app)
 			if err == nil && cfg != nil {
 				cfg.FilePickerRecents = msg.Recents
-				if err := config.SaveTUIConfig(m.app.Opts.TUIConfigPath, cfg); err != nil {
+				if err := saveTUIConfig(m.app, cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to save recents: %v\n", err)
 				}
 			}

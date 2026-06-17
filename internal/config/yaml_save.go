@@ -15,6 +15,13 @@ import (
 )
 
 // Save writes the configuration to a YAML file.
+//
+// Lossiness: @file-include directives loaded by Load are flattened to their
+// inline content during domain→YAML conversion (the domain model stores the
+// resolved template string, not the @file directive). Saving therefore writes
+// the resolved content, not the original @file reference. This is intentional
+// — users who edit templates inline expect their literal content to persist.
+// A subsequent Load will read the inline content directly (no @file prefix).
 func (l *YAMLLoader) Save(path string, cfg *domain.Config) error {
 	yamlCfg := l.domainToYAML(cfg)
 
