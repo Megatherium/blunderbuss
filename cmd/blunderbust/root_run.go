@@ -42,6 +42,7 @@ func runRoot(_ *cobra.Command, args []string) error {
 	runner := tmux.NewRealRunner()
 	l := tmux.NewTmuxLauncher(runner, dryRun, false, target)
 	statusChecker := tmux.NewStatusChecker(runner)
+	captureFactory := tmux.NewCaptureFactory(runner)
 	renderer := config.NewRenderer()
 
 	appOpts := domain.AppOptions{
@@ -56,7 +57,7 @@ func runRoot(_ *cobra.Command, args []string) error {
 		TargetProject: targetProject,
 	}
 
-	application, err := app.NewApp(cfgLoader, l, statusChecker, runner, renderer, appOpts)
+	application, err := app.NewApp(cfgLoader, l, statusChecker, captureFactory, renderer, appOpts)
 	if err != nil {
 		fmt.Printf("Failed to initialize app: %v\n", err)
 		os.Exit(1)

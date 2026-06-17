@@ -16,7 +16,6 @@ import (
 	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/exec"
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
 )
 
 // ExtractRepoRoot extracts the repository root path from a beadsDir path.
@@ -74,37 +73,39 @@ func detectNerdFontWithDetector(detector fontDetector) bool {
 
 // App encapsulates the Bubble Tea program's dependencies.
 type App struct {
-	mu            sync.RWMutex
-	Stores        map[string]data.TicketStore
-	projects      []domain.Project
-	ActiveProject string
-	Loader        config.Loader
-	Launcher      exec.Launcher
-	statusChecker *tmux.StatusChecker
-	runner        tmux.CommandRunner
-	Renderer      *config.Renderer
-	Registry      *discovery.Registry
-	Opts          domain.AppOptions
-	Fonts         FontConfig
+	mu             sync.RWMutex
+	Stores         map[string]data.TicketStore
+	projects       []domain.Project
+	ActiveProject  string
+	Loader         config.Loader
+	Launcher       exec.Launcher
+	statusChecker  exec.StatusChecker
+	captureFactory exec.CaptureFactory
+	Renderer       *config.Renderer
+	Registry       *discovery.Registry
+	Opts           domain.AppOptions
+	Fonts          FontConfig
 }
 
 // NewApp creates a new App instance with necessary dependencies.
-// ProjectContext is created lazily via CreateProjectContext().
-func NewApp(loader config.Loader, launcher exec.Launcher, statusChecker *tmux.StatusChecker, runner tmux.CommandRunner, renderer *config.Renderer, opts domain.AppOptions) (*App, error) {
+// statusChecker and captureFactory are launcher-backend abstractions (typically
+// tmux); pass nil when a backend is unavailable (e.g. in tests). ProjectContext
+// is created lazily via CreateProjectContext().
+func NewApp(loader config.Loader, launcher exec.Launcher, statusChecker exec.StatusChecker, captureFactory exec.CaptureFactory, renderer *config.Renderer, opts domain.AppOptions) (*App, error) {
 	registry, err := discovery.NewRegistry("")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize discovery registry: %w", err)
 	}
 
 	return &App{
-		Loader:        loader,
-		Launcher:      launcher,
-		statusChecker: statusChecker,
-		runner:        runner,
-		Renderer:      renderer,
-		Registry:      registry,
-		Opts:          opts,
-		Fonts:         FontConfig{HasNerdFont: DetectNerdFont()},
+		Loader:         loader,
+		Launcher:       launcher,
+		statusChecker:  statusChecker,
+		captureFactory: captureFactory,
+		Renderer:       renderer,
+		Registry:       registry,
+		Opts:           opts,
+		Fonts:          FontConfig{HasNerdFont: DetectNerdFont()},
 	}, nil
 }
 
@@ -216,14 +217,27 @@ func (a *App) CreateStore(ctx context.Context, beadsDir string) (data.TicketStor
 	return a.createStore(ctx, beadsDir)
 }
 
-// StatusChecker returns the status checker for monitoring tmux windows.
-func (a *App) StatusChecker() *tmux.StatusChecker {
+// StatusChecker returns the status checker for monitoring launched agents,
+// or nil when none is configured (e.g. tests). Callers depend on the
+// exec.StatusChecker interface rather than a concrete launcher backend.
+func (a *App) StatusChecker() exec.StatusChecker {
 	return a.statusChecker
 }
 
-// Runner returns the command runner for creating output captures.
-func (a *App) Runner() tmux.CommandRunner {
-	return a.runner
+// NewCapture returns an OutputCapture for a previously launched session, or
+// nil when capture is unavailable (no factory configured, empty launcher id,
+// or a launcher type without capture support). Callers depend on the
+// exec.OutputCapture interface rather than a concrete launcher backend.
+func (a *App) NewCapture(launcherID string, launcherType domain.LauncherType) exec.OutputCapture {
+	if a.captureFactory == nil || launcherID == "" {
+		return nil
+	}
+	// Today only tmux sessions are capture-capable. When new launcher types
+	// gain capture support, route by launcherType here.
+	if launcherType != domain.LauncherTypeTmux {
+		return nil
+	}
+	return a.captureFactory.NewCapture(launcherID)
 }
 
 // Close cleans up resources, particularly the project context.

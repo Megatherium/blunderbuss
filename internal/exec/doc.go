@@ -4,12 +4,27 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Package exec provides execution abstractions for launching harnesses.
+// Package exec provides launcher-agnostic execution abstractions for launching
+// and monitoring development harnesses.
 //
-// This package contains the logic for launching development harnesses
-// in tmux windows/panes. It handles command rendering from templates,
-// tmux window creation, and result tracking.
+// This package defines the interfaces every launcher backend implements. The
+// concrete tmux backend lives in internal/exec/tmux; future backends (docker,
+// headless os/exec, ...) implement the same interfaces so the App and UI never
+// import a launcher-specific package.
 //
-// The primary interface is Launcher, which abstracts the execution
-// of launch specifications and returns results.
+// The interfaces:
+//
+//   - Launcher launches a harness session from a LaunchSpec and returns a
+//     LaunchResult.
+//   - StatusChecker reports whether a previously launched session is still
+//     alive, returning an AgentStatus (StatusRunning/StatusDead/StatusUnknown).
+//   - OutputCapture reads the live output of a launched session. All methods
+//     take a context so captures honour cancellation.
+//   - CaptureFactory builds an OutputCapture for a given launcher id; the App
+//     hands captures out through it without importing a backend package.
+//
+// Adding a new launcher backend (e.g. docker) is therefore confined to
+// internal/exec/<backend>/ plus a single wiring change at the composition root
+// (cmd/blunderbust) and (if capture routing differs) the App.NewCapture type
+// switch.
 package exec

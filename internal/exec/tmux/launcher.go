@@ -8,6 +8,7 @@ package tmux
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -70,15 +71,22 @@ func (l *Launcher) Launch(
 		}, err
 	}
 
-	windowID := l.parseLauncherID(string(output))
+	// The window was created successfully; PID resolution is best-effort
+	// metadata. A parse failure here is surfaced as a warning result rather
+	// than a hard error so the launched session is still tracked.
+	windowID, parseErr := parseLauncherID(string(output))
 	_, pid, _ := l.fetchPaneMetadata(ctx, windowID, spec.LauncherID)
 
-	return &domain.LaunchResult{
+	result := &domain.LaunchResult{
 		LauncherID:   spec.LauncherID, // Use window name as stable identifier
 		LauncherType: domain.LauncherTypeTmux,
 		PID:          pid,
 		Error:        nil,
-	}, nil
+	}
+	if parseErr != nil {
+		result.Error = fmt.Errorf("launched but could not parse window id: %w", parseErr)
+	}
+	return result, nil
 }
 
 // validateTmuxContext checks if bdb is running inside a tmux session.
@@ -140,7 +148,8 @@ func (l *Launcher) dryRunLaunch(
 }
 
 // fetchPaneMetadata resolves pane id, pane pid and tmux session.
-// Best-effort only: errors return empty metadata.
+// Best-effort only: errors return empty metadata (the launch itself already
+// succeeded; these fields are supplementary tracking data).
 func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, launcherID string) (paneID string, panePID int, sessionName string) {
 	target := windowID
 	if target == "" {
@@ -171,36 +180,45 @@ func (l *Launcher) fetchPaneMetadata(ctx context.Context, windowID, launcherID s
 	return fields[0], pid, fields[2]
 }
 
-// parseLauncherID extracts the window ID from tmux new-window output.
-// The output format is typically empty or contains window info.
-// For MVP, we'll attempt to parse if present but gracefully handle missing data.
-func (l *Launcher) parseLauncherID(output string) string {
+// errNoWindowID is returned by parseLauncherID when tmux produced no usable
+// window identifier.
+var errNoWindowID = errors.New("no tmux window id in new-window output")
+
+// parseLauncherID extracts the window ID from `tmux new-window -P -F '#{window_id}'`
+// output. That format yields a single line containing a tmux window id (e.g.
+// "@1"). Parsing is therefore deterministic: the first trimmed non-empty line
+// is the id when it is a non-empty token starting with "@". Any other shape is
+// reported as an error rather than silently returning an empty string.
+func parseLauncherID(output string) (string, error) {
 	output = strings.TrimSpace(output)
 	if output == "" {
-		return ""
+		return "", errNoWindowID
 	}
 
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-
-		if strings.HasPrefix(line, "@") {
-			return line
-		}
-
-		if strings.Contains(line, "@") {
-			parts := strings.Fields(line)
-			for _, part := range parts {
-				if strings.HasPrefix(part, "@") {
-					return part
-				}
-			}
+		// tmux window ids always start with '@' (e.g. "@1", "@abc"). Some
+		// tmux builds prefix the format output with the session target on a
+		// separate field, so accept the first '@'-prefixed token in the line.
+		if id := firstAtToken(line); id != "" {
+			return id, nil
 		}
 	}
 
+	return "", fmt.Errorf("could not find '@'-prefixed window id in: %q", output)
+}
+
+// firstAtToken returns the first whitespace-delimited token beginning with '@'
+// in line, or empty when none exists.
+func firstAtToken(line string) string {
+	for _, part := range strings.Fields(line) {
+		if strings.HasPrefix(part, "@") {
+			return part
+		}
+	}
 	return ""
 }
 

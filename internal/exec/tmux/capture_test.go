@@ -40,7 +40,7 @@ func TestOutputCapture_ReadOutput(t *testing.T) {
 	testOutput := []byte("Hello from capture-pane")
 	fake.AlwaysReturn = testOutput
 
-	content, err := capture.ReadOutput()
+	content, err := capture.ReadOutput(context.Background())
 	if err != nil {
 		t.Fatalf("ReadOutput() error = %v", err)
 	}
@@ -63,5 +63,82 @@ func TestOutputCapture_ReadOutput(t *testing.T) {
 	}
 	if !foundCapturePane {
 		t.Error("capture-pane command not found in executed commands")
+	}
+}
+
+func TestOutputCapture_ReadOutput_EmptyWindow(t *testing.T) {
+	fake := NewFakeRunner()
+	capture := NewOutputCapture(fake, "")
+
+	if _, err := capture.ReadOutput(context.Background()); err == nil {
+		t.Error("Expected error for empty window id, got nil")
+	}
+}
+
+func TestOutputCapture_Scrollback(t *testing.T) {
+	fake := NewFakeRunner()
+	fake.AlwaysReturn = []byte("history")
+	capture := NewOutputCaptureWithScrollback(fake, "@9", 250)
+
+	if _, err := capture.ReadOutput(context.Background()); err != nil {
+		t.Fatalf("ReadOutput() error = %v", err)
+	}
+
+	if len(fake.Commands) == 0 {
+		t.Fatal("no command recorded")
+	}
+	if !strings.Contains(fake.Commands[0], "-S -250") {
+		t.Errorf("expected scrollback flag -S -250 in command, got %q", fake.Commands[0])
+	}
+}
+
+func TestOutputCapture_ZeroScrollbackOmitsFlag(t *testing.T) {
+	fake := NewFakeRunner()
+	fake.AlwaysReturn = []byte("visible")
+	capture := NewOutputCaptureWithScrollback(fake, "@9", 0)
+
+	if _, err := capture.ReadOutput(context.Background()); err != nil {
+		t.Fatalf("ReadOutput() error = %v", err)
+	}
+	if strings.Contains(fake.Commands[0], "-S") {
+		t.Errorf("zero scrollback must not emit -S, got %q", fake.Commands[0])
+	}
+}
+
+func TestCaptureFactory_NewCapture(t *testing.T) {
+	fake := NewFakeRunner()
+	fake.AlwaysReturn = []byte("captured")
+	factory := NewCaptureFactory(fake)
+
+	capture := factory.NewCapture("@7")
+	if capture == nil {
+		t.Fatal("NewCapture returned nil for non-empty id")
+	}
+
+	if _, err := capture.ReadOutput(context.Background()); err != nil {
+		t.Fatalf("ReadOutput() error = %v", err)
+	}
+
+	if len(fake.Commands) == 0 {
+		t.Fatal("no command recorded")
+	}
+	if !strings.Contains(fake.Commands[0], "-t @7") {
+		t.Errorf("capture not bound to @7, got %q", fake.Commands[0])
+	}
+}
+
+func TestCaptureFactory_EmptyIDReturnsNil(t *testing.T) {
+	fake := NewFakeRunner()
+	factory := NewCaptureFactory(fake)
+
+	if c := factory.NewCapture(""); c != nil {
+		t.Errorf("expected nil capture for empty id, got %v", c)
+	}
+}
+
+func TestCaptureFactory_NilSafe(t *testing.T) {
+	var factory *CaptureFactory
+	if c := factory.NewCapture("@1"); c != nil {
+		t.Errorf("expected nil capture from nil factory, got %v", c)
 	}
 }

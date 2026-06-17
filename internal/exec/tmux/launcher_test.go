@@ -255,6 +255,49 @@ func TestLauncher_Launch_CommandError(t *testing.T) {
 	}
 }
 
+func TestLauncher_Launch_ParseError(t *testing.T) {
+	fake := NewFakeRunner()
+	// new-window succeeds but returns output without an @-prefixed window id,
+	// so parseLauncherID fails. The session was created, so Launch must
+	// return (result, nil) with the parse failure surfaced in result.Error.
+	fake.SetOutput("tmux", []string{"new-window", "-P", "-F", "#{window_id}", "-e", "LINES=", "-e", "COLUMNS=", "-n", "bb-3zg", "exec opencode"},
+		[]byte("window created\n"))
+	launcher := NewTmuxLauncher(fake, false, true, "foreground")
+
+	spec := domain.LaunchSpec{
+		Selection: domain.Selection{
+			Ticket: domain.Ticket{
+				ID:    "bb-3zg",
+				Title: "Test ticket",
+			},
+			Harness: domain.Harness{
+				Name: "opencode",
+			},
+		},
+		RenderedCommand: "opencode",
+		RenderedPrompt:  "Work on ticket",
+		LauncherID:      "bb-3zg",
+	}
+
+	result, err := launcher.Launch(context.Background(), spec)
+
+	if err != nil {
+		t.Fatalf("Launch() unexpected error: %v (launch should succeed despite parse failure)", err)
+	}
+	if result == nil {
+		t.Fatal("Launch() returned nil result")
+	}
+	if result.Error == nil {
+		t.Error("Expected result.Error to surface parse failure, got nil")
+	}
+	if result.LauncherID != spec.LauncherID {
+		t.Errorf("Expected LauncherID %q so the agent is still tracked by name, got %q", spec.LauncherID, result.LauncherID)
+	}
+	if result.LauncherType != domain.LauncherTypeTmux {
+		t.Errorf("Expected LauncherType tmux, got %v", result.LauncherType)
+	}
+}
+
 func TestLauncher_Launch_NotInTmux(t *testing.T) {
 	fake := NewFakeRunner()
 	launcher := NewTmuxLauncher(fake, false, false, "foreground")
@@ -423,74 +466,84 @@ func TestLauncher_buildCommand_BackgroundMode(t *testing.T) {
 
 func TestLauncher_parseLauncherID(t *testing.T) {
 	tests := []struct {
-		name     string
-		output   string
-		expected string
+		name    string
+		output  string
+		want    string
+		wantErr bool
 	}{
 		{
-			name:     "simple @ format",
-			output:   "@1",
-			expected: "@1",
+			name:   "simple @ format",
+			output: "@1",
+			want:   "@1",
 		},
 		{
-			name:     "multi-line with @ format",
-			output:   "some output\n@1\nmore output",
-			expected: "@1",
+			name:   "multi-line with @ format",
+			output: "some output\n@1\nmore output",
+			want:   "@1",
 		},
 		{
-			name:     "@ format in fields",
-			output:   "window @1 created",
-			expected: "@1",
+			name:   "@ format in fields",
+			output: "window @1 created",
+			want:   "@1",
 		},
 		{
-			name:     "empty output",
-			output:   "",
-			expected: "",
+			name:    "empty output",
+			output:  "",
+			wantErr: true,
 		},
 		{
-			name:     "no @ symbol",
-			output:   "window 1 created",
-			expected: "",
+			name:    "no @ symbol",
+			output:  "window 1 created",
+			wantErr: true,
 		},
 		{
-			name:     "whitespace only",
-			output:   "   \n  \n",
-			expected: "",
+			name:    "whitespace only",
+			output:  "   \n  \n",
+			wantErr: true,
 		},
 		{
-			name:     "multiple @ symbols - returns whole line",
-			output:   "@1 @2",
-			expected: "@1 @2",
+			name:   "multiple @ symbols - returns first token",
+			output: "@1 @2",
+			want:   "@1",
 		},
 		{
-			name:     "output with extra whitespace",
-			output:   "   @1   ",
-			expected: "@1",
+			name:   "output with extra whitespace",
+			output: "   @1   ",
+			want:   "@1",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launcher := &Launcher{}
-			result := launcher.parseLauncherID(tt.output)
-			if result != tt.expected {
-				t.Errorf("parseLauncherID() = %q, want %q", result, tt.expected)
+			got, err := parseLauncherID(tt.output)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("parseLauncherID() expected error, got %q (nil err)", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseLauncherID() unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("parseLauncherID() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestLauncher_parseLauncherID_ComplexOutput(t *testing.T) {
-	launcher := &Launcher{}
-
 	output := `some header
 tmux: window created
 @1
 some footer`
 
-	result := launcher.parseLauncherID(output)
-	if result != "@1" {
-		t.Errorf("Expected @1, got %q", result)
+	got, err := parseLauncherID(output)
+	if err != nil {
+		t.Fatalf("parseLauncherID() unexpected error: %v", err)
+	}
+	if got != "@1" {
+		t.Errorf("Expected @1, got %q", got)
 	}
 }
 

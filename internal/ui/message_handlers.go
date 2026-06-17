@@ -13,7 +13,7 @@ import (
 
 	"github.com/megatherium/blunderbust/internal/discovery"
 	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
+	"github.com/megatherium/blunderbust/internal/exec"
 )
 
 // Performance counters for debug instrumentation (--debug flag).
@@ -207,6 +207,14 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if msg.res != nil && msg.res.LauncherID != "" {
+		// Launchers return (result, nil) when the session was created but
+		// supplementary parsing (e.g. tmux window-id) failed. Surface that
+		// as a non-fatal warning so the user is informed without losing the
+		// tracked agent (the launch itself succeeded).
+		if msg.res.Error != nil {
+			m.warnings = append(m.warnings, fmt.Sprintf("Agent launched with warning: %v", msg.res.Error))
+		}
+
 		selection := m.selection
 		if msg.spec != nil {
 			selection = msg.spec.Selection
@@ -227,7 +235,6 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 			AgentName:    selection.Agent,
 		}
 
-		var capture *tmux.OutputCapture
 		capture, warn := m.startOutputCapture(msg.res.LauncherID, msg.res.LauncherType)
 		if warn != "" {
 			m.warnings = append(m.warnings, warn)
@@ -253,15 +260,19 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// startOutputCapture wires up tmux output capture for a freshly launched or
-// restored agent session. It is a no-op (returns nil) for non-tmux launchers
-// or when no runner is configured. A non-empty warning string signals that
-// capture was attempted but failed; the returned capture is nil in that case.
-func (m UIModel) startOutputCapture(launcherID string, launcherType domain.LauncherType) (*tmux.OutputCapture, string) {
-	if launcherID == "" || m.app == nil || m.app.Runner() == nil || launcherType != domain.LauncherTypeTmux {
+// startOutputCapture wires up output capture for a freshly launched or
+// restored agent session. It returns nil for non-capture-capable launchers,
+// an empty/absent runner factory, or an empty launcher id. A non-empty warning
+// string signals that capture was attempted but failed; the returned capture is
+// nil in that case.
+func (m UIModel) startOutputCapture(launcherID string, launcherType domain.LauncherType) (exec.OutputCapture, string) {
+	if m.app == nil {
 		return nil, ""
 	}
-	capture := tmux.NewOutputCapture(m.app.Runner(), launcherID)
+	capture := m.app.NewCapture(launcherID, launcherType)
+	if capture == nil {
+		return nil, ""
+	}
 	if _, err := capture.Start(context.Background()); err != nil {
 		return nil, fmt.Sprintf("Failed to capture output: %v", err)
 	}

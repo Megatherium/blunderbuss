@@ -9,52 +9,104 @@ package tmux
 import (
 	"context"
 	"fmt"
+	"strconv"
+
+	"github.com/megatherium/blunderbust/internal/exec"
 )
 
-// OutputCapture manages tmux pane output capture using capture-pane.
+// defaultScrollback is the number of history lines capture-pane pulls in
+// addition to the visible pane. 0 reproduces the legacy behaviour (visible
+// pane only). A non-zero default restores useful agent history that was
+// previously lost once output scrolled out of the viewport.
+const defaultScrollback = 500
+
+// OutputCapture reads a tmux pane via capture-pane and implements
+// exec.OutputCapture so callers depend on the launcher-agnostic interface.
 type OutputCapture struct {
-	runner   CommandRunner
-	windowID string
+	runner     CommandRunner
+	windowID   string
+	scrollback int
 }
 
-// NewOutputCapture creates a new output capture for the given window.
+// NewOutputCapture creates a capture for the given window with the default
+// scrollback range. The runner must not be nil for ReadOutput to succeed.
 func NewOutputCapture(runner CommandRunner, windowID string) *OutputCapture {
 	return &OutputCapture{
-		runner:   runner,
-		windowID: windowID,
+		runner:     runner,
+		windowID:   windowID,
+		scrollback: defaultScrollback,
 	}
 }
 
-// Start begins capturing output from the tmux window (no-op since we use capture-pane directly on read)
+// NewOutputCaptureWithScrollback creates a capture with an explicit scrollback
+// range (number of history lines). Use 0 to capture only the visible pane.
+func NewOutputCaptureWithScrollback(runner CommandRunner, windowID string, scrollback int) *OutputCapture {
+	return &OutputCapture{
+		runner:     runner,
+		windowID:   windowID,
+		scrollback: scrollback,
+	}
+}
+
+// Start begins capturing output from the tmux window (no-op since capture-pane
+// is invoked directly on each ReadOutput).
 func (c *OutputCapture) Start(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// Stop ends the output capture (no-op)
+// Stop ends the output capture (no-op).
 func (c *OutputCapture) Stop(ctx context.Context) error {
 	return nil
 }
 
-// cleanup removes any remaining resources (no-op)
-func (c *OutputCapture) cleanup() error {
-	return nil
-}
-
-// ReadOutput captures the current content of the tmux pane.
-func (c *OutputCapture) ReadOutput() ([]byte, error) {
+// ReadOutput captures the current content of the tmux pane, respecting ctx
+// (previously hard-wired to context.Background()). The scrollback range is
+// applied via -S so agent history that scrolled out of view is preserved.
+func (c *OutputCapture) ReadOutput(ctx context.Context) ([]byte, error) {
 	if c.windowID == "" {
 		return nil, fmt.Errorf("window string is empty")
 	}
 
-	out, err := c.runner.Run(context.Background(), "tmux", "capture-pane", "-p", "-t", c.windowID)
+	args := []string{"capture-pane", "-p", "-t", c.windowID}
+	if c.scrollback > 0 {
+		args = append(args, "-S", "-"+strconv.Itoa(c.scrollback))
+	}
+
+	out, err := c.runner.Run(ctx, "tmux", args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to capture pane: %w", err)
 	}
 
-	return []byte(out), nil
+	return out, nil
 }
 
-// FilePath returns an empty string since we no longer use a temporary file.
+// FilePath returns an empty string since capture streams directly from tmux.
 func (c *OutputCapture) FilePath() string {
 	return ""
 }
+
+// CaptureFactory builds OutputCapture instances for a shared runner. It
+// implements exec.CaptureFactory so the App can hand out captures without
+// importing the tmux package.
+type CaptureFactory struct {
+	runner CommandRunner
+}
+
+// NewCaptureFactory creates a factory that produces tmux OutputCaptures using
+// the given runner.
+func NewCaptureFactory(runner CommandRunner) *CaptureFactory {
+	return &CaptureFactory{runner: runner}
+}
+
+// NewCapture returns an exec.OutputCapture bound to the given window, or nil
+// when the window identifier is empty (no session to capture from).
+func (f *CaptureFactory) NewCapture(launcherID string) exec.OutputCapture {
+	if f == nil || launcherID == "" {
+		return nil
+	}
+	return NewOutputCapture(f.runner, launcherID)
+}
+
+// Verify interface compliance at compile time.
+var _ exec.OutputCapture = (*OutputCapture)(nil)
+var _ exec.CaptureFactory = (*CaptureFactory)(nil)

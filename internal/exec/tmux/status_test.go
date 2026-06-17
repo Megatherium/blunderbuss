@@ -9,6 +9,8 @@ package tmux
 import (
 	"context"
 	"testing"
+
+	"github.com/megatherium/blunderbust/internal/exec"
 )
 
 func TestStatusChecker_CheckStatus_Running(t *testing.T) {
@@ -20,7 +22,7 @@ func TestStatusChecker_CheckStatus_Running(t *testing.T) {
 	ctx := context.Background()
 
 	status := checker.CheckStatus(ctx, "bb-3zg")
-	if status != Running {
+	if status != exec.StatusRunning {
 		t.Errorf("Expected Running, got %v", status)
 	}
 }
@@ -34,7 +36,7 @@ func TestStatusChecker_CheckStatus_Dead(t *testing.T) {
 	ctx := context.Background()
 
 	status := checker.CheckStatus(ctx, "bb-3zg")
-	if status != Dead {
+	if status != exec.StatusDead {
 		t.Errorf("Expected Dead, got %v", status)
 	}
 }
@@ -48,7 +50,7 @@ func TestStatusChecker_CheckStatus_Unknown_Error(t *testing.T) {
 	ctx := context.Background()
 
 	status := checker.CheckStatus(ctx, "bb-3zg")
-	if status != Unknown {
+	if status != exec.StatusUnknown {
 		t.Errorf("Expected Unknown, got %v", status)
 	}
 }
@@ -62,7 +64,7 @@ func TestStatusChecker_CheckStatus_Unknown_EmptyOutput(t *testing.T) {
 	ctx := context.Background()
 
 	status := checker.CheckStatus(ctx, "bb-3zg")
-	if status != Dead {
+	if status != exec.StatusDead {
 		t.Errorf("Expected Dead (not in empty list), got %v", status)
 	}
 }
@@ -76,20 +78,20 @@ func TestStatusChecker_CheckStatus_WhitespaceHandling(t *testing.T) {
 	ctx := context.Background()
 
 	status := checker.CheckStatus(ctx, "bb-3zg")
-	if status != Running {
+	if status != exec.StatusRunning {
 		t.Errorf("Expected Running, got %v", status)
 	}
 }
 
-func TestTmuxWindowStatus_String(t *testing.T) {
+func TestAgentStatus_String(t *testing.T) {
 	tests := []struct {
-		status TmuxWindowStatus
+		status exec.AgentStatus
 		want   string
 	}{
-		{Running, "Running"},
-		{Dead, "Dead"},
-		{Unknown, "Unknown"},
-		{TmuxWindowStatus(999), "Invalid"},
+		{exec.StatusRunning, "Running"},
+		{exec.StatusDead, "Dead"},
+		{exec.StatusUnknown, "Unknown"},
+		{exec.AgentStatus(999), "Invalid"},
 	}
 
 	for _, tt := range tests {

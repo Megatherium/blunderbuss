@@ -18,7 +18,7 @@ import (
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
+	"github.com/megatherium/blunderbust/internal/exec"
 	"github.com/megatherium/blunderbust/internal/ui/sidebar"
 )
 
@@ -320,9 +320,9 @@ func pollAgentStatusCmd(myApp *app.App, agentID, launcherID string) tea.Cmd {
 		status := myApp.StatusChecker().CheckStatus(context.Background(), launcherID)
 		var agentStatus domain.AgentStatus
 		switch status {
-		case tmux.Running:
+		case exec.StatusRunning:
 			agentStatus = domain.AgentRunning
-		case tmux.Dead:
+		case exec.StatusDead:
 			agentStatus = domain.AgentCompleted
 		default:
 			agentStatus = domain.AgentRunning
@@ -338,13 +338,13 @@ func startAgentMonitoringCmd(agentID string) tea.Cmd {
 	})
 }
 
-func readAgentOutputCmd(agentID string, capture *tmux.OutputCapture) tea.Cmd {
+func readAgentOutputCmd(agentID string, capture exec.OutputCapture) tea.Cmd {
 	return func() tea.Msg {
 		if capture == nil {
 			return nil
 		}
 
-		content, err := capture.ReadOutput()
+		content, err := capture.ReadOutput(context.Background())
 		if err != nil {
 			return nil
 		}
@@ -355,7 +355,7 @@ func readAgentOutputCmd(agentID string, capture *tmux.OutputCapture) tea.Cmd {
 
 // Agent clearing commands
 
-func clearAgentCmd(agentID string, capture *tmux.OutputCapture) tea.Cmd {
+func clearAgentCmd(agentID string, capture exec.OutputCapture) tea.Cmd {
 	return func() tea.Msg {
 		// Stop output capture if still running
 		if capture != nil {
@@ -368,7 +368,7 @@ func clearAgentCmd(agentID string, capture *tmux.OutputCapture) tea.Cmd {
 
 type agentToClear struct {
 	id      string
-	capture *tmux.OutputCapture
+	capture exec.OutputCapture
 }
 
 func clearAllStoppedAgentsCmd(agents []agentToClear) tea.Cmd {

@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
+	"github.com/megatherium/blunderbust/internal/exec"
 )
 
 // Agent management sidebar helpers
@@ -293,7 +293,7 @@ func (m UIModel) HandleSidebarAgentKeysMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, 
 	case "c":
 		node := m.sidebar.State().CurrentNode()
 		if node != nil && node.Type == domain.NodeTypeAgent && node.AgentInfo != nil {
-			var capture *tmux.OutputCapture
+			var capture exec.OutputCapture
 			if agent, ok := m.agents[node.AgentInfo.ID]; ok {
 				capture = agent.Capture
 			}

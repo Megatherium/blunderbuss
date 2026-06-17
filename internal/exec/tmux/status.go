@@ -9,53 +9,35 @@ package tmux
 import (
 	"context"
 	"strings"
+
+	"github.com/megatherium/blunderbust/internal/exec"
 )
 
-// TmuxWindowStatus represents the status of a tmux window.
-type TmuxWindowStatus int
-
-const (
-	Running TmuxWindowStatus = iota
-	Dead
-	Unknown
-)
-
-// String returns a human-readable representation of the status.
-func (s TmuxWindowStatus) String() string {
-	switch s {
-	case Running:
-		return "Running"
-	case Dead:
-		return "Dead"
-	case Unknown:
-		return "Unknown"
-	default:
-		return "Invalid"
-	}
-}
-
-// StatusChecker monitors tmux window status.
+// StatusChecker monitors tmux window liveness and implements exec.StatusChecker
+// so callers depend on the launcher-agnostic interface.
 type StatusChecker struct {
 	runner CommandRunner
 }
 
-// NewStatusChecker creates a new StatusChecker.
+// NewStatusChecker creates a new StatusChecker backed by the given runner.
 func NewStatusChecker(runner CommandRunner) *StatusChecker {
 	return &StatusChecker{
 		runner: runner,
 	}
 }
 
-// CheckStatus determines if a tmux window is running.
-// Uses `tmux list-windows -F '#{window_name} #{window_id}'` to query window status.
-func (c *StatusChecker) CheckStatus(ctx context.Context, windowName string) TmuxWindowStatus {
+// CheckStatus determines if the tmux window named launcherID still exists.
+// It uses `tmux list-windows -F '#{window_name} #{window_id}'` and matches on
+// the window name (which is set to the launcher ID at launch time).
+// Returns exec.StatusUnknown when the underlying tmux call fails, so a
+// transient tmux error is not misreported as a dead agent.
+func (c *StatusChecker) CheckStatus(ctx context.Context, launcherID string) exec.AgentStatus {
 	output, err := c.runner.Run(ctx, "tmux", "list-windows", "-F", "#{window_name} #{window_id}")
 	if err != nil {
-		return Unknown
+		return exec.StatusUnknown
 	}
 
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
+	for _, line := range strings.Split(string(output), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -66,10 +48,13 @@ func (c *StatusChecker) CheckStatus(ctx context.Context, windowName string) Tmux
 			continue
 		}
 
-		if parts[0] == windowName {
-			return Running
+		if parts[0] == launcherID {
+			return exec.StatusRunning
 		}
 	}
 
-	return Dead
+	return exec.StatusDead
 }
+
+// Verify interface compliance at compile time.
+var _ exec.StatusChecker = (*StatusChecker)(nil)

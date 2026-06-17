@@ -11,7 +11,7 @@ import (
 	"github.com/megatherium/blunderbust/internal/app"
 	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
-	"github.com/megatherium/blunderbust/internal/exec/tmux"
+	"github.com/megatherium/blunderbust/internal/exec"
 	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
 
@@ -232,6 +232,6 @@ const (
 // RunningAgent tracks a launched agent session
 type RunningAgent struct {
 	Info       *domain.AgentInfo
-	Capture    *tmux.OutputCapture
+	Capture    exec.OutputCapture
 	LastOutput string
 }
