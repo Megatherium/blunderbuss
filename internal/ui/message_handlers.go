@@ -228,15 +228,9 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 		}
 
 		var capture *tmux.OutputCapture
-		launcherID := msg.res.LauncherID
-		if launcherID != "" && m.app.Runner() != nil && msg.res.LauncherType == domain.LauncherTypeTmux {
-			capture = tmux.NewOutputCapture(m.app.Runner(), launcherID)
-			path, captureErr := capture.Start(context.Background())
-			if captureErr != nil {
-				m.warnings = append(m.warnings, fmt.Sprintf("Failed to capture output: %v", captureErr))
-				capture = nil
-			}
-			_ = path
+		capture, warn := m.startOutputCapture(msg.res.LauncherID, msg.res.LauncherType)
+		if warn != "" {
+			m.warnings = append(m.warnings, warn)
 		}
 
 		m.agents[agentID] = &RunningAgent{
@@ -257,6 +251,21 @@ func (m UIModel) handleLaunchResult(msg launchResultMsg) (tea.Model, tea.Cmd) {
 
 	m.state = ViewStateMatrix
 	return m, nil
+}
+
+// startOutputCapture wires up tmux output capture for a freshly launched or
+// restored agent session. It is a no-op (returns nil) for non-tmux launchers
+// or when no runner is configured. A non-empty warning string signals that
+// capture was attempted but failed; the returned capture is nil in that case.
+func (m UIModel) startOutputCapture(launcherID string, launcherType domain.LauncherType) (*tmux.OutputCapture, string) {
+	if launcherID == "" || m.app == nil || m.app.Runner() == nil || launcherType != domain.LauncherTypeTmux {
+		return nil, ""
+	}
+	capture := tmux.NewOutputCapture(m.app.Runner(), launcherID)
+	if _, err := capture.Start(context.Background()); err != nil {
+		return nil, fmt.Sprintf("Failed to capture output: %v", err)
+	}
+	return capture, ""
 }
 
 func (m UIModel) handleWindowSizeMsg(msg tea.WindowSizeMsg) (UIModel, tea.Cmd) {
@@ -346,6 +355,14 @@ func (m UIModel) handleRunningAgentsLoaded(msg runningAgentsLoadedMsg) (tea.Mode
 			AgentName:    persisted.Agent,
 		}
 		m.agents[agentID] = &RunningAgent{Info: info}
+
+		// Restore live output capture for tmux sessions whose pane still exists.
+		if capture, warn := m.startOutputCapture(persisted.LauncherID, persisted.LauncherType); capture != nil {
+			m.agents[agentID].Capture = capture
+		} else if warn != "" {
+			m.warnings = append(m.warnings, warn)
+		}
+
 		AddAgentNodeToSidebar(&m, info)
 
 		if persisted.LauncherID != "" {

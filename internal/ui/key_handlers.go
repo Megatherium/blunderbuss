@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/megatherium/blunderbust/internal/data"
-	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
@@ -196,11 +195,9 @@ func (m UIModel) handleErrorStateKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, boo
 		}
 	case "s", "S":
 		if m.retryStore != nil {
-			if doltStore, ok := m.retryStore.(*dolt.Store); ok {
-				if doltStore.CanRetryConnection() {
-					m.state = ViewStateLoading
-					return m, startServerAndRetryCmd(m.app, doltStore), true
-				}
+			if retryer, ok := m.retryStore.(data.ConnectionRetryer); ok && retryer.CanRetryConnection() {
+				m.state = ViewStateLoading
+				return m, startServerAndRetryCmd(m.app, retryer), true
 			}
 		}
 	}

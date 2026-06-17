@@ -31,6 +31,8 @@ type Store struct {
 
 // Verify interface compliance at compile time.
 var _ data.TicketStore = (*Store)(nil)
+var _ data.RunningAgentStore = (*Store)(nil)
+var _ data.ConnectionRetryer = (*Store)(nil)
 
 // ErrServerNotRunning is returned when the Dolt server is not running and autostart is disabled.
 type ErrServerNotRunning struct {
@@ -183,8 +185,9 @@ func (s *Store) AutostartEnabled() bool {
 }
 
 // TryStartServer attempts to start the Dolt server and re-establish
-// a new connection to it. Returns a new Store instance if successful.
-func (s *Store) TryStartServer(ctx context.Context) (*Store, error) {
+// a new connection to it. Returns a Store as a data.TicketStore so callers
+// (data.ConnectionRetryer) don't need to reference the concrete *dolt.Store.
+func (s *Store) TryStartServer(ctx context.Context) (data.TicketStore, error) {
 	if s.mode != ServerMode {
 		return nil, fmt.Errorf("server restart not supported for this store mode")
 	}

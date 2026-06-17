@@ -84,14 +84,14 @@ func TestErrorRecovery_DisplayRetryOptions(t *testing.T) {
 	}, teatest.WithDuration(2*time.Second))
 }
 
-// TestErrorRecovery_DisplayStartServerOption tests that error state shows [s]tart option for dolt stores
-// Note: This test verifies the View logic when retryStore is a dolt.Store that can retry
+// TestErrorRecovery_DisplayStartServerOption tests that error state shows [s]tart option for retryable stores
+// Note: This test verifies the View logic when retryStore is a data.ConnectionRetryer that can retry.
 func TestErrorRecovery_DisplayStartServerOption(t *testing.T) {
 	app := newTestAppWithHarnesses(t)
 	harnesses := newTestHarnesses()
 	m := NewUIModel(app, harnesses)
 
-	// Create a test app with demo mode - in demo mode, the store is not a dolt.Store
+	// Create a test app with demo mode - in demo mode, the store is not a ConnectionRetryer
 	// so the [s] option won't be shown. This test verifies the view logic structure.
 	// We test the view rendering logic directly instead of using teatest.
 
@@ -104,7 +104,7 @@ func TestErrorRecovery_DisplayStartServerOption(t *testing.T) {
 	assert.Contains(t, view, "[q]")
 	assert.NotContains(t, view, "[s]") // No start option without retryStore
 
-	// Test case 2: With retryStore (even if not dolt.Store), should show retry option
+	// Test case 2: With retryStore (even if not a ConnectionRetryer), should show retry option
 	m.retryStore = &mockFailingStore{}
 	view = m.renderMainContent()
 	assert.Contains(t, view, "[r]")
@@ -214,13 +214,13 @@ func TestErrorRecovery_QuitKeyInErrorState(t *testing.T) {
 	assert.NotNil(t, cmd, "Should return quit command")
 }
 
-// TestErrorRecovery_StartServerKeyWithoutDoltStore tests that 's' key doesn't work with non-dolt stores
-func TestErrorRecovery_StartServerKeyWithoutDoltStore(t *testing.T) {
+// TestErrorRecovery_StartServerKeyWithoutRetryableStore tests that 's' key doesn't work with non-retryable stores
+func TestErrorRecovery_StartServerKeyWithoutRetryableStore(t *testing.T) {
 	app := newTestAppWithHarnesses(t)
 	harnesses := newTestHarnesses()
 	m := NewUIModel(app, harnesses)
 
-	// Set up error state with non-dolt store (mockFailingStore)
+	// Set up error state with a non-retryable store (mockFailingStore)
 	m.state = ViewStateError
 	m.err = errors.New("connection refused")
 	m.retryStore = &mockFailingStore{}
@@ -232,10 +232,10 @@ func TestErrorRecovery_StartServerKeyWithoutDoltStore(t *testing.T) {
 	// Should handle the key (to block it from other handlers) but not change state
 	require.True(t, handled, "Should handle 's' key")
 
-	// Should stay in error state because store is not *dolt.Store
+	// Should stay in error state because store is not a ConnectionRetryer
 	updatedModel := newModel.(UIModel)
-	assert.Equal(t, originalState, updatedModel.state, "Should stay in error state with non-dolt store")
-	assert.Nil(t, cmd, "Should not return a command when store is not dolt.Store")
+	assert.Equal(t, originalState, updatedModel.state, "Should stay in error state with non-retryable store")
+	assert.Nil(t, cmd, "Should not return a command when store is not retryable")
 }
 
 // TestErrorRecovery_ServerStartedMsgHandler tests serverStartedMsg handling

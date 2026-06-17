@@ -6,7 +6,6 @@ import (
 
 	"github.com/megatherium/blunderbust/internal/config"
 	"github.com/megatherium/blunderbust/internal/data"
-	"github.com/megatherium/blunderbust/internal/data/dolt"
 	"github.com/megatherium/blunderbust/internal/domain"
 	"github.com/megatherium/blunderbust/internal/ui/filepicker"
 )
@@ -100,8 +99,8 @@ func renderErrorState(cfg MainContentConfig) string {
 	hasStart := false
 	if cfg.RetryStore != nil {
 		hasRetry = true
-		if doltStore, ok := cfg.RetryStore.(*dolt.Store); ok {
-			hasStart = doltStore.CanRetryConnection()
+		if retryer, ok := cfg.RetryStore.(data.ConnectionRetryer); ok {
+			hasStart = retryer.CanRetryConnection()
 		}
 	}
 	return errorView(cfg.Err, hasRetry, hasStart)

@@ -12,18 +12,22 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/megatherium/blunderbust/internal/config"
+	"github.com/megatherium/blunderbust/internal/data"
 	"github.com/megatherium/blunderbust/internal/domain"
 )
 
 const defaultRunningAgentMaxAge = time.Hour
 
-// ProcessInspector provides process existence and command lookup.
-type ProcessInspector interface {
-	PIDExists(pid int) bool
-	CommandForPID(ctx context.Context, pid int) (string, error)
-}
+// ProcessInspector is satisfied by data.ProcessInspector implementations; the
+// dolt package retains a concrete host-backed inspector used as the default
+// when callers pass nil to ValidateAndPruneRunningAgents.
+type ProcessInspector = data.ProcessInspector
 
 type hostProcessInspector struct{}
+
+// NewHostProcessInspector returns the production ProcessInspector backed by
+// syscall signals and ps(1).
+func NewHostProcessInspector() ProcessInspector { return hostProcessInspector{} }
 
 func (hostProcessInspector) PIDExists(pid int) bool {
 	if pid <= 0 {

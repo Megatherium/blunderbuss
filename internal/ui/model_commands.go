@@ -22,14 +22,14 @@ import (
 	"github.com/megatherium/blunderbust/internal/ui/sidebar"
 )
 
-func startServerAndRetryCmd(myApp *app.App, store *dolt.Store) tea.Cmd {
+func startServerAndRetryCmd(myApp *app.App, retryer data.ConnectionRetryer) tea.Cmd {
 	return func() tea.Msg {
-		if myApp == nil || store == nil {
+		if myApp == nil || retryer == nil {
 			return errMsg{err: fmt.Errorf("invalid app or store for retry"), showRetryOptions: false}
 		}
 
 		// Try to start the server
-		newStore, err := store.TryStartServer(context.Background())
+		newStore, err := retryer.TryStartServer(context.Background())
 		if err != nil {
 			return errMsg{err: err, showRetryOptions: true}
 		}
@@ -174,10 +174,10 @@ func loadRunningAgentsCmd(myApp *app.App) tea.Cmd {
 			return runningAgentsLoadedMsg{}
 		}
 
-		store, ok := project.Store().(*dolt.Store)
+		agentStore, ok := project.Store().(data.RunningAgentStore)
 		if !ok {
 			if myApp.Opts.Debug {
-				fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: store is not dolt.Store\n")
+				fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: store does not implement RunningAgentStore\n")
 			}
 			return runningAgentsLoadedMsg{}
 		}
@@ -194,14 +194,14 @@ func loadRunningAgentsCmd(myApp *app.App) tea.Cmd {
 			fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: querying projectDirs=%v\n", projectDirs)
 		}
 
-		if err := store.DeleteStaleRunningAgents(context.Background(), time.Hour); err != nil {
+		if err := agentStore.DeleteStaleRunningAgents(context.Background(), time.Hour); err != nil {
 			if myApp.Opts.Debug {
 				fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: DeleteStaleRunningAgents error: %v\n", err)
 			}
 			return runningAgentsLoadedMsg{err: err}
 		}
 
-		agents, err := store.ValidateAndPruneRunningAgents(context.Background(), projectDirs, nil)
+		agents, err := agentStore.ValidateAndPruneRunningAgents(context.Background(), projectDirs, nil)
 		if err != nil {
 			if myApp.Opts.Debug {
 				fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: ValidateAndPruneRunningAgents error: %v\n", err)
@@ -238,10 +238,10 @@ func saveRunningAgentCmd(myApp *app.App, spec *domain.LaunchSpec, result *domain
 			}
 			return nil
 		}
-		store, ok := project.Store().(*dolt.Store)
+		agentStore, ok := project.Store().(data.RunningAgentStore)
 		if !ok {
 			if myApp.Opts.Debug {
-				fmt.Fprintf(os.Stderr, "[DEBUG] saveRunningAgentCmd: store is not dolt.Store\n")
+				fmt.Fprintf(os.Stderr, "[DEBUG] saveRunningAgentCmd: store does not implement RunningAgentStore\n")
 			}
 			return nil
 		}
@@ -281,7 +281,7 @@ func saveRunningAgentCmd(myApp *app.App, spec *domain.LaunchSpec, result *domain
 			fmt.Fprintf(os.Stderr, "[DEBUG]   renderedCommand=%s\n", spec.RenderedCommand)
 		}
 
-		err := store.UpsertRunningAgent(context.Background(), domain.PersistedRunningAgent{
+		err := agentStore.UpsertRunningAgent(context.Background(), domain.PersistedRunningAgent{
 			ProjectDir:    projectDir,
 			WorktreePath:  worktreePath,
 			PID:           result.PID,
@@ -410,9 +410,9 @@ func checkTicketUpdatesCmd(store data.TicketStore, lastUpdate time.Time, debug b
 		}
 
 		if err != nil {
-			// Check if this is a connection error for server-mode stores
-			if doltStore, ok := store.(*dolt.Store); ok &&
-				doltStore.CanRetryConnection() &&
+			// Check if this is a connection error for server-mode stores that can retry.
+			if retryer, ok := store.(data.ConnectionRetryer); ok &&
+				retryer.CanRetryConnection() &&
 				dolt.IsConnectionError(err) {
 				return errMsg{err: err, showRetryOptions: true}
 			}

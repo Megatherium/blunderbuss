@@ -63,3 +63,19 @@ New typed errors (bb-970u.2):
 - `*dolt.ConnectionError` (use `dolt.IsConnectionError(err)` which prefers `errors.As`)
 - `*dolt.SchemaError`
 These replace scattered `strings.Contains(err.Error())` for runtime branching (isolated fallbacks remain only inside Is helpers and one alter path for DB driver variants). See `store.go`, `server.go`, `agent_store.go`.
+
+### Store abstractions (bb-970u.3)
+
+The UI and App layers must NOT type-assert `*dolt.Store`. Instead they program
+against interfaces declared in `internal/data`:
+
+- `data.TicketStore` — ticket retrieval (ListTickets, LatestUpdate).
+- `data.RunningAgentStore` — running-agent persistence (Upsert/List/ValidateAndPrune/DeleteStale). Implemented by `*dolt.Store` AND the demo `*fake.TicketStore` so demo mode round-trips persisted agents.
+- `data.ProcessInspector` — host process probing (PIDExists, CommandForPID). Defined in `data`; the concrete host-backed inspector lives in the dolt package (`dolt.NewHostProcessInspector()`). Pass `nil` to `ValidateAndPruneRunningAgents` to use the default.
+- `data.ConnectionRetryer` — optional capability for server-restart (CanRetryConnection, TryStartServer). Implemented only by server-mode `*dolt.Store`. The UI uses this to show the `[s]` option and issue retries instead of casting to `*dolt.Store`.
+
+Consequences for new work:
+- `EnsureRunningAgentsTable` is **dolt-private** (called only during `newServerStore`); it is not part of any data-layer interface.
+- `TryStartServer` returns `data.TicketStore` (not `*dolt.Store`) to satisfy `data.ConnectionRetryer`.
+- Restored tmux agents get an `OutputCapture` wired in `handleRunningAgentsLoaded` via the shared `UIModel.startOutputCapture` helper (same one fresh launches use).
+- `dolt.IsConnectionError` / `dolt.IsErrServerNotRunning` remain package-level predicates (typed errors, not casts) — moving them into `data` is tracked by the config/error-unification ticket (bb-970u.5).
