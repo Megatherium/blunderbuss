@@ -54,6 +54,7 @@ State B (after SOMEONE ELSE has reviewed it):
 - A 3.0/10 review score means you fundamentally misunderstood the requirements - don't try to justify partial fixes, just implement exactly what the reviewer specified.
 - For harness/process validation, binary matching is alias-based (1 harness can map to multiple executable names, e.g. `kilo` and `kilocode`).
 - If the UI isn't updating properly: are the caches being dirtied properly?
+- `cmd | head` returns the exit code of `head`, not `cmd`. Use `set -o pipefail` or `$PIPESTATUS` to catch upstream failures in pipelines.
 
 ## Modern tooling
 

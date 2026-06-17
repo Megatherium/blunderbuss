@@ -607,6 +607,11 @@ func (m *SidebarModel) SetSelectedPath(path string) {
 	m.selectedPath = path
 }
 
+// SetCursor sets the sidebar cursor position, replacing direct state mutation.
+func (m *SidebarModel) SetCursor(cursor int) {
+	m.state.Cursor = cursor
+}
+
 // SetStoreError sets the store error state.
 func (m *SidebarModel) SetStoreError(hasError bool) {
 	m.hasStoreError = hasError

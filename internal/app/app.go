@@ -85,6 +85,9 @@ type App struct {
 	Registry       *discovery.Registry
 	Opts           domain.AppOptions
 	Fonts          FontConfig
+	ctx            context.Context
+	cancelFn       context.CancelFunc
+	projectCtx     *data.ProjectContext
 }
 
 // NewApp creates a new App instance with necessary dependencies.
@@ -97,6 +100,8 @@ func NewApp(loader config.Loader, launcher exec.Launcher, statusChecker exec.Sta
 		return nil, fmt.Errorf("failed to initialize discovery registry: %w", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &App{
 		Loader:         loader,
 		Launcher:       launcher,
@@ -106,23 +111,50 @@ func NewApp(loader config.Loader, launcher exec.Launcher, statusChecker exec.Sta
 		Registry:       registry,
 		Opts:           opts,
 		Fonts:          FontConfig{HasNerdFont: DetectNerdFont()},
+		ctx:            ctx,
+		cancelFn:       cancel,
 	}, nil
 }
 
+// Context returns the App's cancellable context for monitoring commands.
+// The context is cancelled when Close() is called, allowing background
+// goroutines (agent polls, capture reads) to terminate on shutdown.
+// Returns context.Background() when the App was constructed without NewApp
+// (e.g. direct struct literals in tests).
+func (a *App) Context() context.Context {
+	if a.ctx == nil {
+		return context.Background()
+	}
+	return a.ctx
+}
+
 // Project returns the current project context (may be nil if CreateProjectContext hasn't been called).
+// The result is cached and only recomputed when the active project changes.
+// Uses check-then-lock to avoid a data race: the fast path reads under RLock,
+// the slow path upgrades to a write lock and re-checks before computing.
 func (a *App) Project() *data.ProjectContext {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
-
 	if a.ActiveProject == "" {
+		a.mu.RUnlock()
 		return nil
 	}
+	if a.projectCtx != nil {
+		defer a.mu.RUnlock()
+		return a.projectCtx
+	}
+	a.mu.RUnlock()
 
-	// Fast path check if store exists
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	// Re-check after acquiring write lock — another goroutine may have
+	// populated the cache between RUnlock and Lock.
+	if a.projectCtx != nil {
+		return a.projectCtx
+	}
 	if store, exists := a.Stores[a.ActiveProject]; exists {
-		// activeProject is the project root path
 		beadsDir := filepath.Join(a.ActiveProject, ".beads")
 		ctx, _ := data.NewProjectContext(store, beadsDir, a.ActiveProject)
+		a.projectCtx = ctx
 		return ctx
 	}
 
@@ -160,6 +192,7 @@ func (a *App) CreateProjectContext(ctx context.Context) (*data.ProjectContext, e
 	a.mu.Lock()
 	a.Stores[firstProjectDir] = store
 	a.ActiveProject = firstProjectDir
+	a.projectCtx = nil
 	a.mu.Unlock()
 
 	return a.Project(), nil
@@ -179,6 +212,7 @@ func (a *App) loadSingleProject(ctx context.Context, beadsDir string) (*data.Pro
 	rootPath := ExtractRepoRoot(beadsDir)
 	a.Stores[rootPath] = store
 	a.ActiveProject = rootPath
+	a.projectCtx = nil
 
 	name := data.GetProjectName(rootPath)
 	a.projects = []domain.Project{{Dir: rootPath, Name: name}}
@@ -240,8 +274,11 @@ func (a *App) NewCapture(launcherID string, launcherType domain.LauncherType) ex
 	return a.captureFactory.NewCapture(launcherID)
 }
 
-// Close cleans up resources, particularly the project context.
+// Close cleans up resources, particularly the project context and monitoring goroutines.
 func (a *App) Close() error {
+	if a.cancelFn != nil {
+		a.cancelFn()
+	}
 	for _, store := range a.Stores {
 		if closer, ok := store.(interface{ Close() error }); ok {
 			closer.Close()
@@ -265,6 +302,7 @@ func (a *App) SetActiveProject(ctx context.Context, projectDir string) error {
 	// Check if store already exists
 	if _, exists := a.Stores[projectDir]; exists {
 		a.ActiveProject = projectDir
+		a.projectCtx = nil
 		return nil
 	}
 
@@ -275,6 +313,7 @@ func (a *App) SetActiveProject(ctx context.Context, projectDir string) error {
 	}
 	a.Stores[projectDir] = store
 	a.ActiveProject = projectDir
+	a.projectCtx = nil
 	return nil
 }
 
@@ -295,6 +334,7 @@ func (a *App) StoreForProject(ctx context.Context, projectDir string) (data.Tick
 
 	a.mu.Lock()
 	a.Stores[projectDir] = store
+	a.projectCtx = nil
 	a.mu.Unlock()
 
 	return store, nil
@@ -345,7 +385,8 @@ func (a *App) AddProject(project domain.Project) {
 		}
 	}
 
-	// deduplicateProjectName uses a.projects without locking (so we assume it's called with lock)
+	// Inline deduplication: a.projects is accessed without locking because
+	// AddProject already holds the write lock at this point.
 	existingNames := make(map[string]bool)
 	for _, p := range a.projects {
 		existingNames[p.Name] = true
@@ -375,6 +416,7 @@ func (a *App) AddStore(projectDir string, store data.TicketStore) {
 		a.Stores = make(map[string]data.TicketStore)
 	}
 	a.Stores[projectDir] = store
+	a.projectCtx = nil
 }
 
 // SaveConfig saves the current configuration to the config file.
@@ -395,26 +437,4 @@ func (a *App) SaveConfig() error {
 	}
 
 	return nil
-}
-
-// deduplicateProjectName ensures unique project names by adding counter suffix
-func (a *App) deduplicateProjectName(name string) string {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	existingNames := make(map[string]bool)
-	for _, p := range a.projects {
-		existingNames[p.Name] = true
-	}
-
-	if !existingNames[name] {
-		return name
-	}
-
-	for i := 1; ; i++ {
-		candidate := fmt.Sprintf("%s-%d", name, i)
-		if !existingNames[candidate] {
-			return candidate
-		}
-	}
 }

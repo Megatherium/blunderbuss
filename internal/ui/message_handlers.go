@@ -273,7 +273,7 @@ func (m UIModel) startOutputCapture(launcherID string, launcherType domain.Launc
 	if capture == nil {
 		return nil, ""
 	}
-	if _, err := capture.Start(context.Background()); err != nil {
+	if _, err := capture.Start(m.context()); err != nil {
 		return nil, fmt.Sprintf("Failed to capture output: %v", err)
 	}
 	return capture, ""
@@ -296,7 +296,8 @@ func (m UIModel) handleWorktreesDiscovered(msg worktreesDiscoveredMsg) (tea.Mode
 	prevNode := state.CurrentNode()
 	prevSelectedPath := m.selectedWorktree
 
-	m.sidebar, _ = m.sidebar.Update(SidebarNodesMsg{Nodes: msg.nodes})
+	var sidebarCmd tea.Cmd
+	m.sidebar, sidebarCmd = m.sidebar.Update(SidebarNodesMsg{Nodes: msg.nodes})
 
 	if prevSelectedPath != "" {
 		found := false
@@ -323,7 +324,7 @@ func (m UIModel) handleWorktreesDiscovered(msg worktreesDiscoveredMsg) (tea.Mode
 	if prevNode != nil {
 		for i, info := range m.sidebar.State().FlatNodes {
 			if info.Node.Path == prevNode.Path {
-				m.sidebar.State().Cursor = i
+				m.sidebar.SetCursor(i)
 				break
 			}
 		}
@@ -335,7 +336,7 @@ func (m UIModel) handleWorktreesDiscovered(msg worktreesDiscoveredMsg) (tea.Mode
 		}
 	}
 
-	return m, nil
+	return m, sidebarCmd
 }
 
 func (m UIModel) handleRunningAgentsLoaded(msg runningAgentsLoadedMsg) (tea.Model, tea.Cmd) {

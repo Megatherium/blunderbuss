@@ -72,7 +72,7 @@ func TestHandleMatrixEnterKey_SidebarFocus(t *testing.T) {
 		{Type: domain.NodeTypeWorktree, Path: "/test/worktree"},
 	})
 	m.sidebar.State().RebuildFlatNodes()
-	m.sidebar.State().Cursor = 0
+	m.sidebar.SetCursor(0)
 
 	newModel, cmd := m.handleMatrixEnterKey()
 

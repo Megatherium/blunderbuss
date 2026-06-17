@@ -192,7 +192,7 @@ func (m UIModel) HandleAgentSelected(msg AgentSelectedMsg) (tea.Model, tea.Cmd) 
 
 	var readOutputCmd tea.Cmd
 	if agent, ok := m.agents[msg.AgentID]; ok {
-		readOutputCmd = readAgentOutputCmd(msg.AgentID, agent.Capture)
+		readOutputCmd = readAgentOutputCmd(msg.AgentID, agent.Capture, m.context())
 	}
 
 	return m, readOutputCmd
@@ -225,7 +225,7 @@ func (m UIModel) HandleAgentTick(msg agentTickMsg) (tea.Model, tea.Cmd) {
 
 	var readOutputCmd tea.Cmd
 	if m.viewingAgentID == agentID {
-		readOutputCmd = readAgentOutputCmd(agentID, agent.Capture)
+		readOutputCmd = readAgentOutputCmd(agentID, agent.Capture, m.context())
 	}
 
 	if agent.Info.Status == domain.AgentRunning {
@@ -297,7 +297,7 @@ func (m UIModel) HandleSidebarAgentKeysMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, 
 			if agent, ok := m.agents[node.AgentInfo.ID]; ok {
 				capture = agent.Capture
 			}
-			return m, clearAgentCmd(node.AgentInfo.ID, capture), true
+			return m, clearAgentCmd(node.AgentInfo.ID, capture, m.context()), true
 		}
 	case "C":
 		var toClear []agentToClear
@@ -307,7 +307,7 @@ func (m UIModel) HandleSidebarAgentKeysMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd, 
 			}
 		}
 		if len(toClear) > 0 {
-			return m, clearAllStoppedAgentsCmd(toClear), true
+			return m, clearAllStoppedAgentsCmd(toClear, m.context()), true
 		}
 		return m, nil, true
 	}

@@ -146,7 +146,7 @@ func (m UIModel) launchCmd() tea.Cmd {
 
 		spec.LauncherID = m.selection.Ticket.ID
 
-		res, err := m.app.Launcher.Launch(context.Background(), *spec)
+		res, err := m.app.Launcher.Launch(m.app.Context(), *spec)
 		return launchResultMsg{res: res, spec: spec, err: err}
 	}
 }
@@ -181,14 +181,14 @@ func loadRunningAgentsCmd(myApp *app.App) tea.Cmd {
 			fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: querying projectDirs=%v\n", projectDirs)
 		}
 
-		if err := agentStore.DeleteStaleRunningAgents(context.Background(), time.Hour); err != nil {
+		if err := agentStore.DeleteStaleRunningAgents(myApp.Context(), time.Hour); err != nil {
 			if myApp.Opts.Debug {
 				fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: DeleteStaleRunningAgents error: %v\n", err)
 			}
 			return runningAgentsLoadedMsg{err: err}
 		}
 
-		agents, err := agentStore.ValidateAndPruneRunningAgents(context.Background(), projectDirs, nil)
+		agents, err := agentStore.ValidateAndPruneRunningAgents(myApp.Context(), projectDirs, nil)
 		if err != nil {
 			if myApp.Opts.Debug {
 				fmt.Fprintf(os.Stderr, "[DEBUG] loadRunningAgentsCmd: ValidateAndPruneRunningAgents error: %v\n", err)
@@ -268,7 +268,7 @@ func saveRunningAgentCmd(myApp *app.App, spec *domain.LaunchSpec, result *domain
 			fmt.Fprintf(os.Stderr, "[DEBUG]   renderedCommand=%s\n", spec.RenderedCommand)
 		}
 
-		err := agentStore.UpsertRunningAgent(context.Background(), domain.PersistedRunningAgent{
+		err := agentStore.UpsertRunningAgent(myApp.Context(), domain.PersistedRunningAgent{
 			ProjectDir:    projectDir,
 			WorktreePath:  worktreePath,
 			PID:           result.PID,
@@ -304,7 +304,7 @@ func pollAgentStatusCmd(myApp *app.App, agentID, launcherID string) tea.Cmd {
 			return AgentStatusMsg{AgentID: agentID, Status: domain.AgentRunning}
 		}
 
-		status := myApp.StatusChecker().CheckStatus(context.Background(), launcherID)
+		status := myApp.StatusChecker().CheckStatus(myApp.Context(), launcherID)
 		var agentStatus domain.AgentStatus
 		switch status {
 		case exec.StatusRunning:
@@ -325,13 +325,13 @@ func startAgentMonitoringCmd(agentID string) tea.Cmd {
 	})
 }
 
-func readAgentOutputCmd(agentID string, capture exec.OutputCapture) tea.Cmd {
+func readAgentOutputCmd(agentID string, capture exec.OutputCapture, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		if capture == nil {
 			return nil
 		}
 
-		content, err := capture.ReadOutput(context.Background())
+		content, err := capture.ReadOutput(ctx)
 		if err != nil {
 			return nil
 		}
@@ -342,11 +342,12 @@ func readAgentOutputCmd(agentID string, capture exec.OutputCapture) tea.Cmd {
 
 // Agent clearing commands
 
-func clearAgentCmd(agentID string, capture exec.OutputCapture) tea.Cmd {
+func clearAgentCmd(agentID string, capture exec.OutputCapture, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		// Stop output capture if still running
 		if capture != nil {
-			_ = capture.Stop(context.Background())
+			if err := capture.Stop(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to stop capture for agent %s: %v\n", agentID, err)
+			}
 		}
 
 		return AgentClearedMsg{AgentID: agentID}
@@ -358,12 +359,14 @@ type agentToClear struct {
 	capture exec.OutputCapture
 }
 
-func clearAllStoppedAgentsCmd(agents []agentToClear) tea.Cmd {
+func clearAllStoppedAgentsCmd(agents []agentToClear, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		cleared := make([]string, 0, len(agents))
 		for _, a := range agents {
 			if a.capture != nil {
-				_ = a.capture.Stop(context.Background())
+				if err := a.capture.Stop(ctx); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to stop capture for agent %s: %v\n", a.id, err)
+				}
 			}
 			cleared = append(cleared, a.id)
 		}

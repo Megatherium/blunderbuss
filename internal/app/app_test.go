@@ -139,3 +139,29 @@ func TestApp_SetActiveProject_CreationFailure(t *testing.T) {
 type mockStore struct {
 	data.TicketStore
 }
+
+// TestProject_ConcurrentAccess verifies that Project() is safe for concurrent
+// access — multiple goroutines can call it simultaneously without a data race
+// in the check-then-lock cache population path. Run with -race to verify.
+func TestProject_ConcurrentAccess(t *testing.T) {
+	myApp := &App{
+		Stores:        map[string]data.TicketStore{"/test/project": &mockStore{}},
+		ActiveProject: "/test/project",
+	}
+
+	const goroutines = 50
+	done := make(chan struct{}, goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			ctx := myApp.Project()
+			if ctx == nil {
+				t.Error("Project() returned nil for configured project")
+			}
+		}()
+	}
+
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+}
